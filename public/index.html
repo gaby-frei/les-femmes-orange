@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Les Femmes Orange</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --orange:       #f5945c;
+      --orange-light: #fde8d8;
+      --orange-dark:  #e0743a;
+      --white:        #ffffff;
+      --grey-light:   #f4f4f4;
+      --grey-mid:     #e0e0e0;
+      --grey-text:    #777777;
+      --dark:         #1c1c1c;
+      --dark-mid:     #2e2e2e;
+      --green:        #22c55e;
+      --green-light:  #dcfce7;
+      --amber:        #f59e0b;
+      --amber-light:  #fef3c7;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      color: var(--dark);
+      background: var(--white);
+      line-height: 1.6;
+    }
+
+    /* ── NAV ──────────────────────────────────────────────── */
+
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--white);
+      border-bottom: 1px solid var(--grey-mid);
+      padding: 0 2rem; height: 64px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    .nav-logo {
+      display: flex; align-items: center; gap: 0.6rem; text-decoration: none;
+    }
+
+    .nav-logo-mark {
+      width: 32px; height: 32px;
+      background: var(--orange); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+
+    .nav-logo-mark svg { width: 18px; height: 18px; fill: var(--white); }
+
+    .nav-logo-text { font-size: 1.05rem; font-weight: 700; color: var(--dark); letter-spacing: -0.01em; }
+
+    .nav-links { display: flex; align-items: center; gap: 2rem; list-style: none; }
+
+    .nav-links a {
+      text-decoration: none; font-size: 0.9rem;
+      color: var(--grey-text); font-weight: 500; transition: color 0.15s;
+    }
+
+    .nav-links a:hover { color: var(--orange); }
+
+    /* nav sign-in: shows pubkey pill after sign-in */
+    #nav-signin-btn { cursor: pointer; }
+    #nav-pubkey-pill {
+      display: none;
+      align-items: center; gap: 0.5rem;
+      background: var(--grey-light);
+      border: 1px solid var(--grey-mid);
+      border-radius: 100px;
+      padding: 0.3rem 0.8rem 0.3rem 0.5rem;
+      font-size: 0.8rem; font-weight: 600; color: var(--dark);
+    }
+
+    #nav-pubkey-pill .pill-dot {
+      width: 8px; height: 8px;
+      background: var(--green); border-radius: 50%;
+    }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      padding: 0.5rem 1.2rem; border-radius: 6px;
+      font-size: 0.875rem; font-weight: 600; cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s, color 0.15s, opacity 0.15s;
+      border: none; font-family: inherit;
+    }
+
+    .btn-primary { background: var(--orange); color: var(--white); }
+    .btn-primary:hover { background: var(--orange-dark); }
+    .btn-outline {
+      background: transparent; color: var(--orange);
+      border: 1.5px solid var(--orange);
+    }
+    .btn-outline:hover { background: var(--orange-light); }
+    .btn-ghost {
+      background: transparent; color: var(--grey-text);
+      border: 1px solid var(--grey-mid); font-size: 0.8rem;
+    }
+    .btn-ghost:hover { background: var(--grey-light); color: var(--dark); }
+    .btn-telegram {
+      background: #229ED9; color: var(--white); gap: 0.5rem;
+      padding: 0.75rem 1.8rem; font-size: 1rem;
+    }
+    .btn-telegram:hover { background: #1a8bbf; }
+
+    /* ── HERO ─────────────────────────────────────────────── */
+
+    .hero {
+      background: linear-gradient(135deg, #1c1c1c 0%, #2e2e2e 100%);
+      padding: 7rem 2rem 6rem; text-align: center;
+      position: relative; overflow: hidden;
+    }
+
+    .hero::before {
+      content: ''; position: absolute;
+      top: -120px; right: -120px; width: 420px; height: 420px;
+      background: var(--orange); opacity: 0.08; border-radius: 50%;
+    }
+
+    .hero::after {
+      content: ''; position: absolute;
+      bottom: -80px; left: -80px; width: 300px; height: 300px;
+      background: var(--orange); opacity: 0.06; border-radius: 50%;
+    }
+
+    .hero-inner { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      background: rgba(245,148,92,0.15); border: 1px solid rgba(245,148,92,0.3);
+      color: var(--orange); font-size: 0.78rem; font-weight: 600;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      padding: 0.3rem 0.8rem; border-radius: 100px; margin-bottom: 1.6rem;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.2rem, 5vw, 3.4rem); font-weight: 800;
+      line-height: 1.15; letter-spacing: -0.02em;
+      color: var(--white); margin-bottom: 1.4rem;
+    }
+
+    .hero h1 span { color: var(--orange); }
+
+    .hero-mission {
+      font-size: 1.05rem; color: #aaaaaa;
+      max-width: 600px; margin: 0 auto 2.4rem; line-height: 1.75;
+    }
+
+    .hero-actions {
+      display: flex; gap: 0.9rem; justify-content: center; flex-wrap: wrap;
+    }
+
+    .hero-actions .btn { padding: 0.7rem 1.6rem; font-size: 0.95rem; }
+
+    /* ── MISSION ──────────────────────────────────────────── */
+
+    .mission { background: var(--orange-light); padding: 3.5rem 2rem; }
+
+    .mission-inner { max-width: 800px; margin: 0 auto; text-align: center; }
+
+    .mission-inner blockquote {
+      font-size: 1.15rem; font-style: italic;
+      color: var(--dark-mid); line-height: 1.8;
+      position: relative; padding: 0 1rem;
+    }
+
+    .mission-inner blockquote::before {
+      content: '"'; font-size: 4rem; color: var(--orange); opacity: 0.4;
+      position: absolute; top: -1.2rem; left: -0.5rem;
+      font-family: Georgia, serif; line-height: 1;
+    }
+
+    /* ── PILLARS ──────────────────────────────────────────── */
+
+    .pillars { padding: 5rem 2rem; background: var(--white); }
+
+    .section-label {
+      text-align: center; font-size: 0.75rem; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--orange); margin-bottom: 0.6rem;
+    }
+
+    .section-title {
+      text-align: center; font-size: clamp(1.6rem, 3vw, 2.1rem);
+      font-weight: 800; letter-spacing: -0.02em;
+      color: var(--dark); margin-bottom: 0.8rem;
+    }
+
+    .section-sub {
+      text-align: center; color: var(--grey-text); font-size: 0.95rem;
+      max-width: 500px; margin: 0 auto 3.5rem;
+    }
+
+    .pillars-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.5rem; max-width: 1000px; margin: 0 auto;
+    }
+
+    .pillar-card {
+      background: var(--grey-light); border-radius: 12px; padding: 2rem 1.8rem;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .pillar-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.07); }
+
+    .pillar-icon {
+      width: 48px; height: 48px; background: var(--orange-light);
+      border-radius: 10px; display: flex; align-items: center;
+      justify-content: center; margin-bottom: 1.2rem;
+    }
+
+    .pillar-icon svg {
+      width: 24px; height: 24px; stroke: var(--orange);
+      fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+    }
+
+    .pillar-card h3 { font-size: 1rem; font-weight: 700; color: var(--dark); margin-bottom: 0.5rem; }
+    .pillar-card p { font-size: 0.875rem; color: var(--grey-text); line-height: 1.65; }
+
+    /* ── EVENTS ───────────────────────────────────────────── */
+
+    .events { padding: 5rem 2rem; background: var(--grey-light); }
+
+    .events-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.4rem; max-width: 1000px; margin: 0 auto;
+    }
+
+    .event-card {
+      background: var(--white); border-radius: 12px; overflow: hidden;
+      border: 1px solid var(--grey-mid); transition: box-shadow 0.2s, transform 0.2s;
+    }
+
+    .event-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,0.08); transform: translateY(-2px); }
+
+    .event-card-header {
+      background: linear-gradient(135deg, var(--orange) 0%, #e0743a 100%);
+      padding: 1.4rem 1.6rem; color: var(--white);
+    }
+
+    .event-date {
+      font-size: 0.75rem; font-weight: 600;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      opacity: 0.85; margin-bottom: 0.3rem;
+    }
+
+    .event-card-header h4 { font-size: 1rem; font-weight: 700; line-height: 1.3; }
+
+    .event-card-body { padding: 1.2rem 1.6rem; }
+
+    .event-location {
+      display: flex; align-items: center; gap: 0.4rem;
+      font-size: 0.8rem; color: var(--grey-text); margin-bottom: 0.7rem;
+    }
+
+    .event-location svg {
+      width: 13px; height: 13px; stroke: var(--grey-text);
+      fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0;
+    }
+
+    .event-card-body p { font-size: 0.85rem; color: var(--grey-text); line-height: 1.6; }
+
+    /* ── JOIN / SIGN-IN SECTION ───────────────────────────── */
+
+    .join {
+      padding: 6rem 2rem; background: var(--dark);
+      text-align: center; position: relative; overflow: hidden;
+    }
+
+    .join::before {
+      content: ''; position: absolute;
+      top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(245,148,92,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .join-inner { position: relative; z-index: 1; max-width: 520px; margin: 0 auto; }
+
+    .join h2 {
+      font-size: clamp(1.8rem, 4vw, 2.5rem); font-weight: 800;
+      color: var(--white); letter-spacing: -0.02em; margin-bottom: 0.8rem;
+    }
+
+    .join h2 span { color: var(--orange); }
+
+    .join > .join-inner > p {
+      color: #888; font-size: 0.9rem; margin-bottom: 2.2rem; line-height: 1.7;
+    }
+
+    /* Sign-in widget card */
+    .signin-card {
+      background: #252525;
+      border: 1px solid #333;
+      border-radius: 16px;
+      padding: 2.2rem;
+      text-align: left;
+    }
+
+    /* Individual states — only active one is shown */
+    .signin-state { display: none; }
+    .signin-state.active { display: block; }
+
+    /* Idle state */
+    .state-idle-title {
+      font-size: 1rem; font-weight: 700; color: var(--white); margin-bottom: 0.4rem;
+    }
+
+    .state-idle-sub { font-size: 0.85rem; color: #888; margin-bottom: 1.6rem; line-height: 1.6; }
+
+    .signin-full-btn {
+      width: 100%; justify-content: center; padding: 0.75rem 1.2rem; font-size: 0.95rem;
+    }
+
+    .extension-hint {
+      margin-top: 1.2rem; font-size: 0.75rem; color: #555; text-align: center;
+    }
+
+    .extension-hint a { color: var(--orange); text-decoration: none; }
+    .extension-hint a:hover { text-decoration: underline; }
+
+    /* Loading state */
+    .loading-state {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 1rem; padding: 1rem 0;
+    }
+
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid #333; border-top-color: var(--orange);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-msg { font-size: 0.9rem; color: #888; }
+
+    /* Verified state */
+    .verified-header {
+      display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.4rem;
+    }
+
+    .verified-icon {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--green-light);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+
+    .verified-icon svg {
+      width: 20px; height: 20px; stroke: var(--green);
+      fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round;
+    }
+
+    .verified-title { font-size: 1rem; font-weight: 700; color: var(--white); }
+    .verified-npub { font-size: 0.75rem; color: #666; margin-top: 0.15rem; font-family: monospace; }
+
+    .telegram-block {
+      background: #1a1a1a; border: 1px solid #2a2a2a;
+      border-radius: 10px; padding: 1.2rem 1.4rem; margin-bottom: 1.2rem;
+    }
+
+    .telegram-block p {
+      font-size: 0.85rem; color: #aaa; margin-bottom: 1rem; line-height: 1.6;
+    }
+
+    .verified-footer {
+      display: flex; justify-content: flex-end;
+    }
+
+    /* Not-member state */
+    .not-member-header {
+      display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.2rem;
+    }
+
+    .not-member-icon {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--amber-light);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+
+    .not-member-icon svg {
+      width: 20px; height: 20px; stroke: var(--amber);
+      fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+    }
+
+    .not-member-title { font-size: 1rem; font-weight: 700; color: var(--white); }
+    .not-member-npub { font-size: 0.75rem; color: #666; margin-top: 0.15rem; font-family: monospace; }
+
+    .not-member-body {
+      font-size: 0.85rem; color: #888; line-height: 1.7;
+      margin-bottom: 1.4rem; padding: 1rem 1.2rem;
+      background: #1a1a1a; border-radius: 8px; border: 1px solid #2a2a2a;
+    }
+
+    .not-member-footer { display: flex; justify-content: flex-end; }
+
+    /* No-extension state */
+    .no-ext-body {
+      font-size: 0.88rem; color: #aaa; line-height: 1.7;
+      margin-bottom: 1.4rem;
+    }
+
+    .ext-links { display: flex; gap: 0.8rem; flex-wrap: wrap; }
+
+    .ext-link {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      background: #1a1a1a; border: 1px solid #333; border-radius: 8px;
+      padding: 0.5rem 0.9rem; font-size: 0.8rem; color: var(--orange);
+      text-decoration: none; transition: background 0.15s;
+    }
+
+    .ext-link:hover { background: #222; }
+
+    /* Manual key entry */
+    .divider {
+      display: flex; align-items: center; gap: 0.75rem;
+      margin: 1.4rem 0; color: #444; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em;
+    }
+
+    .divider::before, .divider::after {
+      content: ''; flex: 1; height: 1px; background: #333;
+    }
+
+    .manual-input-wrap { display: flex; flex-direction: column; gap: 0.6rem; }
+
+    .manual-input-wrap input {
+      width: 100%; background: #1a1a1a; border: 1px solid #3a3a3a;
+      border-radius: 8px; padding: 0.7rem 0.9rem;
+      font-size: 0.875rem; color: var(--white); font-family: monospace;
+      outline: none; transition: border-color 0.15s;
+    }
+
+    .manual-input-wrap input::placeholder { color: #555; }
+    .manual-input-wrap input:focus { border-color: var(--orange); }
+
+    .nsec-warning {
+      display: none; font-size: 0.75rem; color: var(--amber);
+      background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2);
+      border-radius: 6px; padding: 0.5rem 0.75rem; line-height: 1.5;
+    }
+
+    .manual-key-error { font-size: 0.78rem; color: #f87171; min-height: 1rem; }
+
+    /* Error state */
+    .error-body { font-size: 0.88rem; color: #f87171; margin-bottom: 1.2rem; line-height: 1.6; }
+
+    /* ── FOOTER ───────────────────────────────────────────── */
+
+    footer { background: #111; padding: 2.5rem 2rem; border-top: 1px solid #222; }
+
+    .footer-inner {
+      max-width: 1000px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 1rem;
+    }
+
+    .footer-logo { display: flex; align-items: center; gap: 0.5rem; text-decoration: none; }
+
+    .footer-logo-mark {
+      width: 26px; height: 26px; background: var(--orange);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    }
+
+    .footer-logo-mark svg { width: 14px; height: 14px; fill: var(--white); }
+    .footer-logo span { font-size: 0.875rem; font-weight: 700; color: #888; }
+    .footer-copy { font-size: 0.78rem; color: #444; }
+
+    /* ── RESPONSIVE ───────────────────────────────────────── */
+
+    @media (max-width: 600px) {
+      .nav-links { display: none; }
+      .hero { padding: 5rem 1.5rem 4rem; }
+      .footer-inner { flex-direction: column; align-items: flex-start; }
+      .signin-card { padding: 1.6rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <a href="/" class="nav-logo">
+      <div class="nav-logo-mark">
+        <svg viewBox="0 0 24 24"><path d="M14.5 10.5c.8-.4 1.5-1.1 1.5-2.2C16 6.5 14.8 5.5 13 5.3V4h-1.5v1.2H10V4H8.5v1.3H6.5V17h2V7.3h3c1.4 0 2 .6 2 1.5s-.7 1.5-2 1.5H10v1.5h1.5c1.7 0 2.5.7 2.5 1.8 0 1.2-.9 1.9-2.5 1.9H8.5V17h2v1.3H12V17h1c2 0 3.5-1 3.5-2.8 0-1.3-.7-2.3-2-2.7z"/></svg>
+      </div>
+      <span class="nav-logo-text">Les Femmes Orange</span>
+    </a>
+
+    <ul class="nav-links">
+      <li><a href="#mission">Mission</a></li>
+      <li><a href="#community">Community</a></li>
+      <li><a href="#events">Events</a></li>
+    </ul>
+
+    <!-- Shows as button before sign-in, pill after -->
+    <button id="nav-signin-btn" class="btn btn-primary" onclick="scrollToJoin()">Sign In</button>
+    <div id="nav-pubkey-pill">
+      <span class="pill-dot"></span>
+      <span id="nav-pubkey-text"></span>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-badge">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+        Women in Bitcoin
+      </div>
+      <h1>A global community of<br/><span>women building on Bitcoin</span></h1>
+      <p class="hero-mission">
+        Learn, connect, and grow with women from around the world who are passionate about Bitcoin — from first steps to deep dives.
+      </p>
+      <div class="hero-actions">
+        <button class="btn btn-primary" onclick="scrollToJoin()">Join the Community</button>
+        <a href="#mission" class="btn btn-outline" style="color:#f5945c;border-color:#f5945c;background:rgba(245,148,92,0.08)">Learn More</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- MISSION STATEMENT -->
+  <section class="mission" id="mission">
+    <div class="mission-inner">
+      <blockquote>
+        Les Femmes Orange is committed to building an inclusive and supportive community of women all over the world. Our events and meetups are designed to not only teach the practical aspects of Bitcoin, but also to create a welcoming atmosphere where learning, discussing and growing together is a priority.
+      </blockquote>
+    </div>
+  </section>
+
+  <!-- PILLARS -->
+  <section class="pillars" id="community">
+    <p class="section-label">What we stand for</p>
+    <h2 class="section-title">Built on three pillars</h2>
+    <p class="section-sub">Everything we do flows from a commitment to education, inclusion, and genuine community.</p>
+    <div class="pillars-grid">
+      <div class="pillar-card">
+        <div class="pillar-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        </div>
+        <h3>Bitcoin Education</h3>
+        <p>From self-custody to Lightning to mining, we cover the practical skills that matter — taught by and for women.</p>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-icon">
+          <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <h3>Inclusive Community</h3>
+        <p>Every background, every level of knowledge — you belong here. We meet people where they are and grow together.</p>
+      </div>
+      <div class="pillar-card">
+        <div class="pillar-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        </div>
+        <h3>Global Meetups</h3>
+        <p>We gather in cities around the world — in person and online. Wherever you are, there's a seat at the table for you.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- EVENTS -->
+  <section class="events" id="events">
+    <p class="section-label">Upcoming</p>
+    <h2 class="section-title">Events &amp; Meetups</h2>
+    <p class="section-sub">Join us at our next gathering — all skill levels welcome.</p>
+    <div class="events-grid">
+      <div class="event-card">
+        <div class="event-card-header">
+          <p class="event-date">Coming Soon</p>
+          <h4>Bitcoin Basics for Beginners</h4>
+        </div>
+        <div class="event-card-body">
+          <div class="event-location">
+            <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            Online — Worldwide
+          </div>
+          <p>An introductory session covering wallets, keys, and your first Bitcoin transaction in a safe, supportive space.</p>
+        </div>
+      </div>
+      <div class="event-card">
+        <div class="event-card-header">
+          <p class="event-date">Coming Soon</p>
+          <h4>Self-Custody Workshop</h4>
+        </div>
+        <div class="event-card-body">
+          <div class="event-location">
+            <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            Online — Worldwide
+          </div>
+          <p>Hands-on practice setting up hardware wallets and understanding seed phrases — with live Q&amp;A.</p>
+        </div>
+      </div>
+      <div class="event-card">
+        <div class="event-card-header">
+          <p class="event-date">Coming Soon</p>
+          <h4>Lightning Network Deep Dive</h4>
+        </div>
+        <div class="event-card-body">
+          <div class="event-location">
+            <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            Online — Worldwide
+          </div>
+          <p>Explore the Lightning Network — how it works, how to use it, and why it matters for everyday Bitcoin use.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- JOIN / SIGN-IN -->
+  <section class="join" id="join">
+    <div class="join-inner">
+      <h2>Ready to join<br/><span>Les Femmes Orange?</span></h2>
+      <p>Membership is peer-verified on Nostr. Connect your key below — we'll check your membership status on-chain in seconds.</p>
+
+      <div class="signin-card">
+
+        <!-- STATE: IDLE -->
+        <div id="state-idle" class="signin-state active">
+          <p class="state-idle-title">Connect with Nostr</p>
+          <p class="state-idle-sub">Sign in to check your membership status and access the community Telegram.</p>
+
+          <button class="btn btn-primary signin-full-btn" onclick="startSignIn()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+            Sign in with extension
+          </button>
+          <p class="extension-hint">Uses your NIP-07 browser extension (Alby, nos2x, Flamingo)</p>
+
+          <div class="divider">or</div>
+
+          <div class="manual-input-wrap">
+            <input
+              type="text"
+              id="manual-key-input"
+              placeholder="npub1… or nsec1…"
+              autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+              oninput="onManualKeyInput(this.value)"
+              onkeydown="if(event.key==='Enter') signInManually()"
+            />
+            <p class="nsec-warning" id="nsec-warning">
+              ⚠️ Your private key (nsec) never leaves this page — it's used only to derive your public key locally.
+            </p>
+            <p class="manual-key-error" id="manual-key-error"></p>
+            <button class="btn btn-outline signin-full-btn" onclick="signInManually()">Continue</button>
+          </div>
+        </div>
+
+        <!-- STATE: LOADING -->
+        <div id="state-loading" class="signin-state">
+          <div class="loading-state">
+            <div class="spinner"></div>
+            <p class="loading-msg" id="loading-msg">Connecting…</p>
+          </div>
+        </div>
+
+        <!-- STATE: VERIFIED -->
+        <div id="state-verified" class="signin-state">
+          <div class="verified-header">
+            <div class="verified-icon">
+              <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div>
+              <p class="verified-title">Membership verified ✓</p>
+              <p class="verified-npub" id="verified-npub-text"></p>
+            </div>
+          </div>
+          <div class="telegram-block">
+            <p>You're a verified member of Les Femmes Orange. Choose your community group below.</p>
+            <div style="display:flex;flex-direction:column;gap:0.7rem;">
+              <a href="https://t.me/+e3aDTkYxT8wzYjQy" target="_blank" rel="noopener" class="btn btn-telegram">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z"/></svg>
+                English-speaking group
+              </a>
+              <a href="https://t.me/lestemmesorange" target="_blank" rel="noopener" class="btn btn-telegram">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z"/></svg>
+                German-speaking group
+              </a>
+            </div>
+          </div>
+          <div class="verified-footer">
+            <button class="btn btn-ghost" onclick="disconnect()">Disconnect</button>
+          </div>
+        </div>
+
+        <!-- STATE: NOT A MEMBER -->
+        <div id="state-not-member" class="signin-state">
+          <div class="not-member-header">
+            <div class="not-member-icon">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <div>
+              <p class="not-member-title">Not a member yet</p>
+              <p class="not-member-npub" id="not-member-npub-text"></p>
+            </div>
+          </div>
+          <div class="not-member-body">
+            This npub hasn't been tagged with the LFO membership tag. Membership requires being tagged by an existing verified member of Les Femmes Orange.
+          </div>
+          <div class="not-member-footer">
+            <button class="btn btn-ghost" onclick="disconnect()">Try a different key</button>
+          </div>
+        </div>
+
+        <!-- STATE: NO EXTENSION -->
+        <div id="state-no-extension" class="signin-state">
+          <p class="state-idle-title">No Nostr extension found</p>
+          <p class="no-ext-body">
+            No NIP-07 extension was detected. You can enter your npub or nsec directly below, or install a browser extension.
+          </p>
+          <div class="manual-input-wrap" style="margin-bottom:1.4rem;">
+            <input
+              type="text"
+              id="manual-key-input-2"
+              placeholder="npub1… or nsec1…"
+              autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+              oninput="onManualKeyInput(this.value, 'nsec-warning-2')"
+              onkeydown="if(event.key==='Enter') signInManually('manual-key-input-2', 'manual-key-error-2')"
+            />
+            <p class="nsec-warning" id="nsec-warning-2">
+              ⚠️ Your private key (nsec) never leaves this page — it's used only to derive your public key locally.
+            </p>
+            <p class="manual-key-error" id="manual-key-error-2"></p>
+            <button class="btn btn-primary signin-full-btn" onclick="signInManually('manual-key-input-2', 'manual-key-error-2')">Continue</button>
+          </div>
+          <p style="font-size:0.78rem;color:#444;margin-bottom:0.6rem;">Or install a browser extension:</p>
+          <div class="ext-links">
+            <a href="https://getalby.com" target="_blank" rel="noopener" class="ext-link">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              Alby
+            </a>
+            <a href="https://github.com/fiatjaf/nos2x" target="_blank" rel="noopener" class="ext-link">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              nos2x
+            </a>
+            <a href="https://www.getflamingo.org" target="_blank" rel="noopener" class="ext-link">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              Flamingo
+            </a>
+          </div>
+        </div>
+
+        <!-- STATE: ERROR -->
+        <div id="state-error" class="signin-state">
+          <p class="state-idle-title">Something went wrong</p>
+          <p class="error-body" id="error-msg"></p>
+          <button class="btn btn-ghost" onclick="showState('idle')">Try again</button>
+        </div>
+
+      </div><!-- /signin-card -->
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-inner">
+      <a href="/" class="footer-logo">
+        <div class="footer-logo-mark">
+          <svg viewBox="0 0 24 24"><path d="M14.5 10.5c.8-.4 1.5-1.1 1.5-2.2C16 6.5 14.8 5.5 13 5.3V4h-1.5v1.2H10V4H8.5v1.3H6.5V17h2V7.3h3c1.4 0 2 .6 2 1.5s-.7 1.5-2 1.5H10v1.5h1.5c1.7 0 2.5.7 2.5 1.8 0 1.2-.9 1.9-2.5 1.9H8.5V17h2v1.3H12V17h1c2 0 3.5-1 3.5-2.8 0-1.3-.7-2.3-2-2.7z"/></svg>
+        </div>
+        <span>Les Femmes Orange</span>
+      </a>
+      <p class="footer-copy">© 2026 Les Femmes Orange. Built on Bitcoin.</p>
+    </div>
+  </footer>
+
+  <!-- nostr-tools for bech32 decode + nsec → pubkey derivation -->
+  <script type="module">
+    import { nip19, getPublicKey } from 'https://esm.sh/nostr-tools@2';
+    window._nostrDecode = (str) => nip19.decode(str);
+    window._nostrGetPubkey = (secretBytes) => getPublicKey(secretBytes);
+  </script>
+
+  <script>
+    // ── Config ─────────────────────────────────────────────────────────────
+    const LFO_TAG_EVENT_ID = '4ddde08a7b1b3c2dffda5161ff5b0151554b9e86d94a059b1434aab95d546795';
+    const SEED_PUBKEY      = 'e83fff7a10b30dc0c296c62b440aa9071c904d80b18420341b5425a81bd6856c';
+    const RELAYS = [
+      'wss://tags.brainstorm.world/relay',
+      'wss://nos.lol',
+      'wss://relay.damus.io',
+      'wss://relay.primal.net',
+    ];
+
+    // ── State helpers ───────────────────────────────────────────────────────
+    function showState(name) {
+      document.querySelectorAll('.signin-state').forEach(el => el.classList.remove('active'));
+      document.getElementById('state-' + name).classList.add('active');
+    }
+
+    function setLoadingMsg(msg) {
+      document.getElementById('loading-msg').textContent = msg;
+    }
+
+    function scrollToJoin() {
+      document.getElementById('join').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // ── Manual key input: show nsec warning live ────────────────────────────
+    function onManualKeyInput(value, warningId = 'nsec-warning') {
+      const warn = document.getElementById(warningId);
+      if (warn) warn.style.display = value.trim().startsWith('nsec1') ? 'block' : 'none';
+      // Clear any previous error
+      const errId = warningId === 'nsec-warning' ? 'manual-key-error' : 'manual-key-error-2';
+      const errEl = document.getElementById(errId);
+      if (errEl) errEl.textContent = '';
+    }
+
+    // ── Nostr relay query (native WebSocket, no deps) ───────────────────────
+    function queryRelay(relayUrl, filter, timeoutMs = 8000) {
+      return new Promise(resolve => {
+        const events = [];
+        let ws;
+        try { ws = new WebSocket(relayUrl); } catch { return resolve([]); }
+
+        const subId = Math.random().toString(36).slice(2, 10);
+        const timer = setTimeout(() => { try { ws.close(); } catch {} resolve(events); }, timeoutMs);
+
+        ws.onopen  = () => ws.send(JSON.stringify(['REQ', subId, filter]));
+        ws.onmessage = e => {
+          try {
+            const msg = JSON.parse(e.data);
+            if (msg[0] === 'EVENT' && msg[1] === subId) events.push(msg[2]);
+            else if (msg[0] === 'EOSE') { clearTimeout(timer); ws.close(); resolve(events); }
+          } catch {}
+        };
+        ws.onerror = () => { clearTimeout(timer); resolve(events); };
+        ws.onclose = () => { clearTimeout(timer); };
+      });
+    }
+
+    async function queryRelays(filter, timeoutMs = 10000) {
+      const results = await Promise.allSettled(RELAYS.map(r => queryRelay(r, filter, timeoutMs)));
+      const seen = new Set();
+      const all = [];
+      for (const r of results) {
+        if (r.status === 'fulfilled') {
+          for (const ev of r.value) {
+            if (!seen.has(ev.id)) { seen.add(ev.id); all.push(ev); }
+          }
+        }
+      }
+      return all;
+    }
+
+    // ── Membership verification ─────────────────────────────────────────────
+    async function checkMembership(hexPubkey) {
+      const tagItems = await queryRelays({ kinds: [9999, 39999], '#e': [LFO_TAG_EVENT_ID] });
+      const verified = new Set([SEED_PUBKEY]);
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const ev of tagItems) {
+          const pTag = ev.tags?.find(t => t[0] === 'p')?.[1];
+          if (pTag && verified.has(ev.pubkey) && !verified.has(pTag)) {
+            verified.add(pTag);
+            changed = true;
+          }
+        }
+      }
+      return verified.has(hexPubkey);
+    }
+
+    // ── Display helper ──────────────────────────────────────────────────────
+    function hexToNpubShort(hex) {
+      return 'npub1' + hex.slice(0, 8) + '…' + hex.slice(-4);
+    }
+
+    // ── Shared: proceed once we have a hex pubkey ───────────────────────────
+    let currentPubkey = null;
+
+    async function proceedWithPubkey(hexPubkey) {
+      currentPubkey = hexPubkey;
+
+      document.getElementById('nav-signin-btn').style.display = 'none';
+      document.getElementById('nav-pubkey-pill').style.display = 'flex';
+      document.getElementById('nav-pubkey-text').textContent = hexToNpubShort(hexPubkey);
+
+      setLoadingMsg('Checking membership across Nostr relays…');
+
+      let isVerified;
+      try {
+        isVerified = await checkMembership(hexPubkey);
+      } catch (err) {
+        document.getElementById('error-msg').textContent =
+          'Relay query failed: ' + (err.message || 'unknown error');
+        showState('error');
+        return;
+      }
+
+      const shortId = hexToNpubShort(hexPubkey);
+      if (isVerified) {
+        document.getElementById('verified-npub-text').textContent = shortId;
+        showState('verified');
+      } else {
+        document.getElementById('not-member-npub-text').textContent = shortId;
+        showState('not-member');
+      }
+    }
+
+    // ── Extension sign-in ───────────────────────────────────────────────────
+    async function startSignIn() {
+      if (!window.nostr) {
+        showState('no-extension');
+        return;
+      }
+
+      showState('loading');
+      setLoadingMsg('Waiting for your Nostr extension…');
+
+      let pubkey;
+      try {
+        pubkey = await window.nostr.getPublicKey();
+      } catch (err) {
+        document.getElementById('error-msg').textContent =
+          err.message || 'Your extension declined the request.';
+        showState('error');
+        return;
+      }
+
+      await proceedWithPubkey(pubkey);
+    }
+
+    // ── Manual key sign-in ──────────────────────────────────────────────────
+    async function signInManually(inputId = 'manual-key-input', errorId = 'manual-key-error') {
+      const input    = document.getElementById(inputId);
+      const errorEl  = document.getElementById(errorId);
+      const raw      = input.value.trim();
+
+      errorEl.textContent = '';
+
+      if (!raw) {
+        errorEl.textContent = 'Please enter your npub or nsec.';
+        return;
+      }
+
+      // Wait for the nostr-tools module to finish loading if needed
+      if (!window._nostrDecode) {
+        errorEl.textContent = 'Still loading — please try again in a moment.';
+        return;
+      }
+
+      let hexPubkey;
+      try {
+        const decoded = window._nostrDecode(raw);
+
+        if (decoded.type === 'npub') {
+          hexPubkey = decoded.data;
+
+        } else if (decoded.type === 'nsec') {
+          // decoded.data is a Uint8Array of the secret key
+          hexPubkey = window._nostrGetPubkey(decoded.data);
+          // Clear the input immediately so the nsec isn't sitting in the DOM
+          input.value = '';
+          document.getElementById(
+            inputId === 'manual-key-input' ? 'nsec-warning' : 'nsec-warning-2'
+          ).style.display = 'none';
+
+        } else {
+          throw new Error('Only npub and nsec are supported.');
+        }
+      } catch (err) {
+        errorEl.textContent = err.message.includes('Unknown')
+          ? 'Invalid format — enter a valid npub1… or nsec1… key.'
+          : err.message;
+        return;
+      }
+
+      showState('loading');
+      setLoadingMsg('Checking membership across Nostr relays…');
+      await proceedWithPubkey(hexPubkey);
+    }
+
+    // ── Disconnect ──────────────────────────────────────────────────────────
+    function disconnect() {
+      currentPubkey = null;
+      document.getElementById('nav-signin-btn').style.display = '';
+      document.getElementById('nav-pubkey-pill').style.display = 'none';
+      // Clear inputs
+      ['manual-key-input', 'manual-key-input-2'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      ['nsec-warning', 'nsec-warning-2', 'manual-key-error', 'manual-key-error-2'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.textContent = ''; el.style.display = 'none'; }
+      });
+      showState('idle');
+    }
+  </script>
+
+</body>
+</html>
