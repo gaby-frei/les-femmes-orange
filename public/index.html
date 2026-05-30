@@ -56,16 +56,17 @@
 
     .nav-logo-text { font-size: 1.05rem; font-weight: 700; color: var(--dark); letter-spacing: -0.01em; }
 
-    .nav-links { display: flex; align-items: center; gap: 2rem; list-style: none; }
+    .nav-center { display: flex; align-items: center; gap: 0.15rem; list-style: none; }
 
-    .nav-links a {
-      text-decoration: none; font-size: 0.9rem;
-      color: var(--grey-text); font-weight: 500; transition: color 0.15s;
+    .nav-link-btn {
+      background: none; border: none; cursor: pointer; font-family: inherit;
+      font-size: 0.9rem; font-weight: 500; color: var(--grey-text);
+      padding: 0.4rem 0.8rem; border-radius: 6px;
+      transition: color 0.15s, background 0.15s;
     }
+    .nav-link-btn:hover { color: var(--orange); background: var(--orange-light); }
+    .nav-link-btn.active { color: var(--orange); font-weight: 600; }
 
-    .nav-links a:hover { color: var(--orange); }
-
-    /* nav sign-in: shows pubkey pill after sign-in */
     #nav-signin-btn { cursor: pointer; }
     #nav-pubkey-pill {
       display: none;
@@ -105,9 +106,14 @@
     .btn-ghost:hover { background: var(--grey-light); color: var(--dark); }
     .btn-telegram {
       background: #229ED9; color: var(--white); gap: 0.5rem;
-      padding: 0.75rem 1.8rem; font-size: 1rem;
+      padding: 0.65rem 1.4rem; font-size: 0.9rem;
     }
     .btn-telegram:hover { background: #1a8bbf; }
+
+    /* ── PAGE VIEWS ───────────────────────────────────────── */
+
+    .page { display: block; }
+    .page.hidden { display: none !important; }
 
     /* ── HERO ─────────────────────────────────────────────── */
 
@@ -130,14 +136,6 @@
     }
 
     .hero-inner { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; }
-
-    .hero-badge {
-      display: inline-flex; align-items: center; gap: 0.4rem;
-      background: rgba(245,148,92,0.15); border: 1px solid rgba(245,148,92,0.3);
-      color: var(--orange); font-size: 0.78rem; font-weight: 600;
-      letter-spacing: 0.08em; text-transform: uppercase;
-      padding: 0.3rem 0.8rem; border-radius: 100px; margin-bottom: 1.6rem;
-    }
 
     .hero h1 {
       font-size: clamp(2.2rem, 5vw, 3.4rem); font-weight: 800;
@@ -171,7 +169,7 @@
     }
 
     .mission-inner blockquote::before {
-      content: '"'; font-size: 4rem; color: var(--orange); opacity: 0.4;
+      content: '\201C'; font-size: 4rem; color: var(--orange); opacity: 0.4;
       position: absolute; top: -1.2rem; left: -0.5rem;
       font-family: Georgia, serif; line-height: 1;
     }
@@ -223,49 +221,6 @@
     .pillar-card h3 { font-size: 1rem; font-weight: 700; color: var(--dark); margin-bottom: 0.5rem; }
     .pillar-card p { font-size: 0.875rem; color: var(--grey-text); line-height: 1.65; }
 
-    /* ── EVENTS ───────────────────────────────────────────── */
-
-    .events { padding: 5rem 2rem; background: var(--grey-light); }
-
-    .events-grid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 1.4rem; max-width: 1000px; margin: 0 auto;
-    }
-
-    .event-card {
-      background: var(--white); border-radius: 12px; overflow: hidden;
-      border: 1px solid var(--grey-mid); transition: box-shadow 0.2s, transform 0.2s;
-    }
-
-    .event-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,0.08); transform: translateY(-2px); }
-
-    .event-card-header {
-      background: linear-gradient(135deg, var(--orange) 0%, #e0743a 100%);
-      padding: 1.4rem 1.6rem; color: var(--white);
-    }
-
-    .event-date {
-      font-size: 0.75rem; font-weight: 600;
-      letter-spacing: 0.06em; text-transform: uppercase;
-      opacity: 0.85; margin-bottom: 0.3rem;
-    }
-
-    .event-card-header h4 { font-size: 1rem; font-weight: 700; line-height: 1.3; }
-
-    .event-card-body { padding: 1.2rem 1.6rem; }
-
-    .event-location {
-      display: flex; align-items: center; gap: 0.4rem;
-      font-size: 0.8rem; color: var(--grey-text); margin-bottom: 0.7rem;
-    }
-
-    .event-location svg {
-      width: 13px; height: 13px; stroke: var(--grey-text);
-      fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0;
-    }
-
-    .event-card-body p { font-size: 0.85rem; color: var(--grey-text); line-height: 1.6; }
-
     /* ── JOIN / SIGN-IN SECTION ───────────────────────────── */
 
     .join {
@@ -294,7 +249,6 @@
       color: #888; font-size: 0.9rem; margin-bottom: 2.2rem; line-height: 1.7;
     }
 
-    /* Sign-in widget card */
     .signin-card {
       background: #252525;
       border: 1px solid #333;
@@ -303,11 +257,9 @@
       text-align: left;
     }
 
-    /* Individual states — only active one is shown */
     .signin-state { display: none; }
     .signin-state.active { display: block; }
 
-    /* Idle state */
     .state-idle-title {
       font-size: 1rem; font-weight: 700; color: var(--white); margin-bottom: 0.4rem;
     }
@@ -325,7 +277,6 @@
     .extension-hint a { color: var(--orange); text-decoration: none; }
     .extension-hint a:hover { text-decoration: underline; }
 
-    /* Loading state */
     .loading-state {
       display: flex; flex-direction: column;
       align-items: center; gap: 1rem; padding: 1rem 0;
@@ -342,7 +293,6 @@
 
     .loading-msg { font-size: 0.9rem; color: #888; }
 
-    /* Verified state */
     .verified-header {
       display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.4rem;
     }
@@ -361,20 +311,8 @@
     .verified-title { font-size: 1rem; font-weight: 700; color: var(--white); }
     .verified-npub { font-size: 0.75rem; color: #666; margin-top: 0.15rem; font-family: monospace; }
 
-    .telegram-block {
-      background: #1a1a1a; border: 1px solid #2a2a2a;
-      border-radius: 10px; padding: 1.2rem 1.4rem; margin-bottom: 1.2rem;
-    }
+    .verified-footer { display: flex; justify-content: flex-end; }
 
-    .telegram-block p {
-      font-size: 0.85rem; color: #aaa; margin-bottom: 1rem; line-height: 1.6;
-    }
-
-    .verified-footer {
-      display: flex; justify-content: flex-end;
-    }
-
-    /* Not-member state */
     .not-member-header {
       display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.2rem;
     }
@@ -401,7 +339,6 @@
 
     .not-member-footer { display: flex; justify-content: flex-end; }
 
-    /* No-extension state */
     .no-ext-body {
       font-size: 0.88rem; color: #aaa; line-height: 1.7;
       margin-bottom: 1.4rem;
@@ -418,7 +355,6 @@
 
     .ext-link:hover { background: #222; }
 
-    /* New-to-Nostr banner */
     .new-to-nostr-banner {
       display: flex; align-items: center; justify-content: space-between;
       background: rgba(245,148,92,0.07); border: 1px solid rgba(245,148,92,0.18);
@@ -435,7 +371,6 @@
 
     .new-to-nostr-link:hover { text-decoration: underline; }
 
-    /* Generate state */
     .gen-icon-wrap {
       width: 72px; height: 72px; border-radius: 50%;
       background: rgba(245,148,92,0.12);
@@ -453,7 +388,6 @@
 
     .gen-error { font-size: 0.78rem; color: #f87171; text-align: center; margin-top: 0.4rem; }
 
-    /* Secure (key reveal) state */
     .key-card {
       border-radius: 8px; padding: 0.85rem 1rem; margin-bottom: 0.75rem;
     }
@@ -519,7 +453,6 @@
 
     .state-back-btn:hover { color: #999; }
 
-    /* Manual key entry */
     .divider {
       display: flex; align-items: center; gap: 0.75rem;
       margin: 1.4rem 0; color: #444; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em;
@@ -549,8 +482,171 @@
 
     .manual-key-error { font-size: 0.78rem; color: #f87171; min-height: 1rem; }
 
-    /* Error state */
     .error-body { font-size: 0.88rem; color: #f87171; margin-bottom: 1.2rem; line-height: 1.6; }
+
+    /* ── MEMBERS WELCOME BANNER ──────────────────────────── */
+
+    .members-welcome {
+      background: linear-gradient(135deg, #1c1c1c 0%, #2e2e2e 100%);
+      padding: 3.5rem 2rem; text-align: center;
+      border-bottom: 1px solid #2a2a2a;
+      position: relative; overflow: hidden;
+    }
+
+    .members-welcome::before {
+      content: ''; position: absolute;
+      top: -80px; right: -80px; width: 320px; height: 320px;
+      background: var(--orange); opacity: 0.06; border-radius: 50%;
+    }
+
+    .members-welcome-inner { position: relative; z-index: 1; max-width: 640px; margin: 0 auto; }
+
+    .members-welcome h1 {
+      font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 800;
+      color: var(--white); letter-spacing: -0.02em; margin-bottom: 0.5rem;
+    }
+
+    .members-welcome h1 span { color: var(--orange); }
+
+    .members-welcome-sub {
+      font-size: 0.9rem; color: #888; margin-bottom: 1.8rem; line-height: 1.6;
+    }
+
+    .telegram-row {
+      display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;
+    }
+
+    /* ── MEMBERS PAGE ─────────────────────────────────────── */
+
+    .members-page {
+      padding: 3rem 2rem 5rem; max-width: 1100px; margin: 0 auto;
+    }
+
+    .members-section { margin-bottom: 3.5rem; }
+
+    .members-section-header {
+      display: flex; align-items: baseline; gap: 0.75rem;
+      margin-bottom: 1.5rem; padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--grey-mid);
+    }
+
+    .members-section-header h2 {
+      font-size: 1.05rem; font-weight: 700; color: var(--dark); letter-spacing: -0.01em;
+    }
+
+    .members-count {
+      font-size: 0.78rem; font-weight: 600; color: var(--grey-text);
+      background: var(--grey-light); border: 1px solid var(--grey-mid);
+      border-radius: 100px; padding: 0.15rem 0.6rem;
+    }
+
+    .members-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1.2rem;
+    }
+
+    .members-loading {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 1rem; padding: 4rem 0;
+    }
+
+    .members-loading .spinner {
+      border: 3px solid var(--grey-mid); border-top-color: var(--orange);
+    }
+
+    .members-loading p { font-size: 0.9rem; color: var(--grey-text); }
+
+    /* ── MEMBER CARD ──────────────────────────────────────── */
+
+    .member-card {
+      background: var(--white); border: 1px solid var(--grey-mid);
+      border-radius: 14px; padding: 1.4rem;
+      display: flex; flex-direction: column; gap: 0.85rem;
+      transition: box-shadow 0.2s, transform 0.18s;
+    }
+
+    .member-card:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.07); transform: translateY(-2px); }
+
+    .member-card.pending { background: var(--grey-light); border-style: dashed; }
+
+    .member-card-top { display: flex; align-items: center; gap: 0.9rem; }
+
+    .member-avatar {
+      width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0;
+      background: var(--orange-light); border: 2px solid var(--grey-mid);
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden; position: relative;
+    }
+
+    .member-avatar img {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
+    }
+
+    .member-avatar-fallback {
+      font-size: 1.05rem; font-weight: 700; color: var(--orange);
+      position: relative; z-index: 1; user-select: none;
+    }
+
+    .member-name {
+      font-size: 0.95rem; font-weight: 700; color: var(--dark);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .member-nip05 {
+      font-size: 0.72rem; color: var(--grey-text); margin-top: 0.1rem;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .member-bio {
+      font-size: 0.8rem; color: #555; line-height: 1.55;
+      display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .member-npub-row {
+      display: flex; align-items: center; gap: 0.4rem;
+      background: var(--grey-light); border: 1px solid var(--grey-mid);
+      border-radius: 6px; padding: 0.3rem 0.6rem;
+    }
+
+    .member-npub-text {
+      flex: 1; font-size: 0.7rem; font-family: monospace; color: var(--grey-text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .member-copy-btn {
+      background: none; border: none; cursor: pointer; padding: 2px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      color: var(--grey-text); border-radius: 4px; transition: color 0.12s;
+    }
+
+    .member-copy-btn:hover { color: var(--orange); }
+    .member-copy-btn svg { width: 11px; height: 11px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .member-footer {
+      display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+      padding-top: 0.5rem; border-top: 1px solid var(--grey-mid);
+    }
+
+    .member-badge {
+      font-size: 0.68rem; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; padding: 0.2rem 0.55rem; border-radius: 100px;
+    }
+
+    .member-badge.verified {
+      background: var(--green-light); color: #16a34a;
+      border: 1px solid rgba(34,197,94,0.3);
+    }
+
+    .member-badge.pending-badge {
+      background: var(--amber-light); color: #b45309;
+      border: 1px solid rgba(245,158,11,0.3);
+    }
+
+    .member-attested-by { font-size: 0.72rem; color: var(--grey-text); }
+    .member-attested-by strong { color: var(--dark-mid); font-weight: 600; }
 
     /* ── FOOTER ───────────────────────────────────────────── */
 
@@ -576,8 +672,12 @@
     /* ── RESPONSIVE ───────────────────────────────────────── */
 
     @media (max-width: 600px) {
-      .nav-links { display: none; }
+      nav { padding: 0 1.25rem; }
+      .nav-link-btn { padding: 0.4rem 0.5rem; font-size: 0.82rem; }
       .hero { padding: 5rem 1.5rem 4rem; }
+      .members-grid { grid-template-columns: 1fr; }
+      .members-page { padding: 2rem 1.25rem 4rem; }
+      .telegram-row { flex-direction: column; align-items: stretch; }
       .footer-inner { flex-direction: column; align-items: flex-start; }
       .signin-card { padding: 1.6rem; }
     }
@@ -594,7 +694,11 @@
       <span class="nav-logo-text">Les Femmes Orange</span>
     </a>
 
-    <!-- Shows as button before sign-in, pill after -->
+    <ul class="nav-center">
+      <li><button class="nav-link-btn active" id="nav-about-btn" onclick="showView('about')">About</button></li>
+      <li id="nav-members-li" style="display:none"><button class="nav-link-btn" id="nav-members-btn" onclick="showView('members')">Members</button></li>
+    </ul>
+
     <button id="nav-signin-btn" class="btn btn-primary" onclick="scrollToJoin()">Sign In</button>
     <div id="nav-pubkey-pill">
       <span class="pill-dot"></span>
@@ -602,271 +706,299 @@
     </div>
   </nav>
 
-  <!-- HERO -->
-  <section class="hero">
-    <div class="hero-inner">
-      <h1>A global community of<br/><span>women building on Bitcoin</span></h1>
-      <p class="hero-mission">
-        Learn, connect, and grow with women from around the world who are passionate about Bitcoin — from first steps to deep dives.
-      </p>
-      <div class="hero-actions">
-        <button class="btn btn-primary" onclick="scrollToJoin()">Join the Community</button>
-        <a href="#mission" class="btn btn-outline" style="color:#f5945c;border-color:#f5945c;background:rgba(245,148,92,0.08)">Learn More</a>
-      </div>
-    </div>
-  </section>
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- PAGE: ABOUT                                            -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="page-about" class="page">
 
-  <!-- MISSION STATEMENT -->
-  <section class="mission" id="mission">
-    <div class="mission-inner">
-      <blockquote>
-        Les Femmes Orange is committed to building an inclusive and supportive community of women all over the world. Our events and meetups are designed to not only teach the practical aspects of Bitcoin, but also to create a welcoming atmosphere where learning, discussing and growing together is a priority.
-      </blockquote>
-    </div>
-  </section>
-
-  <!-- PILLARS -->
-  <section class="pillars" id="community">
-    <p class="section-label">What we stand for</p>
-    <h2 class="section-title">Built on three pillars</h2>
-    <p class="section-sub">Everything we do flows from a commitment to education, inclusion, and genuine community.</p>
-    <div class="pillars-grid">
-      <div class="pillar-card">
-        <div class="pillar-icon">
-          <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+    <!-- HERO -->
+    <section class="hero">
+      <div class="hero-inner">
+        <h1>A global community of<br/><span>women building on Bitcoin</span></h1>
+        <p class="hero-mission">
+          Learn, connect, and grow with women from around the world who are passionate about Bitcoin — from first steps to deep dives.
+        </p>
+        <div class="hero-actions">
+          <button class="btn btn-primary" id="hero-cta-btn" onclick="scrollToJoin()">Join the Community</button>
+          <a href="#mission" class="btn btn-outline" style="color:#f5945c;border-color:#f5945c;background:rgba(245,148,92,0.08)">Learn More</a>
         </div>
-        <h3>Bitcoin Education</h3>
-        <p>From self-custody to Lightning to mining, we cover the practical skills that matter — taught by and for women.</p>
       </div>
-      <div class="pillar-card">
-        <div class="pillar-icon">
-          <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        </div>
-        <h3>Inclusive Community</h3>
-        <p>Every background, every level of knowledge — you belong here. We meet people where they are and grow together.</p>
+    </section>
+
+    <!-- MISSION STATEMENT -->
+    <section class="mission" id="mission">
+      <div class="mission-inner">
+        <blockquote>
+          Les Femmes Orange is committed to building an inclusive and supportive community of women all over the world. Our events and meetups are designed to not only teach the practical aspects of Bitcoin, but also to create a welcoming atmosphere where learning, discussing and growing together is a priority.
+        </blockquote>
       </div>
-      <div class="pillar-card">
-        <div class="pillar-icon">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-        </div>
-        <h3>Global Meetups</h3>
-        <p>We gather in cities around the world — in person and online. Wherever you are, there's a seat at the table for you.</p>
-      </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- JOIN / SIGN-IN -->
-  <section class="join" id="join">
-    <div class="join-inner">
-      <h2>Ready to join<br/><span>Les Femmes Orange?</span></h2>
-      <p>Membership is peer-verified on Nostr. Connect your key below — we'll check your membership status on-chain in seconds.</p>
-
-      <div class="signin-card">
-
-        <!-- STATE: GENERATE -->
-        <div id="state-generate" class="signin-state">
-          <div class="gen-icon-wrap" id="gen-icon">
-            <svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+    <!-- PILLARS -->
+    <section class="pillars" id="community">
+      <p class="section-label">What we stand for</p>
+      <h2 class="section-title">Built on three pillars</h2>
+      <p class="section-sub">Everything we do flows from a commitment to education, inclusion, and genuine community.</p>
+      <div class="pillars-grid">
+        <div class="pillar-card">
+          <div class="pillar-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
           </div>
-          <div id="gen-spinner" class="gen-generating">
-            <div class="spinner"></div>
-            <p class="loading-msg">Generating your key pair…</p>
-          </div>
-          <p class="gen-title" id="gen-title">Your key is your identity</p>
-          <p class="gen-sub" id="gen-sub">Your Nostr key pair is generated <strong style="color:#ccc">entirely in your browser</strong>. Nothing is sent to any server. You'll receive a public key (npub) to share, and a secret key (nsec) to keep private — it's the only way to access your account.</p>
-          <button class="btn btn-primary signin-full-btn" id="gen-btn" onclick="generateKeyPair()">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-            Generate my key pair
-          </button>
-          <p class="gen-error" id="gen-error"></p>
-          <button class="state-back-btn" onclick="showState('idle')">← Back</button>
+          <h3>Bitcoin Education</h3>
+          <p>From self-custody to Lightning to mining, we cover the practical skills that matter — taught by and for women.</p>
         </div>
+        <div class="pillar-card">
+          <div class="pillar-icon">
+            <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <h3>Inclusive Community</h3>
+          <p>Every background, every level of knowledge — you belong here. We meet people where they are and grow together.</p>
+        </div>
+        <div class="pillar-card">
+          <div class="pillar-icon">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          </div>
+          <h3>Global Meetups</h3>
+          <p>We gather in cities around the world — in person and online. Wherever you are, there's a seat at the table for you.</p>
+        </div>
+      </div>
+    </section>
 
-        <!-- STATE: SECURE (show keys + download) -->
-        <div id="state-secure" class="signin-state">
+    <!-- JOIN / SIGN-IN -->
+    <section class="join" id="join">
+      <div class="join-inner">
+        <h2>Ready to join<br/><span>Les Femmes Orange?</span></h2>
+        <p>Membership is peer-verified on Nostr. Connect your key below — we'll check your membership status on-chain in seconds.</p>
 
-          <div class="key-card key-card-pub">
-            <p class="key-card-label">Public key (npub)</p>
-            <p class="key-card-sublabel">Safe to share — this is your Nostr identity</p>
-            <div class="key-value-row">
-              <span class="key-value" id="secure-npub-display"></span>
-              <button class="icon-btn" id="copy-npub-btn" onclick="copyKey('secure-npub-display','copy-npub-btn')" title="Copy">
-                <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-              </button>
+        <div class="signin-card">
+
+          <!-- STATE: GENERATE -->
+          <div id="state-generate" class="signin-state">
+            <div class="gen-icon-wrap" id="gen-icon">
+              <svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
             </div>
-          </div>
-
-          <div class="key-card key-card-priv">
-            <p class="key-card-label">Secret key (nsec)</p>
-            <p class="key-card-sublabel">Your private key — treat it like a password</p>
-            <div class="key-value-row">
-              <span class="key-value masked" id="secure-nsec-display"></span>
-              <button class="icon-btn" id="toggle-nsec-btn" onclick="toggleNsec()" title="Show / hide">
-                <!-- eye icon -->
-                <svg id="eye-icon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              </button>
-              <button class="icon-btn" id="copy-nsec-btn" onclick="copyKey('secure-nsec-display','copy-nsec-btn')" title="Copy">
-                <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-              </button>
+            <div id="gen-spinner" class="gen-generating">
+              <div class="spinner"></div>
+              <p class="loading-msg">Generating your key pair…</p>
             </div>
-          </div>
-
-          <div class="secure-warning">
-            <strong>Never share your nsec.</strong> Anyone who has it can take over your identity. Don't paste it into sites you don't trust. Store it like a password — preferably in a password manager or downloaded file.
-          </div>
-
-          <div class="secure-actions">
-            <button class="btn btn-download" onclick="downloadNsecFile()">
-              <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Download key backup (.txt)
+            <p class="gen-title" id="gen-title">Your key is your identity</p>
+            <p class="gen-sub" id="gen-sub">Your Nostr key pair is generated <strong style="color:#ccc">entirely in your browser</strong>. Nothing is sent to any server. You'll receive a public key (npub) to share, and a secret key (nsec) to keep private — it's the only way to access your account.</p>
+            <button class="btn btn-primary signin-full-btn" id="gen-btn" onclick="generateKeyPair()">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+              Generate my key pair
             </button>
-            <button class="btn btn-primary signin-full-btn" onclick="proceedAfterGenerate()">
-              I've saved my key — check membership
+            <p class="gen-error" id="gen-error"></p>
+            <button class="state-back-btn" onclick="showState('idle')">← Back</button>
+          </div>
+
+          <!-- STATE: SECURE (show keys + download) -->
+          <div id="state-secure" class="signin-state">
+
+            <div class="key-card key-card-pub">
+              <p class="key-card-label">Public key (npub)</p>
+              <p class="key-card-sublabel">Safe to share — this is your Nostr identity</p>
+              <div class="key-value-row">
+                <span class="key-value" id="secure-npub-display"></span>
+                <button class="icon-btn" id="copy-npub-btn" onclick="copyKey('secure-npub-display','copy-npub-btn')" title="Copy">
+                  <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="key-card key-card-priv">
+              <p class="key-card-label">Secret key (nsec)</p>
+              <p class="key-card-sublabel">Your private key — treat it like a password</p>
+              <div class="key-value-row">
+                <span class="key-value masked" id="secure-nsec-display"></span>
+                <button class="icon-btn" id="toggle-nsec-btn" onclick="toggleNsec()" title="Show / hide">
+                  <svg id="eye-icon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+                <button class="icon-btn" id="copy-nsec-btn" onclick="copyKey('secure-nsec-display','copy-nsec-btn')" title="Copy">
+                  <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="secure-warning">
+              <strong>Never share your nsec.</strong> Anyone who has it can take over your identity. Don't paste it into sites you don't trust. Store it like a password — preferably in a password manager or downloaded file.
+            </div>
+
+            <div class="secure-actions">
+              <button class="btn btn-download" onclick="downloadNsecFile()">
+                <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download key backup (.txt)
+              </button>
+              <button class="btn btn-primary signin-full-btn" onclick="proceedAfterGenerate()">
+                I've saved my key — check membership
+              </button>
+            </div>
+            <p class="secure-footer-note">You'll need your nsec every time you sign in. Save it before continuing.</p>
+            <button class="state-back-btn" onclick="showState('generate')">← Back</button>
+          </div>
+
+          <!-- STATE: IDLE -->
+          <div id="state-idle" class="signin-state active">
+            <div class="new-to-nostr-banner">
+              <span>New to Nostr?</span>
+              <button class="new-to-nostr-link" onclick="showState('generate')">Generate a key pair →</button>
+            </div>
+
+            <p class="state-idle-title">Connect with Nostr</p>
+            <p class="state-idle-sub">Sign in to check your membership status and access the community Telegram.</p>
+
+            <button class="btn btn-primary signin-full-btn" onclick="startSignIn()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+              Sign in with extension
             </button>
+            <p class="extension-hint">Uses your NIP-07 browser extension (Alby, nos2x, Flamingo)</p>
+
+            <div class="divider">or</div>
+
+            <div class="manual-input-wrap">
+              <input
+                type="text"
+                id="manual-key-input"
+                placeholder="npub1… or nsec1…"
+                autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                oninput="onManualKeyInput(this.value)"
+                onkeydown="if(event.key==='Enter') signInManually()"
+              />
+              <p class="nsec-warning" id="nsec-warning">
+                ⚠️ Your private key (nsec) never leaves this page — it's used only to derive your public key locally.
+              </p>
+              <p class="manual-key-error" id="manual-key-error"></p>
+              <button class="btn btn-outline signin-full-btn" onclick="signInManually()">Continue</button>
+            </div>
           </div>
-          <p class="secure-footer-note">You'll need your nsec every time you sign in. Save it before continuing.</p>
-          <button class="state-back-btn" onclick="showState('generate')">← Back</button>
-        </div>
 
-        <!-- STATE: IDLE -->
-        <div id="state-idle" class="signin-state active">
-          <div class="new-to-nostr-banner">
-            <span>New to Nostr?</span>
-            <button class="new-to-nostr-link" onclick="showState('generate')">Generate a key pair →</button>
+          <!-- STATE: LOADING -->
+          <div id="state-loading" class="signin-state">
+            <div class="loading-state">
+              <div class="spinner"></div>
+              <p class="loading-msg" id="loading-msg">Connecting…</p>
+            </div>
           </div>
 
-          <p class="state-idle-title">Connect with Nostr</p>
-          <p class="state-idle-sub">Sign in to check your membership status and access the community Telegram.</p>
+          <!-- STATE: NOT A MEMBER -->
+          <div id="state-not-member" class="signin-state">
+            <div class="not-member-header">
+              <div class="not-member-icon">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              </div>
+              <div>
+                <p class="not-member-title">Not a member yet</p>
+                <p class="not-member-npub" id="not-member-npub-text"></p>
+              </div>
+            </div>
+            <div class="not-member-body">
+              This npub hasn't been tagged with the LFO membership tag. Membership requires being tagged by an existing verified member of Les Femmes Orange.
+            </div>
+            <div class="not-member-footer">
+              <button class="btn btn-ghost" onclick="disconnect()">Try a different key</button>
+            </div>
+          </div>
 
-          <button class="btn btn-primary signin-full-btn" onclick="startSignIn()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-            Sign in with extension
-          </button>
-          <p class="extension-hint">Uses your NIP-07 browser extension (Alby, nos2x, Flamingo)</p>
-
-          <div class="divider">or</div>
-
-          <div class="manual-input-wrap">
-            <input
-              type="text"
-              id="manual-key-input"
-              placeholder="npub1… or nsec1…"
-              autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-              oninput="onManualKeyInput(this.value)"
-              onkeydown="if(event.key==='Enter') signInManually()"
-            />
-            <p class="nsec-warning" id="nsec-warning">
-              ⚠️ Your private key (nsec) never leaves this page — it's used only to derive your public key locally.
+          <!-- STATE: NO EXTENSION -->
+          <div id="state-no-extension" class="signin-state">
+            <p class="state-idle-title">No Nostr extension found</p>
+            <p class="no-ext-body">
+              No NIP-07 extension was detected. You can enter your npub or nsec directly below, or install a browser extension.
             </p>
-            <p class="manual-key-error" id="manual-key-error"></p>
-            <button class="btn btn-outline signin-full-btn" onclick="signInManually()">Continue</button>
-          </div>
-        </div>
-
-        <!-- STATE: LOADING -->
-        <div id="state-loading" class="signin-state">
-          <div class="loading-state">
-            <div class="spinner"></div>
-            <p class="loading-msg" id="loading-msg">Connecting…</p>
-          </div>
-        </div>
-
-        <!-- STATE: VERIFIED -->
-        <div id="state-verified" class="signin-state">
-          <div class="verified-header">
-            <div class="verified-icon">
-              <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            <div class="manual-input-wrap" style="margin-bottom:1.4rem;">
+              <input
+                type="text"
+                id="manual-key-input-2"
+                placeholder="npub1… or nsec1…"
+                autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                oninput="onManualKeyInput(this.value, 'nsec-warning-2')"
+                onkeydown="if(event.key==='Enter') signInManually('manual-key-input-2', 'manual-key-error-2')"
+              />
+              <p class="nsec-warning" id="nsec-warning-2">
+                ⚠️ Your private key (nsec) never leaves this page — it's used only to derive your public key locally.
+              </p>
+              <p class="manual-key-error" id="manual-key-error-2"></p>
+              <button class="btn btn-primary signin-full-btn" onclick="signInManually('manual-key-input-2', 'manual-key-error-2')">Continue</button>
             </div>
-            <div>
-              <p class="verified-title">Membership verified ✓</p>
-              <p class="verified-npub" id="verified-npub-text"></p>
-            </div>
-          </div>
-          <div class="telegram-block">
-            <p>You're a verified member of Les Femmes Orange. Choose your community group below.</p>
-            <div style="display:flex;flex-direction:column;gap:0.7rem;">
-              <a href="https://t.me/+e3aDTkYxT8wzYjQy" target="_blank" rel="noopener" class="btn btn-telegram">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z"/></svg>
-                English-speaking group
+            <p style="font-size:0.78rem;color:#444;margin-bottom:0.6rem;">Or install a browser extension:</p>
+            <div class="ext-links">
+              <a href="https://getalby.com" target="_blank" rel="noopener" class="ext-link">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                Alby
               </a>
-              <a href="https://t.me/lestemmesorange" target="_blank" rel="noopener" class="btn btn-telegram">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z"/></svg>
-                German-speaking group
+              <a href="https://github.com/fiatjaf/nos2x" target="_blank" rel="noopener" class="ext-link">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                nos2x
+              </a>
+              <a href="https://www.getflamingo.org" target="_blank" rel="noopener" class="ext-link">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                Flamingo
               </a>
             </div>
           </div>
-          <div class="verified-footer">
-            <button class="btn btn-ghost" onclick="disconnect()">Disconnect</button>
-          </div>
-        </div>
 
-        <!-- STATE: NOT A MEMBER -->
-        <div id="state-not-member" class="signin-state">
-          <div class="not-member-header">
-            <div class="not-member-icon">
-              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            </div>
-            <div>
-              <p class="not-member-title">Not a member yet</p>
-              <p class="not-member-npub" id="not-member-npub-text"></p>
-            </div>
+          <!-- STATE: ERROR -->
+          <div id="state-error" class="signin-state">
+            <p class="state-idle-title">Something went wrong</p>
+            <p class="error-body" id="error-msg"></p>
+            <button class="btn btn-ghost" onclick="showState('idle')">Try again</button>
           </div>
-          <div class="not-member-body">
-            This npub hasn't been tagged with the LFO membership tag. Membership requires being tagged by an existing verified member of Les Femmes Orange.
-          </div>
-          <div class="not-member-footer">
-            <button class="btn btn-ghost" onclick="disconnect()">Try a different key</button>
-          </div>
-        </div>
 
-        <!-- STATE: NO EXTENSION -->
-        <div id="state-no-extension" class="signin-state">
-          <p class="state-idle-title">No Nostr extension found</p>
-          <p class="no-ext-body">
-            No NIP-07 extension was detected. You can enter your npub or nsec directly below, or install a browser extension.
-          </p>
-          <div class="manual-input-wrap" style="margin-bottom:1.4rem;">
-            <input
-              type="text"
-              id="manual-key-input-2"
-              placeholder="npub1… or nsec1…"
-              autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-              oninput="onManualKeyInput(this.value, 'nsec-warning-2')"
-              onkeydown="if(event.key==='Enter') signInManually('manual-key-input-2', 'manual-key-error-2')"
-            />
-            <p class="nsec-warning" id="nsec-warning-2">
-              ⚠️ Your private key (nsec) never leaves this page — it's used only to derive your public key locally.
-            </p>
-            <p class="manual-key-error" id="manual-key-error-2"></p>
-            <button class="btn btn-primary signin-full-btn" onclick="signInManually('manual-key-input-2', 'manual-key-error-2')">Continue</button>
-          </div>
-          <p style="font-size:0.78rem;color:#444;margin-bottom:0.6rem;">Or install a browser extension:</p>
-          <div class="ext-links">
-            <a href="https://getalby.com" target="_blank" rel="noopener" class="ext-link">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-              Alby
-            </a>
-            <a href="https://github.com/fiatjaf/nos2x" target="_blank" rel="noopener" class="ext-link">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-              nos2x
-            </a>
-            <a href="https://www.getflamingo.org" target="_blank" rel="noopener" class="ext-link">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-              Flamingo
-            </a>
-          </div>
-        </div>
+        </div><!-- /signin-card -->
+      </div>
+    </section>
 
-        <!-- STATE: ERROR -->
-        <div id="state-error" class="signin-state">
-          <p class="state-idle-title">Something went wrong</p>
-          <p class="error-body" id="error-msg"></p>
-          <button class="btn btn-ghost" onclick="showState('idle')">Try again</button>
-        </div>
+  </div><!-- /page-about -->
 
-      </div><!-- /signin-card -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- PAGE: MEMBERS                                          -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="page-members" class="page hidden">
+
+    <!-- Welcome banner -->
+    <div class="members-welcome">
+      <div class="members-welcome-inner">
+        <h1>Les Femmes <span>Orange</span></h1>
+        <p class="members-welcome-sub">You're a verified member. Connect with the community on Telegram.</p>
+        <div class="telegram-row">
+          <a href="https://t.me/+e3aDTkYxT8wzYjQy" target="_blank" rel="noopener" class="btn btn-telegram">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z"/></svg>
+            English-speaking group
+          </a>
+          <a href="https://t.me/lestemmesorange" target="_blank" rel="noopener" class="btn btn-telegram">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z"/></svg>
+            German-speaking group
+          </a>
+        </div>
+      </div>
     </div>
-  </section>
+
+    <!-- Members grid -->
+    <div class="members-page">
+
+      <div id="members-loading" class="members-loading">
+        <div class="spinner"></div>
+        <p>Loading members from Nostr relays…</p>
+      </div>
+
+      <div class="members-section" id="verified-members-section" style="display:none">
+        <div class="members-section-header">
+          <h2>Verified Members</h2>
+          <span class="members-count" id="verified-count"></span>
+        </div>
+        <div class="members-grid" id="verified-members-grid"></div>
+      </div>
+
+      <div class="members-section" id="pending-members-section" style="display:none">
+        <div class="members-section-header">
+          <h2>Pending — Awaiting Attestation</h2>
+          <span class="members-count" id="pending-count"></span>
+        </div>
+        <p style="font-size:0.875rem;color:var(--grey-text);margin-bottom:1.5rem;line-height:1.6">These people have applied the LFO tag but haven't been attested by a verified member yet.</p>
+        <div class="members-grid" id="pending-members-grid"></div>
+      </div>
+
+    </div>
+  </div><!-- /page-members -->
 
   <!-- FOOTER -->
   <footer>
@@ -886,11 +1018,12 @@
     import { nip19, getPublicKey, generateSecretKey } from 'https://esm.sh/nostr-tools@2';
     window._nostrDecode      = (str) => nip19.decode(str);
     window._nostrGetPubkey   = (secretBytes) => getPublicKey(secretBytes);
+    window._nostrNpubEncode  = (hex) => nip19.npubEncode(hex);
     window._nostrGenerate    = () => {
-      const sk   = generateSecretKey();              // Uint8Array
+      const sk   = generateSecretKey();
       const nsec = nip19.nsecEncode(sk);
       const npub = nip19.npubEncode(getPublicKey(sk));
-      const hex  = getPublicKey(sk);                 // hex pubkey for membership check
+      const hex  = getPublicKey(sk);
       return { nsec, npub, hex };
     };
   </script>
@@ -906,7 +1039,36 @@
       'wss://relay.primal.net',
     ];
 
-    // ── State helpers ───────────────────────────────────────────────────────
+    // ── State ───────────────────────────────────────────────────────────────
+    let currentPubkey     = null;
+    let _tagItemsCache    = null;
+    let _membersLoaded    = false;
+    let _generatedHex     = null;
+    let _generatedNsec    = null;
+    let _generatedNpub    = null;
+    let _nsecVisible      = false;
+
+    // ── View switching ──────────────────────────────────────────────────────
+    function showView(name) {
+      const aboutPage   = document.getElementById('page-about');
+      const membersPage = document.getElementById('page-members');
+
+      document.getElementById('nav-about-btn').classList.toggle('active', name === 'about');
+      document.getElementById('nav-members-btn').classList.toggle('active', name === 'members');
+
+      if (name === 'members') {
+        aboutPage.classList.add('hidden');
+        membersPage.classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (!_membersLoaded) { _membersLoaded = true; loadMembersPage(); }
+      } else {
+        membersPage.classList.add('hidden');
+        aboutPage.classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+
+    // ── Sign-in state helpers ───────────────────────────────────────────────
     function showState(name) {
       document.querySelectorAll('.signin-state').forEach(el => el.classList.remove('active'));
       document.getElementById('state-' + name).classList.add('active');
@@ -924,13 +1086,12 @@
     function onManualKeyInput(value, warningId = 'nsec-warning') {
       const warn = document.getElementById(warningId);
       if (warn) warn.style.display = value.trim().startsWith('nsec1') ? 'block' : 'none';
-      // Clear any previous error
       const errId = warningId === 'nsec-warning' ? 'manual-key-error' : 'manual-key-error-2';
       const errEl = document.getElementById(errId);
       if (errEl) errEl.textContent = '';
     }
 
-    // ── Nostr relay query (native WebSocket, no deps) ───────────────────────
+    // ── Nostr relay query ───────────────────────────────────────────────────
     function queryRelay(relayUrl, filter, timeoutMs = 8000) {
       return new Promise(resolve => {
         const events = [];
@@ -940,7 +1101,7 @@
         const subId = Math.random().toString(36).slice(2, 10);
         const timer = setTimeout(() => { try { ws.close(); } catch {} resolve(events); }, timeoutMs);
 
-        ws.onopen  = () => ws.send(JSON.stringify(['REQ', subId, filter]));
+        ws.onopen    = () => ws.send(JSON.stringify(['REQ', subId, filter]));
         ws.onmessage = e => {
           try {
             const msg = JSON.parse(e.data);
@@ -956,7 +1117,7 @@
     async function queryRelays(filter, timeoutMs = 10000) {
       const results = await Promise.allSettled(RELAYS.map(r => queryRelay(r, filter, timeoutMs)));
       const seen = new Set();
-      const all = [];
+      const all  = [];
       for (const r of results) {
         if (r.status === 'fulfilled') {
           for (const ev of r.value) {
@@ -967,9 +1128,17 @@
       return all;
     }
 
+    // ── Tag items cache ─────────────────────────────────────────────────────
+    async function getTagItems() {
+      if (!_tagItemsCache) {
+        _tagItemsCache = await queryRelays({ kinds: [9999, 39999], '#e': [LFO_TAG_EVENT_ID] });
+      }
+      return _tagItemsCache;
+    }
+
     // ── Membership verification ─────────────────────────────────────────────
     async function checkMembership(hexPubkey) {
-      const tagItems = await queryRelays({ kinds: [9999, 39999], '#e': [LFO_TAG_EVENT_ID] });
+      const tagItems = await getTagItems();
       const verified = new Set([SEED_PUBKEY]);
       let changed = true;
       while (changed) {
@@ -985,14 +1154,200 @@
       return verified.has(hexPubkey);
     }
 
-    // ── Display helper ──────────────────────────────────────────────────────
+    // ── Display helpers ─────────────────────────────────────────────────────
     function hexToNpubShort(hex) {
+      if (window._nostrNpubEncode) {
+        try {
+          const full = window._nostrNpubEncode(hex);
+          return full.slice(0, 12) + '…' + full.slice(-6);
+        } catch {}
+      }
       return 'npub1' + hex.slice(0, 8) + '…' + hex.slice(-4);
     }
 
-    // ── Shared: proceed once we have a hex pubkey ───────────────────────────
-    let currentPubkey = null;
+    function getInitials(name) {
+      if (!name) return '?';
+      const parts = name.trim().split(/\s+/);
+      return (parts.length >= 2
+        ? parts[0][0] + parts[parts.length - 1][0]
+        : name.slice(0, 2)
+      ).toUpperCase();
+    }
 
+    function escHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function safePicUrl(url) {
+      if (!url || typeof url !== 'string') return '';
+      const t = url.trim();
+      return (t.startsWith('https://') || t.startsWith('http://')) ? t : '';
+    }
+
+    // ── Members page: build verified + pending sets ─────────────────────────
+    function buildMemberSets(tagItems) {
+      // verifiedMap: pubkey → taggerPubkey (null for seed)
+      const verifiedMap = new Map();
+      verifiedMap.set(SEED_PUBKEY, null);
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const ev of tagItems) {
+          const pTag = ev.tags?.find(t => t[0] === 'p')?.[1];
+          if (pTag && verifiedMap.has(ev.pubkey) && !verifiedMap.has(pTag)) {
+            verifiedMap.set(pTag, ev.pubkey);
+            changed = true;
+          }
+        }
+      }
+
+      // pendingMap: pubkey → taggerPubkey  (tagged by non-verified member)
+      const pendingMap = new Map();
+      for (const ev of tagItems) {
+        const pTag = ev.tags?.find(t => t[0] === 'p')?.[1];
+        if (pTag && !verifiedMap.has(pTag) && !pendingMap.has(pTag)) {
+          pendingMap.set(pTag, ev.pubkey);
+        }
+      }
+
+      return { verifiedMap, pendingMap };
+    }
+
+    // ── Fetch kind-0 metadata for a list of pubkeys ─────────────────────────
+    async function fetchMetadata(pubkeys) {
+      if (!pubkeys.length) return new Map();
+      const events = await queryRelays({ kinds: [0], authors: pubkeys }, 12000);
+      const meta = new Map();
+      for (const ev of events) {
+        const existing = meta.get(ev.pubkey);
+        if (!existing || existing._ts < ev.created_at) {
+          try {
+            meta.set(ev.pubkey, { ...JSON.parse(ev.content), _ts: ev.created_at });
+          } catch {}
+        }
+      }
+      return meta;
+    }
+
+    // ── Build a single member card DOM element ──────────────────────────────
+    function makeMemberCard(hex, metaMap, type, taggerHex) {
+      const m          = metaMap.get(hex) || {};
+      const rawName    = m.name || '';
+      const displayName = rawName || hexToNpubShort(hex);
+      const nip05      = m.nip05 ? m.nip05.replace(/^_@/, '') : '';
+      const about      = m.about || '';
+      const picUrl     = safePicUrl(m.picture);
+      const initials   = getInitials(rawName);
+      const npubShort  = hexToNpubShort(hex);
+
+      const taggerMeta  = taggerHex ? (metaMap.get(taggerHex) || {}) : {};
+      const taggerLabel = taggerMeta.name || (taggerHex ? hexToNpubShort(taggerHex) : '');
+
+      const card = document.createElement('div');
+      card.className = 'member-card' + (type === 'pending' ? ' pending' : '');
+
+      card.innerHTML = `
+        <div class="member-card-top">
+          <div class="member-avatar">
+            <span class="member-avatar-fallback">${escHtml(initials)}</span>
+          </div>
+          <div style="min-width:0;flex:1">
+            <div class="member-name" title="${escHtml(displayName)}">${escHtml(displayName)}</div>
+            ${nip05 ? `<div class="member-nip05">${escHtml(nip05)}</div>` : ''}
+          </div>
+        </div>
+        ${about ? `<p class="member-bio">${escHtml(about)}</p>` : ''}
+        <div class="member-npub-row">
+          <span class="member-npub-text">${escHtml(npubShort)}</span>
+          <button class="member-copy-btn" data-hex="${escHtml(hex)}" onclick="copyMemberNpub(this)" title="Copy npub">
+            <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+        <div class="member-footer">
+          <span class="member-badge ${type === 'pending' ? 'pending-badge' : 'verified'}">${type === 'pending' ? 'Pending' : '✓ Member'}</span>
+          ${type !== 'pending' && taggerHex && taggerHex !== SEED_PUBKEY
+            ? `<span class="member-attested-by">by <strong>${escHtml(taggerLabel)}</strong></span>`
+            : type !== 'pending' ? `<span class="member-attested-by">Founding curator</span>` : ''}
+        </div>
+      `;
+
+      // Inject avatar image safely after building DOM
+      if (picUrl) {
+        const avatarEl   = card.querySelector('.member-avatar');
+        const fallbackEl = card.querySelector('.member-avatar-fallback');
+        const img = document.createElement('img');
+        img.alt = '';
+        img.src = picUrl;
+        img.onerror = () => img.remove();
+        img.onload  = () => { fallbackEl.style.display = 'none'; };
+        avatarEl.appendChild(img);
+      }
+
+      return card;
+    }
+
+    // ── Copy npub on member card ────────────────────────────────────────────
+    async function copyMemberNpub(btn) {
+      const hex = btn.dataset.hex;
+      let npub = hex;
+      if (window._nostrNpubEncode) {
+        try { npub = window._nostrNpubEncode(hex); } catch {}
+      }
+      try {
+        await navigator.clipboard.writeText(npub);
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:11px;height:11px;stroke:#22c55e;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round"><polyline points="20 6 9 17 4 12"/></svg>';
+        setTimeout(() => { btn.innerHTML = orig; }, 2000);
+      } catch {}
+    }
+
+    // ── Load and render the members page ───────────────────────────────────
+    async function loadMembersPage() {
+      const loadingEl    = document.getElementById('members-loading');
+      const verifiedSec  = document.getElementById('verified-members-section');
+      const pendingSec   = document.getElementById('pending-members-section');
+      const verifiedGrid = document.getElementById('verified-members-grid');
+      const pendingGrid  = document.getElementById('pending-members-grid');
+
+      loadingEl.style.display   = 'flex';
+      verifiedSec.style.display = 'none';
+      pendingSec.style.display  = 'none';
+
+      const tagItems = await getTagItems();
+      const { verifiedMap, pendingMap } = buildMemberSets(tagItems);
+
+      // Collect all pubkeys we need metadata for (members + their taggers)
+      const verifiedPubkeys = [...verifiedMap.keys()].filter(pk => pk !== SEED_PUBKEY);
+      const pendingPubkeys  = [...pendingMap.keys()];
+      const taggerPubkeys   = [...new Set([...verifiedMap.values(), ...pendingMap.values()].filter(Boolean))];
+      const allPubkeys      = [...new Set([...verifiedPubkeys, ...pendingPubkeys, ...taggerPubkeys])];
+
+      const metaMap = await fetchMetadata(allPubkeys);
+
+      // Render verified
+      verifiedGrid.innerHTML = '';
+      document.getElementById('verified-count').textContent = verifiedPubkeys.length;
+      for (const pk of verifiedPubkeys) {
+        verifiedGrid.appendChild(makeMemberCard(pk, metaMap, 'verified', verifiedMap.get(pk)));
+      }
+
+      // Render pending
+      pendingGrid.innerHTML = '';
+      document.getElementById('pending-count').textContent = pendingPubkeys.length;
+      for (const pk of pendingPubkeys) {
+        pendingGrid.appendChild(makeMemberCard(pk, metaMap, 'pending', pendingMap.get(pk)));
+      }
+
+      loadingEl.style.display   = 'none';
+      verifiedSec.style.display = '';
+      if (pendingPubkeys.length > 0) pendingSec.style.display = '';
+    }
+
+    // ── Shared: proceed once we have a hex pubkey ───────────────────────────
     async function proceedWithPubkey(hexPubkey) {
       currentPubkey = hexPubkey;
 
@@ -1012,11 +1367,16 @@
         return;
       }
 
-      const shortId = hexToNpubShort(hexPubkey);
       if (isVerified) {
-        document.getElementById('verified-npub-text').textContent = shortId;
-        showState('verified');
+        // Show Members nav link, hide join section, navigate to members
+        document.getElementById('nav-members-li').style.display = '';
+        document.getElementById('join').style.display = 'none';
+        const heroCta = document.getElementById('hero-cta-btn');
+        heroCta.textContent = 'View Members →';
+        heroCta.onclick = () => showView('members');
+        showView('members');
       } else {
+        const shortId = hexToNpubShort(hexPubkey);
         document.getElementById('not-member-npub-text').textContent = shortId;
         showState('not-member');
       }
@@ -1047,9 +1407,9 @@
 
     // ── Manual key sign-in ──────────────────────────────────────────────────
     async function signInManually(inputId = 'manual-key-input', errorId = 'manual-key-error') {
-      const input    = document.getElementById(inputId);
-      const errorEl  = document.getElementById(errorId);
-      const raw      = input.value.trim();
+      const input   = document.getElementById(inputId);
+      const errorEl = document.getElementById(errorId);
+      const raw     = input.value.trim();
 
       errorEl.textContent = '';
 
@@ -1058,7 +1418,6 @@
         return;
       }
 
-      // Wait for the nostr-tools module to finish loading if needed
       if (!window._nostrDecode) {
         errorEl.textContent = 'Still loading — please try again in a moment.';
         return;
@@ -1070,16 +1429,12 @@
 
         if (decoded.type === 'npub') {
           hexPubkey = decoded.data;
-
         } else if (decoded.type === 'nsec') {
-          // decoded.data is a Uint8Array of the secret key
           hexPubkey = window._nostrGetPubkey(decoded.data);
-          // Clear the input immediately so the nsec isn't sitting in the DOM
           input.value = '';
           document.getElementById(
             inputId === 'manual-key-input' ? 'nsec-warning' : 'nsec-warning-2'
           ).style.display = 'none';
-
         } else {
           throw new Error('Only npub and nsec are supported.');
         }
@@ -1096,11 +1451,6 @@
     }
 
     // ── Key generation flow ─────────────────────────────────────────────────
-    let _generatedHex  = null; // hex pubkey held in memory after generation
-    let _generatedNsec = null; // nsec held only for display / download
-    let _generatedNpub = null;
-    let _nsecVisible   = false;
-
     function generateKeyPair() {
       const errEl = document.getElementById('gen-error');
       errEl.textContent = '';
@@ -1110,7 +1460,6 @@
         return;
       }
 
-      // Switch to spinner UI
       document.getElementById('gen-btn').style.display   = 'none';
       document.getElementById('gen-title').style.display = 'none';
       document.getElementById('gen-sub').style.display   = 'none';
@@ -1125,14 +1474,11 @@
           _generatedHex  = hex;
           _nsecVisible   = false;
 
-          // Populate the secure state
           document.getElementById('secure-npub-display').textContent = npub;
-          // Store nsec in a data attribute so we can copy/download it without a visible input
           document.getElementById('secure-nsec-display').dataset.value = nsec;
           document.getElementById('secure-nsec-display').textContent   = '•'.repeat(nsec.length);
           document.getElementById('secure-nsec-display').classList.add('masked');
 
-          // Reset eye icon to closed
           document.getElementById('eye-icon').innerHTML =
             '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
 
@@ -1140,7 +1486,6 @@
         } catch (e) {
           document.getElementById('gen-error').textContent = 'Key generation failed: ' + e.message;
         } finally {
-          // Reset generate state for next time
           document.getElementById('gen-btn').style.display   = '';
           document.getElementById('gen-title').style.display = '';
           document.getElementById('gen-sub').style.display   = '';
@@ -1152,12 +1497,11 @@
 
     function toggleNsec() {
       _nsecVisible = !_nsecVisible;
-      const el = document.getElementById('secure-nsec-display');
+      const el   = document.getElementById('secure-nsec-display');
       const nsec = el.dataset.value || '';
       if (_nsecVisible) {
         el.textContent = nsec;
         el.classList.remove('masked');
-        // Switch to eye-off icon
         document.getElementById('eye-icon').innerHTML =
           '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>' +
           '<path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>' +
@@ -1182,7 +1526,7 @@
           btn.classList.remove('copied');
           btn.innerHTML = '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
         }, 2000);
-      } catch { /* clipboard blocked */ }
+      } catch {}
     }
 
     function downloadNsecFile() {
@@ -1205,11 +1549,20 @@
 
     // ── Disconnect ──────────────────────────────────────────────────────────
     function disconnect() {
-      currentPubkey = null;
-      _generatedHex = null; _generatedNsec = null; _generatedNpub = null;
+      currentPubkey  = null;
+      _tagItemsCache = null;
+      _membersLoaded = false;
+      _generatedHex  = null; _generatedNsec = null; _generatedNpub = null;
+
       document.getElementById('nav-signin-btn').style.display = '';
       document.getElementById('nav-pubkey-pill').style.display = 'none';
-      // Clear inputs
+      document.getElementById('nav-members-li').style.display = 'none';
+      document.getElementById('join').style.display = '';
+
+      const heroCta = document.getElementById('hero-cta-btn');
+      heroCta.textContent = 'Join the Community';
+      heroCta.onclick = scrollToJoin;
+
       ['manual-key-input', 'manual-key-input-2'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
@@ -1218,6 +1571,8 @@
         const el = document.getElementById(id);
         if (el) { el.textContent = ''; el.style.display = 'none'; }
       });
+
+      showView('about');
       showState('idle');
     }
   </script>
