@@ -68,19 +68,64 @@
     .nav-link-btn.active { color: var(--orange); font-weight: 600; }
 
     #nav-signin-btn { cursor: pointer; }
+
+    .nav-pill-wrap { position: relative; display: none; }
+    .nav-pill-wrap.visible { display: block; }
+
     #nav-pubkey-pill {
-      display: none;
+      display: flex;
       align-items: center; gap: 0.5rem;
       background: var(--grey-light);
       border: 1px solid var(--grey-mid);
       border-radius: 100px;
       padding: 0.3rem 0.8rem 0.3rem 0.5rem;
       font-size: 0.8rem; font-weight: 600; color: var(--dark);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      font-family: inherit;
     }
+
+    #nav-pubkey-pill:hover { background: var(--grey-mid); border-color: #ccc; }
 
     #nav-pubkey-pill .pill-dot {
       width: 8px; height: 8px;
-      background: var(--green); border-radius: 50%;
+      background: var(--green); border-radius: 50%; flex-shrink: 0;
+    }
+
+    .nav-pill-chevron {
+      width: 12px; height: 12px; stroke: var(--grey-text);
+      fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round;
+      transition: transform 0.15s; flex-shrink: 0;
+    }
+
+    .nav-pill-wrap.open .nav-pill-chevron { transform: rotate(180deg); }
+
+    .nav-pill-dropdown {
+      display: none; position: absolute; top: calc(100% + 8px); right: 0;
+      background: var(--white); border: 1px solid var(--grey-mid);
+      border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+      min-width: 160px; overflow: hidden; z-index: 200;
+    }
+
+    .nav-pill-wrap.open .nav-pill-dropdown { display: block; }
+
+    .nav-pill-dropdown-item {
+      display: flex; align-items: center; gap: 0.6rem;
+      width: 100%; padding: 0.65rem 1rem;
+      background: none; border: none; cursor: pointer;
+      font-family: inherit; font-size: 0.85rem; font-weight: 500;
+      color: var(--dark); text-align: left;
+      transition: background 0.12s;
+    }
+
+    .nav-pill-dropdown-item:hover { background: var(--grey-light); }
+
+    .nav-pill-dropdown-item.signout { color: #dc2626; }
+    .nav-pill-dropdown-item.signout:hover { background: #fef2f2; }
+
+    .nav-pill-dropdown-item svg {
+      width: 14px; height: 14px; stroke: currentColor; fill: none;
+      stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0;
     }
 
     .btn {
@@ -700,9 +745,19 @@
     </ul>
 
     <button id="nav-signin-btn" class="btn btn-primary" onclick="scrollToJoin()">Sign In</button>
-    <div id="nav-pubkey-pill">
-      <span class="pill-dot"></span>
-      <span id="nav-pubkey-text"></span>
+
+    <div class="nav-pill-wrap" id="nav-pill-wrap">
+      <button id="nav-pubkey-pill" onclick="togglePillMenu()" aria-haspopup="true" aria-expanded="false">
+        <span class="pill-dot"></span>
+        <span id="nav-pubkey-text"></span>
+        <svg class="nav-pill-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="nav-pill-dropdown" role="menu">
+        <button class="nav-pill-dropdown-item signout" onclick="pillSignOut()" role="menuitem">
+          <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Sign Out
+        </button>
+      </div>
     </div>
   </nav>
 
@@ -1352,7 +1407,7 @@
       currentPubkey = hexPubkey;
 
       document.getElementById('nav-signin-btn').style.display = 'none';
-      document.getElementById('nav-pubkey-pill').style.display = 'flex';
+      document.getElementById('nav-pill-wrap').classList.add('visible');
       document.getElementById('nav-pubkey-text').textContent = hexToNpubShort(hexPubkey);
 
       setLoadingMsg('Checking membership across Nostr relays…');
@@ -1547,6 +1602,28 @@
       await proceedWithPubkey(_generatedHex);
     }
 
+    // ── Pill dropdown ───────────────────────────────────────────────────────
+    function togglePillMenu() {
+      const wrap = document.getElementById('nav-pill-wrap');
+      const btn  = document.getElementById('nav-pubkey-pill');
+      const open = wrap.classList.toggle('open');
+      btn.setAttribute('aria-expanded', open);
+    }
+
+    function pillSignOut() {
+      document.getElementById('nav-pill-wrap').classList.remove('open');
+      document.getElementById('nav-pubkey-pill').setAttribute('aria-expanded', 'false');
+      disconnect();
+    }
+
+    document.addEventListener('click', e => {
+      const wrap = document.getElementById('nav-pill-wrap');
+      if (wrap && !wrap.contains(e.target)) {
+        wrap.classList.remove('open');
+        document.getElementById('nav-pubkey-pill').setAttribute('aria-expanded', 'false');
+      }
+    });
+
     // ── Disconnect ──────────────────────────────────────────────────────────
     function disconnect() {
       currentPubkey  = null;
@@ -1555,7 +1632,8 @@
       _generatedHex  = null; _generatedNsec = null; _generatedNpub = null;
 
       document.getElementById('nav-signin-btn').style.display = '';
-      document.getElementById('nav-pubkey-pill').style.display = 'none';
+      document.getElementById('nav-pill-wrap').classList.remove('visible', 'open');
+      document.getElementById('nav-pubkey-pill').setAttribute('aria-expanded', 'false');
       document.getElementById('nav-members-li').style.display = 'none';
       document.getElementById('join').style.display = '';
 
