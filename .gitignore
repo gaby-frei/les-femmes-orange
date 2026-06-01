@@ -17,3 +17,6 @@ npm-debug.log*
 # External repos (reference only — not part of this project)
 tapestry/
 convergence-app-main/
+
+# Local docs
+CHANGELOG.md
