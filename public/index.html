@@ -693,6 +693,50 @@
     .member-attested-by { font-size: 0.72rem; color: var(--grey-text); }
     .member-attested-by strong { color: var(--dark-mid); font-weight: 600; }
 
+    /* ── FAQ ─────────────────────────────────────────────────── */
+
+    .faq-section {
+      margin-top: 4rem; padding-top: 2rem;
+      border-top: 1px solid var(--grey-mid);
+    }
+
+    .faq-section > h2 {
+      font-size: 1.05rem; font-weight: 700; color: var(--dark);
+      letter-spacing: -0.01em; margin-bottom: 1.2rem;
+    }
+
+    .faq-item {
+      border: 1px solid var(--grey-mid);
+      border-radius: 10px; overflow: hidden;
+    }
+
+    .faq-item summary {
+      list-style: none;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1rem 1.2rem; cursor: pointer;
+      font-size: 0.9rem; font-weight: 600; color: var(--dark);
+      background: var(--white); user-select: none;
+      transition: background 0.15s;
+    }
+
+    .faq-item summary::-webkit-details-marker { display: none; }
+    .faq-item summary:hover { background: var(--grey-light); }
+
+    .faq-chevron {
+      width: 16px; height: 16px; flex-shrink: 0;
+      stroke: var(--grey-text); fill: none;
+      stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round;
+      transition: transform 0.2s;
+    }
+
+    .faq-item[open] .faq-chevron { transform: rotate(180deg); }
+
+    .faq-body {
+      padding: 0 1.2rem 1.1rem;
+      font-size: 0.875rem; color: var(--grey-text);
+      line-height: 1.7; background: var(--white);
+    }
+
     /* ── FOOTER ───────────────────────────────────────────── */
 
     footer { background: #111; padding: 2.5rem 2rem; border-top: 1px solid #222; }
@@ -1154,6 +1198,19 @@
         </div>
         <p style="font-size:0.875rem;color:var(--grey-text);margin-bottom:1.5rem;line-height:1.6">These Nostr users have applied the LFO tag but haven't been attested by a verified member yet. Attesting a pending user will grant them access to gated messaging groups, events, and membership lists. <strong>Only attest users that you trust.</strong></p>
         <div class="members-grid" id="pending-members-grid"></div>
+      </div>
+
+      <div class="faq-section">
+        <h2>FAQ</h2>
+        <details class="faq-item">
+          <summary>
+            Why isn't the person I want to attest showing up in the pending list?
+            <svg class="faq-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+          </summary>
+          <div class="faq-body">
+            They need to apply first. Ask them to visit the Les Femmes Orange homepage, sign in with their Nostr key, and click "Apply for membership." Once they've submitted their application, their profile will appear here under Pending — Awaiting Attestation.
+          </div>
+        </details>
       </div>
 
     </div>
@@ -1871,8 +1928,18 @@
 
     function downloadNsecFile() {
       if (!_generatedNsec || !_generatedNpub) return;
+      const now      = new Date();
+      const dateStr  = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+      const timeStr  = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const contents =
+        'Nostr Key\n' +
+        '==========\n\n' +
+        'Secret Key (nsec): ' + _generatedNsec + '\n' +
+        'Public Key (npub): ' + _generatedNpub + '\n\n' +
+        'IMPORTANT: Keep your secret key (nsec) safe and private! If an attacker gets a hold of your nsec, they can steal your identity. Your public key (npub) should be shared with others so they know who you are on Nostr.\n\n' +
+        'Generated on: ' + dateStr + ' ' + timeStr + '\n';
       const filename = 'nostr-lfo-' + _generatedNpub.slice(5, 9) + '.nsec.txt';
-      const blob = new Blob([_generatedNsec], { type: 'text/plain; charset=utf-8' });
+      const blob = new Blob([contents], { type: 'text/plain; charset=utf-8' });
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
       a.href = url; a.download = filename; a.style.display = 'none';
