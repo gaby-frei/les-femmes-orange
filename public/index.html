@@ -1047,6 +1047,14 @@
               <p style="font-size:0.78rem;color:#666;margin-top:0.5rem;line-height:1.55">A verified LFO member can attest you from the Members page.</p>
             </div>
 
+            <div style="display:flex;align-items:flex-start;gap:0.65rem;background:rgba(245,148,92,0.07);border:1px solid rgba(245,148,92,0.15);border-radius:8px;padding:0.75rem 0.9rem;margin-top:1.2rem">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:0.15rem"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              <div>
+                <p style="font-size:0.8rem;font-weight:600;color:#ccc;margin-bottom:0.2rem">Make your profile recognizable</p>
+                <p style="font-size:0.78rem;color:#777;line-height:1.55">Add a display name, photo, and bio on a Nostr client like <a href="https://primal.net" target="_blank" rel="noopener" style="color:var(--orange);text-decoration:none">Primal</a> so members know who you are.</p>
+              </div>
+            </div>
+
             <div class="not-member-footer" style="margin-top:1.2rem">
               <button class="btn btn-ghost" onclick="disconnect()">Try a different key</button>
             </div>
@@ -1092,6 +1100,13 @@
               </div>
             </div>
             <p style="font-size:0.85rem;color:#888;line-height:1.7;margin-bottom:1.2rem">Your profile is now in the pending members list. Share your npub with a verified LFO member — they can attest you from the Members page.</p>
+            <div style="display:flex;align-items:flex-start;gap:0.65rem;background:rgba(245,148,92,0.07);border:1px solid rgba(245,148,92,0.15);border-radius:8px;padding:0.75rem 0.9rem;margin-bottom:1.2rem">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:0.15rem"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              <div>
+                <p style="font-size:0.8rem;font-weight:600;color:#ccc;margin-bottom:0.2rem">Make your profile recognizable</p>
+                <p style="font-size:0.78rem;color:#777;line-height:1.55">Add a display name, photo, and bio on a Nostr client like <a href="https://primal.net" target="_blank" rel="noopener" style="color:var(--orange);text-decoration:none">Primal</a> so members know who you are.</p>
+              </div>
+            </div>
             <div class="member-npub-row" style="margin-bottom:1.4rem;background:#1a1a1a;border-color:#2a2a2a">
               <span class="member-npub-text" id="applied-npub-text" style="color:#888"></span>
               <button class="member-copy-btn" onclick="copyAppliedNpub(this)" title="Copy npub">
@@ -1198,19 +1213,6 @@
         </div>
         <p style="font-size:0.875rem;color:var(--grey-text);margin-bottom:1.5rem;line-height:1.6">These Nostr users have applied the LFO tag but haven't been attested by a verified member yet. Attesting a pending user will grant them access to gated messaging groups, events, and membership lists. <strong>Only attest users that you trust.</strong></p>
         <div class="members-grid" id="pending-members-grid"></div>
-      </div>
-
-      <div class="faq-section">
-        <h2>FAQ</h2>
-        <details class="faq-item">
-          <summary>
-            Why isn't the person I want to attest showing up in the pending list?
-            <svg class="faq-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
-          </summary>
-          <div class="faq-body">
-            They need to apply first. Ask them to visit the Les Femmes Orange homepage, sign in with their Nostr key, and click "Apply for membership." Once they've submitted their application, their profile will appear here under Pending — Awaiting Attestation.
-          </div>
-        </details>
       </div>
 
     </div>
@@ -1928,18 +1930,8 @@
 
     function downloadNsecFile() {
       if (!_generatedNsec || !_generatedNpub) return;
-      const now      = new Date();
-      const dateStr  = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
-      const timeStr  = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      const contents =
-        'Nostr Key\n' +
-        '==========\n\n' +
-        'Secret Key (nsec): ' + _generatedNsec + '\n' +
-        'Public Key (npub): ' + _generatedNpub + '\n\n' +
-        'IMPORTANT: Keep your secret key (nsec) safe and private! If an attacker gets a hold of your nsec, they can steal your identity. Your public key (npub) should be shared with others so they know who you are on Nostr.\n\n' +
-        'Generated on: ' + dateStr + ' ' + timeStr + '\n';
       const filename = 'nostr-lfo-' + _generatedNpub.slice(5, 9) + '.nsec.txt';
-      const blob = new Blob([contents], { type: 'text/plain; charset=utf-8' });
+      const blob = new Blob([_generatedNsec], { type: 'text/plain; charset=utf-8' });
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
       a.href = url; a.download = filename; a.style.display = 'none';
