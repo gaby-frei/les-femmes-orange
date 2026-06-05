@@ -520,7 +520,7 @@
     .manual-input-wrap input:focus { border-color: var(--orange); }
 
     .nsec-warning {
-      display: none; font-size: 0.75rem; color: var(--amber);
+      font-size: 0.75rem; color: var(--amber);
       background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2);
       border-radius: 6px; padding: 0.5rem 0.75rem; line-height: 1.5;
     }
@@ -713,6 +713,45 @@
     .footer-logo-mark svg { width: 14px; height: 14px; fill: var(--white); }
     .footer-logo span { font-size: 0.875rem; font-weight: 700; color: #888; }
     .footer-copy { font-size: 0.78rem; color: #444; }
+
+    /* ── ATTEST BUTTON & SYNCING STATE ──────────────────────── */
+
+    .attest-btn {
+      background: var(--orange); color: var(--white);
+      border: none; border-radius: 6px; cursor: pointer;
+      font-family: inherit; font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.02em; padding: 0.22rem 0.6rem;
+      transition: background 0.15s, opacity 0.15s;
+      flex-shrink: 0; margin-left: auto;
+    }
+    .attest-btn:hover:not(:disabled) { background: var(--orange-dark); }
+    .attest-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .syncing-row {
+      display: flex; align-items: center; gap: 0.35rem;
+      font-size: 0.7rem; color: var(--grey-text); margin-left: auto;
+    }
+
+    .syncing-mini-spinner {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+      border: 1.5px solid var(--grey-mid); border-top-color: var(--orange);
+      animation: spin 0.7s linear infinite;
+    }
+
+    .attest-btn-wrap {
+      position: relative; display: inline-flex; flex-shrink: 0; margin-left: auto;
+    }
+
+    .attest-btn-wrap .attest-tooltip {
+      display: none; position: absolute;
+      bottom: calc(100% + 7px); right: 0;
+      background: #1c1c1c; color: #bbb;
+      font-size: 0.68rem; font-weight: 400; padding: 0.3rem 0.65rem;
+      border-radius: 6px; white-space: nowrap;
+      border: 1px solid #333; z-index: 20; pointer-events: none;
+    }
+
+    .attest-btn-wrap:hover .attest-tooltip { display: block; }
 
     /* ── RESPONSIVE ───────────────────────────────────────── */
 
@@ -907,19 +946,19 @@
             </button>
             <p class="extension-hint">Uses your NIP-07 browser extension (Alby, nos2x, Flamingo)</p>
 
-            <div class="divider">or</div>
+            <div class="divider">or sign in with your secret key</div>
 
             <div class="manual-input-wrap">
               <input
-                type="text"
+                type="password"
                 id="manual-key-input"
-                placeholder="npub1… or nsec1…"
+                placeholder="nsec1…"
                 autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                 oninput="onManualKeyInput(this.value)"
                 onkeydown="if(event.key==='Enter') signInManually()"
               />
-              <p class="nsec-warning" id="nsec-warning">
-                ⚠️ Your private key (nsec) never leaves this page — it's used only to derive your public key locally.
+              <p class="nsec-warning" id="nsec-warning" style="display:block">
+                ⚠️ Your secret key never leaves this page — it's used only to verify your membership locally.
               </p>
               <p class="manual-key-error" id="manual-key-error"></p>
               <button class="btn btn-outline signin-full-btn" onclick="signInManually()">Continue</button>
@@ -957,19 +996,19 @@
           <div id="state-no-extension" class="signin-state">
             <p class="state-idle-title">No Nostr extension found</p>
             <p class="no-ext-body">
-              No NIP-07 extension was detected. You can enter your npub or nsec directly below, or install a browser extension.
+              No NIP-07 extension was detected. Enter your secret key (nsec) to sign in, or install a browser extension to also attest pending members.
             </p>
             <div class="manual-input-wrap" style="margin-bottom:1.4rem;">
               <input
-                type="text"
+                type="password"
                 id="manual-key-input-2"
-                placeholder="npub1… or nsec1…"
+                placeholder="nsec1…"
                 autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                 oninput="onManualKeyInput(this.value, 'nsec-warning-2')"
                 onkeydown="if(event.key==='Enter') signInManually('manual-key-input-2', 'manual-key-error-2')"
               />
-              <p class="nsec-warning" id="nsec-warning-2">
-                ⚠️ Your private key (nsec) never leaves this page — it's used only to derive your public key locally.
+              <p class="nsec-warning" id="nsec-warning-2" style="display:block">
+                ⚠️ Your secret key never leaves this page — it's used only to verify your membership locally.
               </p>
               <p class="manual-key-error" id="manual-key-error-2"></p>
               <button class="btn btn-primary signin-full-btn" onclick="signInManually('manual-key-input-2', 'manual-key-error-2')">Continue</button>
@@ -1048,7 +1087,7 @@
           <h2>Pending — Awaiting Attestation</h2>
           <span class="members-count" id="pending-count"></span>
         </div>
-        <p style="font-size:0.875rem;color:var(--grey-text);margin-bottom:1.5rem;line-height:1.6">These people have applied the LFO tag but haven't been attested by a verified member yet.</p>
+        <p style="font-size:0.875rem;color:var(--grey-text);margin-bottom:1.5rem;line-height:1.6">These Nostr users have applied the LFO tag but haven't been attested by a verified member yet. Attesting a pending user will grant them access to gated messaging groups, events, and membership lists. <strong>Only attest users that you trust.</strong></p>
         <div class="members-grid" id="pending-members-grid"></div>
       </div>
 
@@ -1085,8 +1124,10 @@
 
   <script>
     // ── Config ─────────────────────────────────────────────────────────────
-    const LFO_TAG_EVENT_ID = '4ddde08a7b1b3c2dffda5161ff5b0151554b9e86d94a059b1434aab95d546795';
-    const SEED_PUBKEY      = 'e83fff7a10b30dc0c296c62b440aa9071c904d80b18420341b5425a81bd6856c';
+    const LFO_TAG_EVENT_ID    = '4ddde08a7b1b3c2dffda5161ff5b0151554b9e86d94a059b1434aab95d546795';
+    const LFO_CONCEPT_ADDRESS = '39999:e83fff7a10b30dc0c296c62b440aa9071c904d80b18420341b5425a81bd6856c:lfo';
+    const NOSTR_USER_TAG_ADDR = '39998:82b75e474dda005e912bcbb910391c60c2b89cc7faf5d3c30b7c59a324973833:nostr-user-tag';
+    const SEED_PUBKEY         = 'e83fff7a10b30dc0c296c62b440aa9071c904d80b18420341b5425a81bd6856c';
     const RELAYS = [
       'wss://tags.brainstorm.world/relay',
       'wss://nos.lol',
@@ -1102,6 +1143,8 @@
     let _generatedNsec    = null;
     let _generatedNpub    = null;
     let _nsecVisible      = false;
+    let _hasExtension     = false;
+    let _isVerifiedMember = false;
 
     // ── View switching ──────────────────────────────────────────────────────
     function showView(name) {
@@ -1137,10 +1180,8 @@
       document.getElementById('join').scrollIntoView({ behavior: 'smooth' });
     }
 
-    // ── Manual key input: show nsec warning live ────────────────────────────
+    // ── Manual key input: clear any previous error on change ────────────────
     function onManualKeyInput(value, warningId = 'nsec-warning') {
-      const warn = document.getElementById(warningId);
-      if (warn) warn.style.display = value.trim().startsWith('nsec1') ? 'block' : 'none';
       const errId = warningId === 'nsec-warning' ? 'manual-key-error' : 'manual-key-error-2';
       const errEl = document.getElementById(errId);
       if (errEl) errEl.textContent = '';
@@ -1186,7 +1227,7 @@
     // ── Tag items cache ─────────────────────────────────────────────────────
     async function getTagItems() {
       if (!_tagItemsCache) {
-        _tagItemsCache = await queryRelays({ kinds: [9999, 39999], '#e': [LFO_TAG_EVENT_ID] });
+        _tagItemsCache = await queryRelays({ kinds: [9999, 39999], '#e': [LFO_TAG_EVENT_ID], '#z': [NOSTR_USER_TAG_ADDR] });
       }
       return _tagItemsCache;
     }
@@ -1243,6 +1284,146 @@
       return (t.startsWith('https://') || t.startsWith('http://')) ? t : '';
     }
 
+    // ── Publish a signed event to a single relay via raw WebSocket ──────────
+    function publishEventToRelay(relayUrl, event, timeoutMs = 6000) {
+      return new Promise(resolve => {
+        let ws;
+        try { ws = new WebSocket(relayUrl); } catch { return resolve({ ok: false, relay: relayUrl }); }
+
+        const timer = setTimeout(() => {
+          try { ws.close(); } catch {}
+          resolve({ ok: false, relay: relayUrl, reason: 'timeout' });
+        }, timeoutMs);
+
+        ws.onopen    = () => ws.send(JSON.stringify(['EVENT', event]));
+        ws.onmessage = e => {
+          try {
+            const msg = JSON.parse(e.data);
+            if (msg[0] === 'OK' && msg[1] === event.id) {
+              clearTimeout(timer);
+              try { ws.close(); } catch {}
+              resolve({ ok: msg[2] === true, relay: relayUrl, reason: msg[3] });
+            }
+          } catch {}
+        };
+        ws.onerror = () => { clearTimeout(timer); resolve({ ok: false, relay: relayUrl }); };
+        ws.onclose = () => { clearTimeout(timer); };
+      });
+    }
+
+    // ── Returns the set of pubkeys the current user has already attested ────
+    function getMyAttestedPubkeys(tagItems) {
+      if (!currentPubkey) return new Set();
+      return new Set(
+        tagItems
+          .filter(ev => ev.pubkey === currentPubkey)
+          .map(ev => ev.tags?.find(t => t[0] === 'p')?.[1])
+          .filter(Boolean)
+      );
+    }
+
+    // ── Apply LFO tag to a pending member ──────────────────────────────────
+    async function applyLFOTag(targetHex, targetName, footerEl) {
+      if (!window.nostr || !currentPubkey || !_isVerifiedMember) return;
+
+      const attestBtn = footerEl.querySelector('.attest-btn');
+      if (attestBtn) attestBtn.disabled = true;
+
+      const syncRow = document.createElement('span');
+      syncRow.className = 'syncing-row';
+      syncRow.innerHTML = '<span class="syncing-mini-spinner"></span>Syncing…';
+      if (attestBtn) attestBtn.replaceWith(syncRow);
+      else footerEl.appendChild(syncRow);
+
+      try {
+        // d-tag matches brainstorm's native pubkey-tagging format:
+        // profile-tag-lfo-<first8 of tagged>-<first8 of tagger>
+        const dTag = `profile-tag-lfo-${targetHex.slice(0,8)}-${currentPubkey.slice(0,8)}`;
+
+        const unsignedEvent = {
+          kind: 39999,
+          created_at: Math.floor(Date.now() / 1000),
+          tags: [
+            ['d', dTag],
+            ['e', LFO_TAG_EVENT_ID],
+            ['z', NOSTR_USER_TAG_ADDR],
+            ['p', targetHex],
+            ['polarity', '1'],
+          ],
+          content: '',
+        };
+
+        let signedEvent;
+        try {
+          signedEvent = await window.nostr.signEvent(unsignedEvent);
+        } catch {
+          // User rejected or extension error — restore button
+          const restoredBtn = document.createElement('button');
+          restoredBtn.className = 'attest-btn';
+          restoredBtn.textContent = 'Attest as Member';
+          restoredBtn.addEventListener('click', () =>
+            applyLFOTag(targetHex, targetName, restoredBtn.closest('.member-footer'))
+          );
+          syncRow.replaceWith(restoredBtn);
+          return;
+        }
+
+        // Publish to brainstorm (primary confirmation relay) and all others in parallel
+        const [brainstormResult] = await Promise.all([
+          publishEventToRelay(RELAYS[0], signedEvent, 8000),
+          ...RELAYS.slice(1).map(r => publishEventToRelay(r, signedEvent, 6000)),
+        ]);
+
+        if (!brainstormResult.ok) {
+          syncRow.innerHTML =
+            '<span style="font-size:0.7rem;color:var(--amber)">Published — sync pending</span>';
+          // Still add to local cache so the UI updates optimistically
+        }
+
+        // Optimistically update the in-memory cache and re-derive member sets
+        if (_tagItemsCache) _tagItemsCache.push(signedEvent);
+
+        const { verifiedMap } = buildMemberSets(_tagItemsCache || [signedEvent]);
+
+        if (verifiedMap.has(targetHex)) {
+          const pendingCard  = footerEl.closest('.member-card');
+          const pendingGrid  = document.getElementById('pending-members-grid');
+          const verifiedGrid = document.getElementById('verified-members-grid');
+
+          if (pendingCard && pendingGrid && verifiedGrid) {
+            pendingCard.remove();
+
+            const remainingPending = pendingGrid.children.length;
+            document.getElementById('pending-count').textContent = remainingPending;
+            if (remainingPending === 0) {
+              document.getElementById('pending-members-section').style.display = 'none';
+            }
+
+            const freshMeta = await fetchMetadata([targetHex, currentPubkey]);
+            const newCard   = makeMemberCard(targetHex, freshMeta, 'verified', currentPubkey, {});
+            verifiedGrid.prepend(newCard);
+            document.getElementById('verified-count').textContent = verifiedGrid.children.length;
+          }
+        } else {
+          syncRow.innerHTML =
+            '<span style="font-size:0.7rem;color:var(--grey-text)">Tagged — awaiting sync</span>';
+        }
+
+      } catch {
+        syncRow.innerHTML =
+          '<span style="font-size:0.7rem;color:#f87171">Error — try again</span>';
+        setTimeout(() => {
+          const retryBtn = document.createElement('button');
+          retryBtn.className = 'attest-btn';
+          retryBtn.textContent = 'Attest as Member';
+          retryBtn.addEventListener('click', () =>
+            applyLFOTag(targetHex, targetName, retryBtn.closest('.member-footer'))
+          );
+          syncRow.replaceWith(retryBtn);
+        }, 3000);
+      }
+    }
+
     // ── Members page: build verified + pending sets ─────────────────────────
     function buildMemberSets(tagItems) {
       // verifiedMap: pubkey → taggerPubkey (null for seed)
@@ -1289,18 +1470,23 @@
     }
 
     // ── Build a single member card DOM element ──────────────────────────────
-    function makeMemberCard(hex, metaMap, type, taggerHex) {
-      const m          = metaMap.get(hex) || {};
-      const rawName    = m.name || '';
+    function makeMemberCard(hex, metaMap, type, taggerHex, options = {}) {
+      const m           = metaMap.get(hex) || {};
+      const rawName     = m.display_name || m.name || '';
       const displayName = rawName || hexToNpubShort(hex);
-      const nip05      = m.nip05 ? m.nip05.replace(/^_@/, '') : '';
-      const about      = m.about || '';
-      const picUrl     = safePicUrl(m.picture);
-      const initials   = getInitials(rawName);
-      const npubShort  = hexToNpubShort(hex);
+      const nip05       = m.nip05 ? m.nip05.replace(/^_@/, '') : '';
+      const about       = m.about || '';
+      const picUrl      = safePicUrl(m.picture);
+      const initials    = getInitials(rawName);
+      const npubShort   = hexToNpubShort(hex);
+
+      // Name used for d-tag derivation: prefer display name, fall back to full npub for uniqueness
+      const tagName = rawName || (() => {
+        try { return window._nostrNpubEncode ? window._nostrNpubEncode(hex) : hex; } catch { return hex; }
+      })();
 
       const taggerMeta  = taggerHex ? (metaMap.get(taggerHex) || {}) : {};
-      const taggerLabel = taggerMeta.name || (taggerHex ? hexToNpubShort(taggerHex) : '');
+      const taggerLabel = taggerMeta.display_name || taggerMeta.name || (taggerHex ? hexToNpubShort(taggerHex) : '');
 
       const card = document.createElement('div');
       card.className = 'member-card' + (type === 'pending' ? ' pending' : '');
@@ -1327,8 +1513,28 @@
           ${type !== 'pending' && taggerHex && taggerHex !== SEED_PUBKEY
             ? `<span class="member-attested-by">by <strong>${escHtml(taggerLabel)}</strong></span>`
             : type !== 'pending' ? `<span class="member-attested-by">Founding curator</span>` : ''}
+          ${type === 'pending' && options.showAttestBtn
+            ? `<button class="attest-btn" data-target-hex="${escHtml(hex)}" data-target-name="${escHtml(tagName)}">Attest as Member</button>`
+            : type === 'pending' && options.showDisabledAttest
+              ? `<span class="attest-btn-wrap">
+                   <button class="attest-btn" disabled>Attest as Member</button>
+                   <span class="attest-tooltip">Install a Nostr extension to attest members</span>
+                 </span>`
+              : ''}
         </div>
       `;
+
+      // Wire up attest button (data attributes avoid inline handler scoping issues)
+      const attestBtn = card.querySelector('.attest-btn');
+      if (attestBtn) {
+        attestBtn.addEventListener('click', () => {
+          applyLFOTag(
+            attestBtn.dataset.targetHex,
+            attestBtn.dataset.targetName,
+            attestBtn.closest('.member-footer')
+          );
+        });
+      }
 
       // Inject avatar image safely after building DOM
       if (picUrl) {
@@ -1383,18 +1589,28 @@
 
       const metaMap = await fetchMetadata(allPubkeys);
 
+      // Determine which pending pubkeys the current user has already attested
+      const myAttestedPubkeys    = getMyAttestedPubkeys(tagItems);
+      const canAttest            = _isVerifiedMember && _hasExtension;
+      const verifiedNoExtension  = _isVerifiedMember && !_hasExtension;
+
       // Render verified
       verifiedGrid.innerHTML = '';
       document.getElementById('verified-count').textContent = verifiedPubkeys.length;
       for (const pk of verifiedPubkeys) {
-        verifiedGrid.appendChild(makeMemberCard(pk, metaMap, 'verified', verifiedMap.get(pk)));
+        verifiedGrid.appendChild(makeMemberCard(pk, metaMap, 'verified', verifiedMap.get(pk), {}));
       }
 
       // Render pending
       pendingGrid.innerHTML = '';
       document.getElementById('pending-count').textContent = pendingPubkeys.length;
       for (const pk of pendingPubkeys) {
-        pendingGrid.appendChild(makeMemberCard(pk, metaMap, 'pending', pendingMap.get(pk)));
+        const alreadyAttested    = myAttestedPubkeys.has(pk);
+        const showAttestBtn      = canAttest && !alreadyAttested;
+        const showDisabledAttest = verifiedNoExtension && !alreadyAttested;
+        pendingGrid.appendChild(
+          makeMemberCard(pk, metaMap, 'pending', pendingMap.get(pk), { showAttestBtn, showDisabledAttest })
+        );
       }
 
       loadingEl.style.display   = 'none';
@@ -1421,6 +1637,8 @@
         showState('error');
         return;
       }
+
+      _isVerifiedMember = isVerified;
 
       if (isVerified) {
         // Show Members nav link, hide join section, navigate to members
@@ -1457,6 +1675,7 @@
         return;
       }
 
+      _hasExtension = true;
       await proceedWithPubkey(pubkey);
     }
 
@@ -1482,20 +1701,15 @@
       try {
         const decoded = window._nostrDecode(raw);
 
-        if (decoded.type === 'npub') {
-          hexPubkey = decoded.data;
-        } else if (decoded.type === 'nsec') {
+        if (decoded.type === 'nsec') {
           hexPubkey = window._nostrGetPubkey(decoded.data);
           input.value = '';
-          document.getElementById(
-            inputId === 'manual-key-input' ? 'nsec-warning' : 'nsec-warning-2'
-          ).style.display = 'none';
         } else {
-          throw new Error('Only npub and nsec are supported.');
+          throw new Error('Please enter your secret key (nsec1…). Public keys cannot sign in.');
         }
       } catch (err) {
         errorEl.textContent = err.message.includes('Unknown')
-          ? 'Invalid format — enter a valid npub1… or nsec1… key.'
+          ? 'Invalid format — enter a valid nsec1… secret key.'
           : err.message;
         return;
       }
@@ -1626,10 +1840,12 @@
 
     // ── Disconnect ──────────────────────────────────────────────────────────
     function disconnect() {
-      currentPubkey  = null;
-      _tagItemsCache = null;
-      _membersLoaded = false;
-      _generatedHex  = null; _generatedNsec = null; _generatedNpub = null;
+      currentPubkey     = null;
+      _tagItemsCache    = null;
+      _membersLoaded    = false;
+      _generatedHex     = null; _generatedNsec = null; _generatedNpub = null;
+      _hasExtension     = false;
+      _isVerifiedMember = false;
 
       document.getElementById('nav-signin-btn').style.display = '';
       document.getElementById('nav-pill-wrap').classList.remove('visible', 'open');
@@ -1645,9 +1861,9 @@
         const el = document.getElementById(id);
         if (el) el.value = '';
       });
-      ['nsec-warning', 'nsec-warning-2', 'manual-key-error', 'manual-key-error-2'].forEach(id => {
+      ['manual-key-error', 'manual-key-error-2'].forEach(id => {
         const el = document.getElementById(id);
-        if (el) { el.textContent = ''; el.style.display = 'none'; }
+        if (el) el.textContent = '';
       });
 
       showView('about');

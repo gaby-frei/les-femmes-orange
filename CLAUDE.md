@@ -69,13 +69,44 @@ These fields define any DList item, including both concept-definition events and
 | `name` | Human-readable name for the item |
 | `d` | Deterministic identifier (replaceable items only) — derived as `slug(name)-hash8(parentRef)` |
 
-### Querying LFO Tag Items
+### Pubkey-Tagging Event Format (feat/pubkey-tagging-target)
 
-The concept is kind 39999, so tag items reference it via `#e` (event ID):
+The `feat/pubkey-tagging-target` branch on `tags.brainstorm.world` uses a **specific event format** for LFO pubkey-tagging that differs from the generic DList item structure. This is confirmed by inspecting events on the relay.
+
+**Correct format for publishing an LFO attestation:**
 
 ```js
-// Fetch all events that tag a user with the LFO concept:
-{ kinds: [9999, 39999], "#e": ["4ddde08a7b1b3c2dffda5161ff5b0151554b9e86d94a059b1434aab95d546795"] }
+{
+  kind: 39999,
+  tags: [
+    ['d',        `profile-tag-lfo-${targetHex.slice(0,8)}-${taggerHex.slice(0,8)}`],
+    ['e',        '4ddde08a7b1b3c2dffda5161ff5b0151554b9e86d94a059b1434aab95d546795'],  // LFO concept event ID
+    ['z',        '39998:82b75e474dda005e912bcbb910391c60c2b89cc7faf5d3c30b7c59a324973833:nostr-user-tag'],
+    ['p',        targetHex],
+    ['polarity', '1'],
+  ],
+  content: '',
+}
+```
+
+Key points:
+- `z` is `nostr-user-tag` (NOT the direct LFO concept address `39999:e83fff7a...:lfo`)
+- `d` is `profile-tag-lfo-<first8 of tagged>-<first8 of tagger>` — simple hex prefix, no hash
+- `polarity: 1` signals a positive application
+- No `name` tag
+
+Brainstorm's profile UI and membership computation query by `z` = `nostr-user-tag`. Events using `z` = `39999:e83fff7a...:lfo` (the LFO concept address directly) are **not recognised** by brainstorm's profile display.
+
+### Querying LFO Tag Items
+
+Filter by both `#e` (concept event ID) and `#z` (parent concept) to match only the correct format:
+
+```js
+{
+  kinds: [9999, 39999],
+  "#e": ["4ddde08a7b1b3c2dffda5161ff5b0151554b9e86d94a059b1434aab95d546795"],
+  "#z": ["39998:82b75e474dda005e912bcbb910391c60c2b89cc7faf5d3c30b7c59a324973833:nostr-user-tag"]
+}
 ```
 
 **Relay priority order** (most complete first):
