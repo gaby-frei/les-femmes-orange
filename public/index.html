@@ -985,11 +985,76 @@
               </div>
             </div>
             <div class="not-member-body">
-              This npub hasn't been tagged with the LFO membership tag. Membership requires being tagged by an existing verified member of Les Femmes Orange.
+              Membership requires being tagged with the LFO tag by an existing verified member of Les Femmes Orange.
             </div>
-            <div class="not-member-footer">
+
+            <!-- Apply prompt — shown when not already pending -->
+            <div id="apply-prompt" style="margin-top:1.2rem">
+              <p style="font-size:0.85rem;color:#888;line-height:1.6;margin-bottom:0.9rem">Tag yourself with the LFO membership tag — a verified member can then attest you from the members page.</p>
+              <button class="btn btn-primary signin-full-btn" onclick="startApplyFlow()">Apply for membership</button>
+            </div>
+
+            <!-- Already-pending notice — shown when application already exists -->
+            <div id="already-pending-notice" style="display:none;margin-top:1.2rem">
+              <div style="display:flex;align-items:center;gap:0.5rem;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:8px;padding:0.65rem 0.9rem">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span style="font-size:0.82rem;font-weight:600;color:#d97706">Your application is pending</span>
+              </div>
+              <p style="font-size:0.78rem;color:#666;margin-top:0.5rem;line-height:1.55">A verified LFO member can attest you from the Members page.</p>
+            </div>
+
+            <div class="not-member-footer" style="margin-top:1.2rem">
               <button class="btn btn-ghost" onclick="disconnect()">Try a different key</button>
             </div>
+          </div>
+
+          <!-- STATE: APPLY CONFIRM -->
+          <div id="state-apply-confirm" class="signin-state">
+            <p class="state-idle-title">Apply for membership</p>
+            <p style="font-size:0.85rem;color:#888;line-height:1.7;margin-bottom:1.2rem">This will publish a signed Nostr event tagging your npub with the LFO membership tag. Your profile will appear in the <strong style="color:#ccc">pending</strong> section of the members list, where a verified member can attest you.</p>
+            <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;padding:0.6rem 0.9rem;margin-bottom:1.4rem;font-size:0.78rem;font-family:monospace;color:#777;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="apply-confirm-npub"></div>
+
+            <!-- No-extension warning, revealed if user clicks confirm without one -->
+            <div id="apply-no-ext-msg" style="display:none;margin-bottom:1rem">
+              <p style="font-size:0.8rem;color:#d97706;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:8px;padding:0.7rem 0.9rem;line-height:1.55;margin-bottom:0.75rem">A NIP-07 browser extension is required to sign the application event.</p>
+              <div class="ext-links">
+                <a href="https://getalby.com" target="_blank" rel="noopener" class="ext-link">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  Alby
+                </a>
+                <a href="https://github.com/fiatjaf/nos2x" target="_blank" rel="noopener" class="ext-link">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  nos2x
+                </a>
+                <a href="https://www.getflamingo.org" target="_blank" rel="noopener" class="ext-link">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  Flamingo
+                </a>
+              </div>
+            </div>
+
+            <button class="btn btn-primary signin-full-btn" onclick="confirmApply()">Confirm &amp; sign</button>
+            <button class="state-back-btn" onclick="showState('not-member')">← Back</button>
+          </div>
+
+          <!-- STATE: APPLIED -->
+          <div id="state-applied" class="signin-state">
+            <div class="verified-header">
+              <div class="verified-icon">
+                <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <div>
+                <p class="verified-title">Application submitted</p>
+              </div>
+            </div>
+            <p style="font-size:0.85rem;color:#888;line-height:1.7;margin-bottom:1.2rem">Your profile is now in the pending members list. Share your npub with a verified LFO member — they can attest you from the Members page.</p>
+            <div class="member-npub-row" style="margin-bottom:1.4rem;background:#1a1a1a;border-color:#2a2a2a">
+              <span class="member-npub-text" id="applied-npub-text" style="color:#888"></span>
+              <button class="member-copy-btn" onclick="copyAppliedNpub(this)" title="Copy npub">
+                <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </button>
+            </div>
+            <button class="btn btn-ghost signin-full-btn" onclick="disconnect()">Sign out</button>
           </div>
 
           <!-- STATE: NO EXTENSION -->
@@ -1145,6 +1210,7 @@
     let _nsecVisible      = false;
     let _hasExtension     = false;
     let _isVerifiedMember = false;
+    let _alreadyPending   = false;
 
     // ── View switching ──────────────────────────────────────────────────────
     function showView(name) {
@@ -1649,8 +1715,13 @@
         heroCta.onclick = () => showView('members');
         showView('members');
       } else {
+        const { pendingMap } = buildMemberSets(_tagItemsCache || []);
+        _alreadyPending = pendingMap.has(hexPubkey);
+
         const shortId = hexToNpubShort(hexPubkey);
         document.getElementById('not-member-npub-text').textContent = shortId;
+        document.getElementById('apply-prompt').style.display           = _alreadyPending ? 'none' : '';
+        document.getElementById('already-pending-notice').style.display = _alreadyPending ? '' : 'none';
         showState('not-member');
       }
     }
@@ -1816,6 +1887,76 @@
       await proceedWithPubkey(_generatedHex);
     }
 
+    // ── Apply-for-membership flow ───────────────────────────────────────────
+    function startApplyFlow() {
+      let npub = currentPubkey;
+      if (window._nostrNpubEncode) {
+        try { npub = window._nostrNpubEncode(currentPubkey); } catch {}
+      }
+      document.getElementById('apply-confirm-npub').textContent = npub;
+      document.getElementById('apply-no-ext-msg').style.display = 'none';
+      showState('apply-confirm');
+    }
+
+    async function confirmApply() {
+      if (!window.nostr) {
+        document.getElementById('apply-no-ext-msg').style.display = '';
+        return;
+      }
+
+      setLoadingMsg('Publishing your application to Nostr relays…');
+      showState('loading');
+
+      const targetHex = currentPubkey;
+      const dTag = `profile-tag-lfo-${targetHex.slice(0, 8)}-${targetHex.slice(0, 8)}`;
+
+      const unsignedEvent = {
+        kind: 39999,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ['d', dTag],
+          ['e', LFO_TAG_EVENT_ID],
+          ['z', NOSTR_USER_TAG_ADDR],
+          ['p', targetHex],
+          ['polarity', '1'],
+        ],
+        content: '',
+      };
+
+      let signedEvent;
+      try {
+        signedEvent = await window.nostr.signEvent(unsignedEvent);
+      } catch {
+        showState('apply-confirm');
+        return;
+      }
+
+      await Promise.all([
+        publishEventToRelay(RELAYS[0], signedEvent, 8000),
+        ...RELAYS.slice(1).map(r => publishEventToRelay(r, signedEvent, 6000)),
+      ]);
+
+      if (_tagItemsCache) _tagItemsCache.push(signedEvent);
+      _alreadyPending = true;
+
+      let npub = currentPubkey;
+      if (window._nostrNpubEncode) {
+        try { npub = window._nostrNpubEncode(currentPubkey); } catch {}
+      }
+      document.getElementById('applied-npub-text').textContent = npub;
+      showState('applied');
+    }
+
+    async function copyAppliedNpub(btn) {
+      const text = document.getElementById('applied-npub-text').textContent;
+      try {
+        await navigator.clipboard.writeText(text);
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:11px;height:11px;stroke:#22c55e;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round"><polyline points="20 6 9 17 4 12"/></svg>';
+        setTimeout(() => { btn.innerHTML = orig; }, 2000);
+      } catch {}
+    }
+
     // ── Pill dropdown ───────────────────────────────────────────────────────
     function togglePillMenu() {
       const wrap = document.getElementById('nav-pill-wrap');
@@ -1846,6 +1987,7 @@
       _generatedHex     = null; _generatedNsec = null; _generatedNpub = null;
       _hasExtension     = false;
       _isVerifiedMember = false;
+      _alreadyPending   = false;
 
       document.getElementById('nav-signin-btn').style.display = '';
       document.getElementById('nav-pill-wrap').classList.remove('visible', 'open');
