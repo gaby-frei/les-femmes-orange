@@ -36,7 +36,7 @@ A user is "tagged LFO" when a kind 39999 DList item exists that:
 
 ## Tapestry Protocol Reference
 
-The `tapestry/` directory contains the full reference implementation (`tapestry/tapestry/`).
+The `tapestry/` directory contains the full reference implementation (the cloned Tapestry repo lives directly at `tapestry/`).
 The live deployment relevant to this project is `tags.brainstorm.world` — branch `feat/pubkey-tagging-target`, stood up 2026-05-12, long-lived sandbox for the pubkey-tagging feature.
 
 ### Relay URL
@@ -124,12 +124,12 @@ For each result item:
 
 ### Key tapestry source files to reference
 
-- `tapestry/tapestry/src/lib/dtag.js` — d-tag derivation (`slug` + `hash8`)
-- `tapestry/tapestry/src/api/trustedList/index.js` — event signing + strfry publish pattern
-- `tapestry/tapestry/src/middleware/auth.js` — full challenge-sign auth flow
-- `tapestry/tapestry/ui/src/utils/nostrPublish.js` — `SimplePool`, relay fetch/publish helpers
-- `tapestry/tapestry/ui/src/pages/lists/NewDListItem.jsx` — DList item event structure
-- `tapestry/tapestry/ui/src/pages/lists/DListItems.jsx` — `p` tag extraction pattern
+- `tapestry/src/lib/dtag.js` — d-tag derivation (`slug` + `hash8`)
+- `tapestry/src/api/trustedList/index.js` — event signing + strfry publish pattern
+- `tapestry/src/middleware/auth.js` — full challenge-sign auth flow
+- `tapestry/ui/src/utils/nostrPublish.js` — `SimplePool`, relay fetch/publish helpers
+- `tapestry/ui/src/pages/lists/NewDListItem.jsx` — DList item event structure
+- `tapestry/ui/src/pages/lists/DListItems.jsx` — `p` tag extraction pattern
 
 ---
 
@@ -251,8 +251,7 @@ until no changes
 ```
 les-femmes-orange/
   CLAUDE.md              ← this file
-  tapestry/              ← reference implementation (read-only)
-    tapestry/            ← cloned repo (branch feat/pubkey-tagging-target context)
+  tapestry/              ← cloned Tapestry reference implementation, read-only (branch feat/pubkey-tagging-target context)
   src/
     server/
       auth.js            ← NIP-07 challenge-sign endpoints
