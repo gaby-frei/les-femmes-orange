@@ -266,3 +266,135 @@ les-femmes-orange/
       components/
         AuthGate.jsx      ← membership check wrapper
 ```
+
+---
+---
+
+# Team Harness & Community Foundation
+
+> _Added during repo bootstrap. Les Femmes Orange is a Tapestry-based community app, so it runs the full product + engineering team harness and is built on the Tapestry community foundation. The sections below are the wiring for that harness — they sit alongside the project context above, not in place of it._
+
+**Read these first** (copied into this repo during setup):
+
+- [AGENTS.md](./AGENTS.md) — concept-graph orientation pattern. Read this BEFORE touching code.
+- [BIBLE.md](./BIBLE.md) — protocol spec, architecture, and data model. Its **§22 Community-Reference Model, §23 Class-Thread Membership Tags, §24 Task Queue, §25 Inherit-From Tag**, and the `concept-graph` header pointer are the community substrate to design on.
+- [docs/COMMUNITIES_PROTOCOL_DESIGN_HANDOFF.md](./docs/COMMUNITIES_PROTOCOL_DESIGN_HANDOFF.md) — the **current direction** for how Tapestry communities work (community as a concept, membership via a `nostr-user-tag` weighted by GrapeRank, definitional deference via the `b` inherit-from tag). **LFO should align to this**, not to any older community model. This is the primary community-design reference.
+
+**Also check at session start:**
+
+- [`engineering-team/stories/_intake.md`](./engineering-team/stories/_intake.md) — queued-but-unplanned work catalog (if present). See [engineering-team/README.md](./engineering-team/README.md) for the format. Scan before opening a fresh feature request.
+- `engineering-team/*/done/community-reference/` — Tapestry's community build records, inherited read-only as protocol reference. Gaby's own epics/stories/decisions live outside `done/`.
+
+## Product Team Mode (upstream — optional)
+
+*Before* a feature is engineered, a product can be **discovered and designed** through a parallel harness in `product-team/`. It runs upstream of Engineering Team Mode and is optional: use it when starting a new product or a substantial feature area where the requirements aren't yet clear. A non-technical user describes what they want in natural language; the product team iterates through structured phases; the output is markdown artifacts the engineering team consumes.
+
+The boundary is clean: **the product team produces markdown (PRD, guides, story queue). The engineering team writes code.** No source, no file paths, no library choices cross into the product artifacts.
+
+- **`product-team/`** — roles, workflows, templates, guardrails, and accumulating discoveries/personas/journeys/scope/domain/prd/guides. Source of truth for product behavior. Read [product-team/README.md](./product-team/README.md) for the layout.
+- **`.claude/`** — wiring only:
+  - `.claude/commands/<phase>.md` — slash commands: `/discover`, `/model-users`, `/scope`, `/model-domain`, `/design-experience`, `/assemble-prd`, `/decompose-stories`, `/discuss-product`.
+  - `.claude/agents/<role>.md` — product subagents; each can Write only into `product-team/`, and the Product Advisor cannot Write at all.
+
+The seven phases — **Discovery → User Modeling → Scope → Domain Modeling → Experience Design → PRD Assembly → Story Decomposition** — each have a human approval gate and write a durable artifact. The flow ends by emitting `product-team/stories-queue.md`, an epic-aware backlog. **The handoff is doc-driven and one-directional:** the engineering Product Owner reads that queue, creates the matching epics under `engineering-team/`, and promotes each brief via `/plan-feature`. The product flow never writes into `engineering-team/`. See [product-team/README.md](./product-team/README.md) → "Handoff to the engineering team".
+
+## Intent Detection (natural language is the primary interface)
+
+Most people who use the product flow will never type a slash command. **Natural language is the default way in; slash commands are shortcuts for people who already know the flow.** Claude reads what the user says, infers which phase they mean, confirms it in plain language, and proceeds. The non-technical user never needs to know slash commands exist.
+
+### Register — who am I talking to?
+
+- **User spoke naturally** (no slash command) → treat them as non-technical. Enter the phase with the **plain-language entry message** from that phase's workflow file (its `## Natural language` section). Do **not** say "I'm acting as the UX Researcher. Phase 2: User Modeling" — role labels and phase numbers are internal machinery. Say what you're about to do in plain words, then ask "Ready?" before starting. Never use jargon like "persona," "acceptance criteria," or "entity" with this user — translate their words into structure silently.
+- **User typed a slash command** → treat them as technical. Use the formal role announcement ("I'm acting as the Product Strategist. Phase: Discovery.") exactly as the command file specifies.
+
+Between phases the gate is **conversational, never a command**: "I've captured the problem space. Next I'd map out who your users are and what their experience looks like. Want to continue?" The user says yes; the next phase begins. No `/model-users` required.
+
+### Routing table
+
+**Product flow — figuring out *what* to build** (enter the phase, confirm in plain language):
+
+| The user says something like… | Phase to enter |
+|---|---|
+| "I have an idea," "I want to build," "what should we build," "help me figure out what to make" | Discovery (`/discover`) |
+| "who are the users," "who is this for" | User Modeling (`/model-users`) |
+| "what's in the first version," "what should we cut," "what's the scope" | Scope (`/scope`) |
+| "what information do we need," "what are the things involved" | Domain Modeling (`/model-domain`) |
+| "what should it look like," "design the screens" | Experience Design (`/design-experience`) |
+| "put it all together," "write it up," "write the PRD" | PRD Assembly (`/assemble-prd`) |
+| "break it into tasks," "what does engineering need" | Story Decomposition (`/decompose-stories`) |
+| "let's start building," "hand off to engineering," "ready to build" | Story Decomposition → engineering handoff |
+
+**Engineering flow — figuring out *how* to build it** (technical audience; formal announcements are fine here):
+
+| The user says something like… | Where to go |
+|---|---|
+| "let's implement," "write the code," "build this story" | `/plan-feature` (new story) or `/implement-feature` (story with tests) |
+| "review the code," "is this ready to ship" | `/review-changes` |
+| "I think that's everything," "that's all I needed," "looks done," "we're done" | **Offer to close the book** → `/close-book` (don't auto-run; the user's "yes" is the trigger) |
+
+**Advisory — thinking out loud** (no artifacts):
+
+| The user says something like… | Where to go |
+|---|---|
+| "what do you think about," "help me think through" (product / users) | `/discuss-product` |
+| "what do you think about," "help me think through" (stack / feasibility) | `/discuss` |
+
+**When in doubt, ask one question:** "Are you exploring a product idea (figuring out *what* to build) or ready to start engineering (*how* to build it)?" Then route.
+
+### The non-technical journey, end to end
+
+A product person opens Claude Code and says *"I have an idea for a community feature and I want to figure out what to build."* Claude confirms it's the start of product discovery, explains in plain words that it'll ask about the problem, the people, and what exists today, and asks "Ready?" From there each phase flows into the next through conversational gates. The user talks in whatever words they have — *"the women in the community need a way to vouch for each other"* — and the harness translates that into structured artifacts behind the scenes. When the product work is done, Claude presents the PRD and guides and offers to break the work into engineering tasks. If the user says "let's start building," Claude decomposes the stories and either hands to the engineering flow or notes that the engineering side is best run by (or with) a technical teammate. The user never types a slash command, never hears "persona" or "acceptance criteria," and never sees a phase number.
+
+## Engineering Team Mode
+
+This project runs every change through a **Product Owner → Architect → Tester → Implementer → Reviewer** harness with explicit human approval gates between phases. Pattern adapted from Rob Conery's *Eliminate Crappy Slop Code* (https://bigmachine.io/articles/video/eliminate-crappy-slop-code/).
+
+The harness lives in two places:
+
+- **`engineering-team/`** — roles, workflows, templates, and accumulating decisions/stories/reviews. Source of truth for behavior. Read [engineering-team/README.md](./engineering-team/README.md) for the layout and phase wiring.
+- **`.claude/`** — wiring only:
+  - `.claude/commands/<phase>.md` — slash commands: `/plan-feature`, `/design-architecture`, `/design-tests`, `/implement-feature`, `/review-changes`, `/close-book`, `/discuss`.
+  - `.claude/agents/<role>.md` — subagents with role-appropriate tool whitelists. The Architect cannot Edit source. The Reviewer cannot Edit source.
+
+Phases 1–5 are the **per-story** cycle. Above them sits one **per-book** milestone, `/close-book` — see "Books of work and the return edge" below.
+
+### How to operate
+
+1. **Classify the request.** Ask: "Is this a new feature, a bug fix, a refactor, or a doc/typo change?" That answer determines which phases apply (Standard strictness):
+
+   | Type | Phases that apply |
+   |---|---|
+   | Feature | All five phases |
+   | Bug | Skip Architecture if obvious; otherwise all |
+   | Refactor | Skip Tests if no behavior change |
+   | Doc / typo / one-liner | Implementer + Reviewer only |
+
+2. **Know which role you're in.** When a phase command is invoked, state at the top of your first response: "I'm acting as the {Role}. Phase: {Phase}."
+3. **Stay in role.** The Architect doesn't write the implementation. The Implementer doesn't invent new requirements. If the inputs are unclear, kick back to the prior phase rather than drifting.
+4. **Honor the gates.** End each phase by summarizing the output and asking the user to approve before moving on. Do not auto-advance.
+5. **Use the templates.** Stories, ADRs, test plans, and reviews start from `engineering-team/templates/`.
+
+### Project settings
+
+| Setting | Value |
+|---|---|
+| Strictness | Standard |
+| ADRs | enabled |
+| Clean working tree before starting a feature | yes |
+| Commit at each phase boundary | yes |
+
+### Books of work and the return edge
+
+The per-story cycle sits inside a larger unit — a **book of work**: a PRD, one roadmap phase of a PRD, or (with no PRD) a bounded ask. Books bracket the loop back to the product team:
+
+- **Open (eager anchor).** At intake, a new book opens `engineering-team/audits/<book-slug>/book.md` recording its intent anchor — the PRD it realizes, or a short **acceptance frame** (the ask restated and confirmed) when there's no PRD. This is the durable definition of "done"; without it, completion can't be detected across sessions and the close drops to low confidence.
+- **Detect completion (offer, don't auto-run).** After every per-story PASS — or when the user signals "I think that's everything" — check whether the book now looks complete (computed for PRD-backed books; judged against the acceptance frame otherwise). If it does, *offer* to close it. The system never declares done; it proposes done and the user ratifies. Their "yes" is the trigger for `/close-book`.
+- **Close (`/close-book`).** The Reviewer, at book scope, writes two artifacts under `audits/<book-slug>/`: `audit.md` (the as-built record) and either `prd-addendum.md` (PRD-backed — deltas vs the PRD) or `prd-seed.md` (no PRD — a reconstructed baseline). These are the **return edge**: the product team reads them to scope the next phase. Engineering authors them under `engineering-team/` and never writes into `product-team/` — the mirror image of engineering reading the product team's `stories-queue.md`. See [engineering-team/README.md](./engineering-team/README.md) → "The return edge".
+
+## House rules
+
+- The Concept Graph API on the local control panel is the authoritative source for domain concepts. Always check there before reading source. See AGENTS.md §1–§3 for the port, TA pubkey, and three-call orientation pattern.
+- Reinstall firmware after adding/changing concept definitions — see AGENTS.md §6 for the exact curl.
+- Don't add new lint or typecheck tooling without an explicit ADR. This project is intentionally JS-without-build.
+- **The stack runs in Docker.** The control panel, Neo4j, strfry, and Redis run *inside* containers — their logs and CLIs live in the container, not on the host (`docker exec <container> …`). Host paths like `/var/log/brainstorm/...` do **not** exist on the host.
+  > **TODO (technical teammate): confirm LFO's instance URL, container names, and ports.** The values above are inherited from the Tapestry reference deployment; LFO's own deployment details are not yet set. The Tapestry reference implementation lives in `tapestry/` in this repo for lookup.
