@@ -1,6 +1,6 @@
 # Story 1: In-browser local signing for users without a NIP-07 extension
 
-**Status:** Draft
+**Status:** Done
 **Created:** 2026-06-09
 **Type:** Feature
 

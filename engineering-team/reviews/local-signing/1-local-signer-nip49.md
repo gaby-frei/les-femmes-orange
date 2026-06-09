@@ -81,3 +81,23 @@
 **CHANGES_REQUESTED** — one blocking issue (the `submitPassphrase` persistence race) makes the
 test gate fail intermittently. Everything else conforms to the story and ADR. Fix the ordering,
 get `npm test` green across repeated runs, and this is a PASS.
+
+---
+
+## Re-review (2026-06-09, commit `a9548c8`)
+
+Blocking #1 resolved. `submitPassphrase` now encrypts + `saveAccount` + `unlockLocal` **before**
+`showState('loading')` (`public/index.html:1967-1995`), so leaving the passphrase screen reliably
+implies the key is persisted; the submit button shows "Encrypting…" during scrypt and is reset in
+a `finally`.
+
+Gate re-run by reviewer:
+- `npm test` — **PASS, 9/9.**
+- Previously-flaky AC-2 (`holds only an ncryptsec`) — **PASS 6/6** under `--repeat-each=6`. Race gone.
+
+Non-blocking notes from the first pass stand (AC-9 generate path & AC-7 covered by inspection,
+not automated; minor dead leftovers). None blocking.
+
+### Final verdict
+**PASS** — diff matches the story and ADR 0028, gate is clean and stable across repeated runs.
+Story marked Done.
