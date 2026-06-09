@@ -840,6 +840,10 @@
           <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           Sign Out
         </button>
+        <button class="nav-pill-dropdown-item signout" onclick="pillForgetDevice()" role="menuitem">
+          <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          Forget this device
+        </button>
       </div>
     </div>
   </nav>
@@ -1002,11 +1006,59 @@
                 onkeydown="if(event.key==='Enter') signInManually()"
               />
               <p class="nsec-warning" id="nsec-warning" style="display:block">
-                ⚠️ Your secret key never leaves this page — it's used only to verify your membership locally.
+                ⚠️ Next you'll set a passphrase. Your secret key is encrypted with it and stored only on this device — it's never uploaded anywhere.
               </p>
               <p class="manual-key-error" id="manual-key-error"></p>
               <button class="btn btn-outline signin-full-btn" onclick="signInManually()">Continue</button>
             </div>
+          </div>
+
+          <!-- STATE: SET PASSPHRASE (encrypt the local key) -->
+          <div id="state-set-passphrase" class="signin-state">
+            <p class="state-idle-title">Protect your key on this device</p>
+            <p class="state-idle-sub">Set a passphrase to encrypt your secret key in this browser. You'll enter it each time you sign in here. Your key is never uploaded anywhere.</p>
+            <div class="manual-input-wrap">
+              <input
+                type="password"
+                id="passphrase-input"
+                placeholder="Passphrase (at least 8 characters)"
+                autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false"
+                oninput="document.getElementById('passphrase-error').textContent=''"
+              />
+              <input
+                type="password"
+                id="passphrase-confirm"
+                placeholder="Confirm passphrase"
+                autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false"
+                oninput="document.getElementById('passphrase-error').textContent=''"
+                onkeydown="if(event.key==='Enter') submitPassphrase()"
+              />
+              <p class="nsec-warning" id="passphrase-warning" style="display:block">
+                ⚠️ Your passphrase <strong>can't be recovered</strong>. If you forget it you'll need your nsec backup to sign in again — so keep your nsec saved somewhere safe.
+              </p>
+              <p class="manual-key-error" id="passphrase-error"></p>
+              <button class="btn btn-primary signin-full-btn" onclick="submitPassphrase()">Encrypt &amp; continue</button>
+            </div>
+            <button class="state-back-btn" onclick="disconnect()">← Back</button>
+          </div>
+
+          <!-- STATE: UNLOCK (returning local-key user) -->
+          <div id="state-unlock" class="signin-state">
+            <p class="state-idle-title">Welcome back</p>
+            <p class="state-idle-sub">Enter your passphrase to unlock <span id="unlock-npub" style="color:#aaa;font-family:monospace"></span> on this device.</p>
+            <div class="manual-input-wrap">
+              <input
+                type="password"
+                id="unlock-input"
+                placeholder="Passphrase"
+                autocomplete="current-password" autocorrect="off" autocapitalize="off" spellcheck="false"
+                oninput="document.getElementById('unlock-error').textContent=''"
+                onkeydown="if(event.key==='Enter') submitUnlock()"
+              />
+              <p class="manual-key-error" id="unlock-error"></p>
+              <button class="btn btn-primary signin-full-btn" onclick="submitUnlock()">Unlock</button>
+            </div>
+            <button class="state-back-btn" onclick="forgetAndReset()">Use a different key</button>
           </div>
 
           <!-- STATE: LOADING -->
@@ -1120,7 +1172,7 @@
           <div id="state-no-extension" class="signin-state">
             <p class="state-idle-title">No Nostr extension found</p>
             <p class="no-ext-body">
-              No NIP-07 extension was detected. Enter your secret key (nsec) to sign in, or install a browser extension to also attest pending members.
+              No NIP-07 extension was detected. Enter your secret key (nsec) to sign in — you'll set a passphrase that encrypts it on this device so you can apply and attest. Or install a browser extension below.
             </p>
             <div class="manual-input-wrap" style="margin-bottom:1.4rem;">
               <input
@@ -1132,7 +1184,7 @@
                 onkeydown="if(event.key==='Enter') signInManually('manual-key-input-2', 'manual-key-error-2')"
               />
               <p class="nsec-warning" id="nsec-warning-2" style="display:block">
-                ⚠️ Your secret key never leaves this page — it's used only to verify your membership locally.
+                ⚠️ Next you'll set a passphrase. Your secret key is encrypted with it and stored only on this device — it's never uploaded anywhere.
               </p>
               <p class="manual-key-error" id="manual-key-error-2"></p>
               <button class="btn btn-primary signin-full-btn" onclick="signInManually('manual-key-input-2', 'manual-key-error-2')">Continue</button>
@@ -1233,7 +1285,11 @@
 
   <!-- nostr-tools: bech32, key derivation, and keypair generation -->
   <script type="module">
-    import { nip19, getPublicKey, generateSecretKey } from 'https://esm.sh/nostr-tools@2';
+    import { nip19, getPublicKey, generateSecretKey, finalizeEvent } from 'https://esm.sh/nostr-tools@2';
+    // nip49 (ncryptsec — NIP-49 passphrase encryption) is only exposed on the subpath,
+    // not the package root.
+    import * as nip49 from 'https://esm.sh/nostr-tools@2/nip49';
+
     window._nostrDecode      = (str) => nip19.decode(str);
     window._nostrGetPubkey   = (secretBytes) => getPublicKey(secretBytes);
     window._nostrNpubEncode  = (hex) => nip19.npubEncode(hex);
@@ -1244,6 +1300,43 @@
       const hex  = getPublicKey(sk);
       return { nsec, npub, hex };
     };
+
+    // ── LFOSigner ───────────────────────────────────────────────────────────
+    // One signing seam for the whole app. Two modes:
+    //   'extension' — delegate to a NIP-07 extension (window.nostr)
+    //   'local'     — sign in-browser with a secret key held in memory only
+    //                 while unlocked. The key is never on `window`; at rest it
+    //                 lives only as a NIP-49 ncryptsec in localStorage.
+    const LFOSigner = (() => {
+      let mode = null;   // 'extension' | 'local' | null
+      let sk   = null;   // Uint8Array — present only in local mode while unlocked
+      return {
+        get mode() { return mode; },
+        initExtension() { mode = 'extension'; sk = null; },
+        unlockLocal(skBytes) { sk = skBytes; mode = 'local'; },
+        canSign() { return mode === 'extension' || (mode === 'local' && !!sk); },
+        async getPublicKey() {
+          if (mode === 'extension') return window.nostr.getPublicKey();
+          if (mode === 'local' && sk) return getPublicKey(sk);
+          throw new Error('No signer available');
+        },
+        async sign(unsignedEvent) {
+          if (mode === 'extension') return window.nostr.signEvent(unsignedEvent);
+          if (mode === 'local' && sk) return finalizeEvent(unsignedEvent, sk);
+          throw new Error('No signer available to sign');
+        },
+        clear() { if (sk) { try { sk.fill(0); } catch {} } sk = null; mode = null; },
+        // crypto helpers (used by the sign-in / passphrase flows)
+        nsecToSk(nsec) {
+          const d = nip19.decode(nsec);
+          if (d.type !== 'nsec') throw new Error('Not an nsec');
+          return d.data;
+        },
+        encryptKey(skBytes, passphrase) { return nip49.encrypt(skBytes, passphrase); },
+        decryptKey(ncryptsec, passphrase) { return nip49.decrypt(ncryptsec, passphrase); },
+      };
+    })();
+    window.LFOSigner = LFOSigner;
   </script>
 
   <script>
@@ -1270,6 +1363,18 @@
     let _hasExtension     = false;
     let _isVerifiedMember = false;
     let _alreadyPending   = false;
+
+    // Transient: secret key decoded from an entered/generated nsec, awaiting a passphrase.
+    // Never persisted; handed to LFOSigner once the passphrase is set.
+    let _pendingSk        = null;
+
+    // ── Local account persistence (encrypted key only) ──────────────────────
+    const LFO_ACCOUNT_KEY = 'lfo_account';
+    function loadAccount() {
+      try { return JSON.parse(localStorage.getItem(LFO_ACCOUNT_KEY)); } catch { return null; }
+    }
+    function saveAccount(acct) { localStorage.setItem(LFO_ACCOUNT_KEY, JSON.stringify(acct)); }
+    function forgetAccount()   { localStorage.removeItem(LFO_ACCOUNT_KEY); }
 
     // ── View switching ──────────────────────────────────────────────────────
     function showView(name) {
@@ -1449,7 +1554,7 @@
 
     // ── Apply LFO tag to a pending member ──────────────────────────────────
     async function applyLFOTag(targetHex, targetName, footerEl) {
-      if (!window.nostr || !currentPubkey || !_isVerifiedMember) return;
+      if (!window.LFOSigner.canSign() || !currentPubkey || !_isVerifiedMember) return;
 
       const attestBtn = footerEl.querySelector('.attest-btn');
       if (attestBtn) attestBtn.disabled = true;
@@ -1480,7 +1585,7 @@
 
         let signedEvent;
         try {
-          signedEvent = await window.nostr.signEvent(unsignedEvent);
+          signedEvent = await window.LFOSigner.sign(unsignedEvent);
         } catch {
           // User rejected or extension error — restore button
           const restoredBtn = document.createElement('button');
@@ -1640,12 +1745,7 @@
             : type !== 'pending' ? `<span class="member-attested-by">Founding curator</span>` : ''}
           ${type === 'pending' && options.showAttestBtn
             ? `<button class="attest-btn" data-target-hex="${escHtml(hex)}" data-target-name="${escHtml(tagName)}">Attest as Member</button>`
-            : type === 'pending' && options.showDisabledAttest
-              ? `<span class="attest-btn-wrap">
-                   <button class="attest-btn" disabled>Attest as Member</button>
-                   <span class="attest-tooltip">Install a Nostr extension to attest members</span>
-                 </span>`
-              : ''}
+            : ''}
         </div>
       `;
 
@@ -1716,8 +1816,8 @@
 
       // Determine which pending pubkeys the current user has already attested
       const myAttestedPubkeys    = getMyAttestedPubkeys(tagItems);
-      const canAttest            = _isVerifiedMember && _hasExtension;
-      const verifiedNoExtension  = _isVerifiedMember && !_hasExtension;
+      // Any verified member who can sign (extension OR unlocked local key) can attest.
+      const canAttest            = _isVerifiedMember && window.LFOSigner.canSign();
 
       // Render verified
       verifiedGrid.innerHTML = '';
@@ -1732,9 +1832,8 @@
       for (const pk of pendingPubkeys) {
         const alreadyAttested    = myAttestedPubkeys.has(pk);
         const showAttestBtn      = canAttest && !alreadyAttested;
-        const showDisabledAttest = verifiedNoExtension && !alreadyAttested;
         pendingGrid.appendChild(
-          makeMemberCard(pk, metaMap, 'pending', pendingMap.get(pk), { showAttestBtn, showDisabledAttest })
+          makeMemberCard(pk, metaMap, 'pending', pendingMap.get(pk), { showAttestBtn })
         );
       }
 
@@ -1806,6 +1905,7 @@
       }
 
       _hasExtension = true;
+      window.LFOSigner.initExtension();
       await proceedWithPubkey(pubkey);
     }
 
@@ -1832,7 +1932,8 @@
         const decoded = window._nostrDecode(raw);
 
         if (decoded.type === 'nsec') {
-          hexPubkey = window._nostrGetPubkey(decoded.data);
+          _pendingSk = decoded.data;
+          hexPubkey = window._nostrGetPubkey(_pendingSk);
           input.value = '';
         } else {
           throw new Error('Please enter your secret key (nsec1…). Public keys cannot sign in.');
@@ -1844,9 +1945,80 @@
         return;
       }
 
+      // Don't sign in yet — require a passphrase to encrypt the key on this device first.
+      showState('set-passphrase');
+    }
+
+    // ── Passphrase setup (encrypt the local key) ─────────────────────────────
+    async function submitPassphrase() {
+      const errEl = document.getElementById('passphrase-error');
+      errEl.textContent = '';
+
+      if (!_pendingSk) {
+        errEl.textContent = 'Session expired — please enter your key again.';
+        showState('idle');
+        return;
+      }
+      const p1 = document.getElementById('passphrase-input').value;
+      const p2 = document.getElementById('passphrase-confirm').value;
+      if (p1.length < 8)  { errEl.textContent = 'Passphrase must be at least 8 characters.'; return; }
+      if (p1 !== p2)      { errEl.textContent = 'Passphrases do not match.'; return; }
+
+      showState('loading');
+      setLoadingMsg('Encrypting your key…');
+      // Let the loading state paint before the (synchronous, scrypt-heavy) encryption.
+      await new Promise(r => setTimeout(r, 10));
+
+      try {
+        const sk        = _pendingSk;
+        const pubkey    = window._nostrGetPubkey(sk);
+        const npub      = window._nostrNpubEncode(pubkey);
+        const ncryptsec = window.LFOSigner.encryptKey(sk, p1);
+        saveAccount({ pubkey, npub, ncryptsec, createdAt: Math.floor(Date.now() / 1000) });
+        window.LFOSigner.unlockLocal(sk);
+        _pendingSk = null;
+        document.getElementById('passphrase-input').value   = '';
+        document.getElementById('passphrase-confirm').value = '';
+        await proceedWithPubkey(pubkey);
+      } catch (e) {
+        document.getElementById('error-msg').textContent =
+          'Could not set up your key: ' + (e.message || 'unknown error');
+        showState('error');
+      }
+    }
+
+    // ── Unlock a returning local-key account ─────────────────────────────────
+    async function submitUnlock() {
+      const errEl = document.getElementById('unlock-error');
+      errEl.textContent = '';
+      const acct = loadAccount();
+      if (!acct || !acct.ncryptsec) { showState('idle'); return; }
+
+      const pass = document.getElementById('unlock-input').value;
+      if (!pass) { errEl.textContent = 'Enter your passphrase.'; return; }
+
+      let sk;
+      try {
+        sk = window.LFOSigner.decryptKey(acct.ncryptsec, pass);
+      } catch {
+        errEl.textContent = 'Incorrect passphrase.';
+        return;
+      }
+      document.getElementById('unlock-input').value = '';
+      window.LFOSigner.unlockLocal(sk);
+
       showState('loading');
       setLoadingMsg('Checking membership across Nostr relays…');
-      await proceedWithPubkey(hexPubkey);
+      await proceedWithPubkey(acct.pubkey);
+    }
+
+    // Clear the stored account and return to a fresh sign-in.
+    function forgetAndReset() {
+      forgetAccount();
+      window.LFOSigner.clear();
+      _pendingSk = null;
+      const u = document.getElementById('unlock-input'); if (u) u.value = '';
+      showState('idle');
     }
 
     // ── Key generation flow ─────────────────────────────────────────────────
@@ -1939,11 +2111,16 @@
       URL.revokeObjectURL(url); document.body.removeChild(a);
     }
 
-    async function proceedAfterGenerate() {
-      if (!_generatedHex) return;
-      showState('loading');
-      setLoadingMsg('Checking membership across Nostr relays…');
-      await proceedWithPubkey(_generatedHex);
+    function proceedAfterGenerate() {
+      if (!_generatedNsec) return;
+      // A freshly generated key also gets encrypted with a passphrase before sign-in.
+      try {
+        _pendingSk = window._nostrDecode(_generatedNsec).data;
+      } catch {
+        document.getElementById('gen-error').textContent = 'Could not read the generated key — please try again.';
+        return;
+      }
+      showState('set-passphrase');
     }
 
     // ── Apply-for-membership flow ───────────────────────────────────────────
@@ -1958,7 +2135,7 @@
     }
 
     async function confirmApply() {
-      if (!window.nostr) {
+      if (!window.LFOSigner.canSign()) {
         document.getElementById('apply-no-ext-msg').style.display = '';
         return;
       }
@@ -1984,7 +2161,7 @@
 
       let signedEvent;
       try {
-        signedEvent = await window.nostr.signEvent(unsignedEvent);
+        signedEvent = await window.LFOSigner.sign(unsignedEvent);
       } catch {
         showState('apply-confirm');
         return;
@@ -2030,6 +2207,13 @@
       disconnect();
     }
 
+    function pillForgetDevice() {
+      document.getElementById('nav-pill-wrap').classList.remove('open');
+      document.getElementById('nav-pubkey-pill').setAttribute('aria-expanded', 'false');
+      forgetAccount();   // remove the encrypted key from this device
+      disconnect();
+    }
+
     document.addEventListener('click', e => {
       const wrap = document.getElementById('nav-pill-wrap');
       if (wrap && !wrap.contains(e.target)) {
@@ -2040,6 +2224,8 @@
 
     // ── Disconnect ──────────────────────────────────────────────────────────
     function disconnect() {
+      window.LFOSigner.clear();   // drop the in-memory key; the encrypted account stays on disk
+      _pendingSk        = null;
       currentPubkey     = null;
       _tagItemsCache    = null;
       _membersLoaded    = false;
@@ -2070,6 +2256,18 @@
       showView('about');
       showState('idle');
     }
+
+    // ── Initial sign-in state ───────────────────────────────────────────────
+    // A returning user with an encrypted key on this device is asked to unlock,
+    // rather than re-entering their nsec.
+    (function initSignInState() {
+      const acct = loadAccount();
+      if (acct && acct.ncryptsec) {
+        const el = document.getElementById('unlock-npub');
+        if (el) el.textContent = hexToNpubShort(acct.pubkey);
+        showState('unlock');
+      }
+    })();
   </script>
 
 </body>

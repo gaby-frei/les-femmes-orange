@@ -53,6 +53,25 @@ Resolved at intake (user-confirmed defaults):
 - Single stored account (overwrite on new key). → confirmed
 
 ## Linked artifacts
-- ADR: (filled in after Architecture phase)
-- Test plan: (filled in after Test Design phase)
+- ADR: `engineering-team/decisions/0028-local-signer-nip49.md`
+- Test plan: `engineering-team/stories/local-signing/1-local-signer-nip49.test-plan.md`
 - Review: (filled in after Review phase)
+
+## Deviations
+- **nip49 import path.** ADR 0028's import note imported `nip49` from the `nostr-tools@2`
+  root; the root doesn't export it. Implemented via the subpath
+  `import * as nip49 from 'https://esm.sh/nostr-tools@2/nip49'` (surfaced by the Tester, verified 200).
+- **`apply-no-ext-msg` element kept, not removed.** The ADR said remove the "extension required
+  to sign" branch in apply-confirm. Instead I changed its guard to `!LFOSigner.canSign()`, leaving
+  the element in place but effectively unreachable for any signed-in user (who can always sign).
+  Lower-risk than deleting markup; the disabled "install an extension to attest" tooltip path on
+  member cards *was* removed as specified.
+- **`disconnect()` is shared by Sign Out and the not-member "Try a different key" button.** Per the
+  ADR, `disconnect()` keeps the encrypted account (so Sign Out → reload shows unlock). The
+  not-member "Try a different key" therefore also keeps the stored account and returns to idle;
+  entering a new key overwrites it on the next passphrase set. A dedicated "Forget this device"
+  action (nav pill) wipes storage. Minor: if a user clicks "Try a different key" and reloads
+  without entering a new key, they'd see the unlock screen for the previous key.
+- **Dead leftovers (not cleaned, to keep the diff minimal):** `_hasExtension` is now set-only
+  (no longer read); the `.attest-btn-wrap`/`.attest-tooltip` CSS rules are unused now that the
+  disabled-attest path is gone.
