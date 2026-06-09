@@ -98,6 +98,8 @@ Gate re-run by reviewer:
 Non-blocking notes from the first pass stand (AC-9 generate path & AC-7 covered by inspection,
 not automated; minor dead leftovers). None blocking.
 
+**Update 2026-06-09:** AC-7 (sign-out keeps login / "forget this device" wipes) manually confirmed working by the user at runtime; an automated regression test remains outstanding (carry-forward).
+
 ### Final verdict
 **PASS** — diff matches the story and ADR 0028, gate is clean and stable across repeated runs.
 Story marked Done.
