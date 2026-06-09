@@ -10,6 +10,11 @@
 node_modules/
 npm-debug.log*
 
+# Playwright
+test-results/
+playwright-report/
+.playwright/
+
 # Nostr key backups
 *.nsec.txt
 *.nsec
