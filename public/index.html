@@ -1964,9 +1964,12 @@
       if (p1.length < 8)  { errEl.textContent = 'Passphrase must be at least 8 characters.'; return; }
       if (p1 !== p2)      { errEl.textContent = 'Passphrases do not match.'; return; }
 
-      showState('loading');
-      setLoadingMsg('Encrypting your key…');
-      // Let the loading state paint before the (synchronous, scrypt-heavy) encryption.
+      // Stay on the passphrase screen while encrypting + saving. Only after the key is
+      // persisted do we signal completion (showState('loading')) — otherwise the screen
+      // could advance before the key is written to storage.
+      const btn = document.querySelector('#state-set-passphrase .signin-full-btn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Encrypting…'; }
+      // Let the button state paint before the (synchronous, scrypt-heavy) encryption.
       await new Promise(r => setTimeout(r, 10));
 
       try {
@@ -1979,11 +1982,17 @@
         _pendingSk = null;
         document.getElementById('passphrase-input').value   = '';
         document.getElementById('passphrase-confirm').value = '';
+
+        // Key is persisted — now it's safe to leave the passphrase screen.
+        showState('loading');
+        setLoadingMsg('Checking membership across Nostr relays…');
         await proceedWithPubkey(pubkey);
       } catch (e) {
         document.getElementById('error-msg').textContent =
           'Could not set up your key: ' + (e.message || 'unknown error');
         showState('error');
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Encrypt & continue'; }
       }
     }
 
