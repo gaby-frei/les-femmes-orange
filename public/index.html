@@ -1040,6 +1040,13 @@
               <button class="btn btn-primary signin-full-btn" onclick="submitPassphrase()">Encrypt &amp; continue</button>
             </div>
 
+            <!-- Extension nudge — shown on the passphrase screen for both the paste and generate flows -->
+            <div id="set-passphrase-ext-hint" style="margin-top:1rem;background:rgba(245,148,92,0.07);border:1px solid rgba(245,148,92,0.15);border-radius:8px;padding:0.8rem 0.95rem;text-align:left">
+              <p style="font-size:0.82rem;color:#ccc;line-height:1.55;margin:0">
+                Rather <a href="#" onclick="showState('idle');return false;" style="color:inherit;text-decoration:underline">sign in</a> using a NIP-07 extension for best security practices? Learn more <a href="https://soapbox.pub/blog/managing-nostr-keys" target="_blank" rel="noopener" style="color:var(--orange);text-decoration:underline">here</a>
+              </p>
+            </div>
+
             <button class="state-back-btn" onclick="disconnect()">← Back</button>
           </div>
 

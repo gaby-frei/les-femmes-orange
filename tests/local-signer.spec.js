@@ -115,6 +115,16 @@ test.describe('Local signer — sign-in & passphrase setup', () => {
     await expect(state).toContainText(/back ?up|backup|nsec/i);
   });
 
+  // Generate flow nudges toward a NIP-07 extension with a "learn more" link.
+  test('the generate flow nudges toward a NIP-07 extension with a learn-more link', async ({ page }) => {
+    await generateKeyAndBackup(page);
+
+    const hint = page.locator('#set-passphrase-ext-hint');
+    await expect(hint).toBeVisible({ timeout: 10_000 });
+    await expect(hint).toContainText(/extension/i);
+    await expect(hint.getByRole('link', { name: /here/i })).toHaveAttribute('href', /soapbox\.pub\/blog\/managing-nostr-keys/);
+  });
+
   // Backup gate: trying to sign in before saving the generated key warns first and blocks.
   test('signing in without backing up the generated key shows a warning and blocks until acknowledged', async ({ page }) => {
     await page.goto('/');
@@ -131,6 +141,14 @@ test.describe('Local signer — sign-in & passphrase setup', () => {
     await modal.getByRole('button', { name: /understand the risk|continue/i }).click();
     await expect(modal).toBeHidden();
     await expect(page.locator('#state-set-passphrase')).toBeVisible({ timeout: 10_000 });
+  });
+
+  // The nudge appears on the passphrase screen for the paste-an-nsec flow too.
+  test('the extension nudge is also shown when an existing nsec is pasted', async ({ page }) => {
+    const acct = mintAccount();
+    await enterNsecOnIdle(page, acct.nsec);
+    await expect(page.locator('#state-set-passphrase')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('#set-passphrase-ext-hint')).toBeVisible();
   });
 });
 
