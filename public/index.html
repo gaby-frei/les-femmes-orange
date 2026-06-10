@@ -971,7 +971,7 @@
                 Download key backup (.txt)
               </button>
               <button class="btn btn-primary signin-full-btn" onclick="proceedAfterGenerate()">
-                I've saved my key — check membership
+                Sign in to check status
               </button>
             </div>
             <p class="secure-footer-note">You'll need your nsec every time you sign in. Save it before continuing.</p>
@@ -1039,6 +1039,7 @@
               <p class="manual-key-error" id="passphrase-error"></p>
               <button class="btn btn-primary signin-full-btn" onclick="submitPassphrase()">Encrypt &amp; continue</button>
             </div>
+
             <button class="state-back-btn" onclick="disconnect()">← Back</button>
           </div>
 
@@ -1283,6 +1284,19 @@
     </div>
   </footer>
 
+  <!-- Backup-warning modal: shown if a user tries to sign in before saving a generated key -->
+  <div id="backup-warning-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.65);align-items:center;justify-content:center;padding:1rem">
+    <div style="background:#161616;border:1px solid #2a2a2a;border-radius:14px;max-width:430px;width:100%;padding:1.6rem;text-align:center">
+      <div style="width:44px;height:44px;margin:0 auto 0.9rem;border-radius:50%;background:rgba(245,158,11,0.12);display:flex;align-items:center;justify-content:center">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+      <p style="font-size:1.05rem;font-weight:700;color:#fff;margin-bottom:0.6rem">Save your secret key first</p>
+      <p style="font-size:0.85rem;color:#aaa;line-height:1.6;margin-bottom:1.4rem">It looks like you haven't saved your secret key (nsec) yet. It's the <strong style="color:#ccc">only</strong> way to recover your account — if you lose it, no one can restore access. Download or copy it before continuing.</p>
+      <button class="btn btn-primary signin-full-btn" onclick="hideBackupWarning()" style="margin-bottom:0.55rem">Go back and save my key</button>
+      <button class="btn btn-ghost signin-full-btn" onclick="confirmProceedWithoutBackup()">I understand the risk — continue</button>
+    </div>
+  </div>
+
   <!-- nostr-tools: bech32, key derivation, and keypair generation -->
   <script type="module">
     import { nip19, getPublicKey, generateSecretKey, finalizeEvent } from 'https://esm.sh/nostr-tools@2';
@@ -1360,6 +1374,8 @@
     let _generatedNsec    = null;
     let _generatedNpub    = null;
     let _nsecVisible      = false;
+    // Heuristic: has the user backed up a freshly generated key (downloaded or copied the nsec)?
+    let _keyBackedUp      = false;
     let _hasExtension     = false;
     let _isVerifiedMember = false;
     let _alreadyPending   = false;
@@ -2053,6 +2069,7 @@
           _generatedNpub = npub;
           _generatedHex  = hex;
           _nsecVisible   = false;
+          _keyBackedUp   = false;   // fresh key — must be backed up again
 
           document.getElementById('secure-npub-display').textContent = npub;
           document.getElementById('secure-nsec-display').dataset.value = nsec;
@@ -2100,6 +2117,7 @@
       const val = el.dataset.value || el.textContent;
       try {
         await navigator.clipboard.writeText(val);
+        if (displayId === 'secure-nsec-display') _keyBackedUp = true;
         btn.classList.add('copied');
         btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:#22c55e;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round"><polyline points="20 6 9 17 4 12"/></svg>';
         setTimeout(() => {
@@ -2111,6 +2129,7 @@
 
     function downloadNsecFile() {
       if (!_generatedNsec || !_generatedNpub) return;
+      _keyBackedUp = true;
       const filename = 'nostr-lfo-' + _generatedNpub.slice(5, 9) + '.nsec.txt';
       const blob = new Blob([_generatedNsec], { type: 'text/plain; charset=utf-8' });
       const url  = URL.createObjectURL(blob);
@@ -2122,7 +2141,14 @@
 
     function proceedAfterGenerate() {
       if (!_generatedNsec) return;
-      // A freshly generated key also gets encrypted with a passphrase before sign-in.
+      // Gate: warn if the user hasn't backed up the freshly generated key yet.
+      if (!_keyBackedUp) { showBackupWarning(); return; }
+      doProceedAfterGenerate();
+    }
+
+    function doProceedAfterGenerate() {
+      if (!_generatedNsec) return;
+      // A freshly generated key gets encrypted with a passphrase before sign-in.
       try {
         _pendingSk = window._nostrDecode(_generatedNsec).data;
       } catch {
@@ -2130,6 +2156,18 @@
         return;
       }
       showState('set-passphrase');
+    }
+
+    // ── Backup warning modal (generate flow) ────────────────────────────────
+    function showBackupWarning() {
+      document.getElementById('backup-warning-modal').style.display = 'flex';
+    }
+    function hideBackupWarning() {
+      document.getElementById('backup-warning-modal').style.display = 'none';
+    }
+    function confirmProceedWithoutBackup() {
+      hideBackupWarning();
+      doProceedAfterGenerate();
     }
 
     // ── Apply-for-membership flow ───────────────────────────────────────────
@@ -2239,6 +2277,7 @@
       _tagItemsCache    = null;
       _membersLoaded    = false;
       _generatedHex     = null; _generatedNsec = null; _generatedNpub = null;
+      _keyBackedUp      = false;
       _hasExtension     = false;
       _isVerifiedMember = false;
       _alreadyPending   = false;

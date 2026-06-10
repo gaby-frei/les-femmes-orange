@@ -50,6 +50,18 @@ async function seedStoredAccount(page, acct) {
   }, { pubkey: acct.pubkey, npub: acct.npub, ncryptsec: acct.ncryptsec, createdAt: 1730000000 });
 }
 
+// Generate a new key in-app, back it up (download) so the sign-in gate clears, and
+// continue to the passphrase screen.
+async function generateKeyAndBackup(page) {
+  await page.goto('/');
+  await page.locator('#state-idle').getByRole('button', { name: /generate a key pair/i }).click();
+  await page.locator('#state-generate').getByRole('button', { name: /generate my key pair/i }).click();
+  const download = page.waitForEvent('download');
+  await page.locator('#state-secure').getByRole('button', { name: /download key backup/i }).click();
+  await download;
+  await page.locator('#state-secure').getByRole('button', { name: /sign in to check status/i }).click();
+}
+
 test.describe('Local signer — sign-in & passphrase setup', () => {
   // AC-1
   test('entering a secret key prompts the user to set a passphrase (not immediate sign-in)', async ({ page }) => {
@@ -90,6 +102,35 @@ test.describe('Local signer — sign-in & passphrase setup', () => {
     await expect(state).toBeVisible({ timeout: 10_000 });
     await expect(state).toContainText(/can.?t be recovered|cannot be recovered|unrecoverable/i);
     await expect(state).toContainText(/back ?up|backup|nsec/i);
+  });
+
+  // AC-9 (generate path) — the warning must also appear when a key is generated in-app,
+  // not only when an existing nsec is pasted.
+  test('generating a key in-app also reaches the passphrase warning', async ({ page }) => {
+    await generateKeyAndBackup(page);
+
+    const state = page.locator('#state-set-passphrase');
+    await expect(state).toBeVisible({ timeout: 10_000 });
+    await expect(state).toContainText(/can.?t be recovered|cannot be recovered|unrecoverable/i);
+    await expect(state).toContainText(/back ?up|backup|nsec/i);
+  });
+
+  // Backup gate: trying to sign in before saving the generated key warns first and blocks.
+  test('signing in without backing up the generated key shows a warning and blocks until acknowledged', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('#state-idle').getByRole('button', { name: /generate a key pair/i }).click();
+    await page.locator('#state-generate').getByRole('button', { name: /generate my key pair/i }).click();
+    // Do NOT back up — go straight for sign-in.
+    await page.locator('#state-secure').getByRole('button', { name: /sign in to check status/i }).click();
+
+    const modal = page.locator('#backup-warning-modal');
+    await expect(modal).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('#state-set-passphrase')).toBeHidden();
+
+    // Acknowledging the risk proceeds to the passphrase screen.
+    await modal.getByRole('button', { name: /understand the risk|continue/i }).click();
+    await expect(modal).toBeHidden();
+    await expect(page.locator('#state-set-passphrase')).toBeVisible({ timeout: 10_000 });
   });
 });
 
