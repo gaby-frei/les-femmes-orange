@@ -376,11 +376,6 @@
     .not-member-title { font-size: 1rem; font-weight: 700; color: var(--white); }
     .not-member-npub { font-size: 0.75rem; color: #666; margin-top: 0.15rem; font-family: monospace; }
 
-    .not-member-body {
-      font-size: 0.85rem; color: #888; line-height: 1.7;
-      margin-bottom: 1.4rem; padding: 1rem 1.2rem;
-      background: #1a1a1a; border-radius: 8px; border: 1px solid #2a2a2a;
-    }
 
     .not-member-footer { display: flex; justify-content: flex-end; }
 
@@ -471,12 +466,12 @@
     .icon-btn.copied svg { stroke: var(--green); }
 
     .secure-warning {
-      background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25);
-      border-radius: 8px; padding: 0.75rem 0.9rem; margin-bottom: 1rem;
-      font-size: 0.78rem; color: #d97706; line-height: 1.55;
+      background: rgba(245,148,92,0.07); border: 1px solid rgba(245,148,92,0.18);
+      border-radius: 8px; padding: 0.7rem 1rem; margin-bottom: 1rem;
+      font-size: 0.85rem; color: #aaa; line-height: 1.6;
     }
 
-    .secure-warning strong { color: var(--amber); }
+    .secure-warning strong { color: var(--orange); }
 
     .secure-actions { display: flex; flex-direction: column; gap: 0.6rem; }
 
@@ -520,9 +515,9 @@
     .manual-input-wrap input:focus { border-color: var(--orange); }
 
     .nsec-warning {
-      font-size: 0.75rem; color: var(--amber);
-      background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2);
-      border-radius: 6px; padding: 0.5rem 0.75rem; line-height: 1.5;
+      font-size: 0.85rem; color: #aaa;
+      background: rgba(245,148,92,0.07); border: 1px solid rgba(245,148,92,0.18);
+      border-radius: 8px; padding: 0.7rem 1rem; line-height: 1.6;
     }
 
     .manual-key-error { font-size: 0.78rem; color: #f87171; min-height: 1rem; }
@@ -910,7 +905,7 @@
     <section class="join" id="join">
       <div class="join-inner">
         <h2>Ready to join<br/><span>Les Femmes Orange?</span></h2>
-        <p>Membership is peer-verified on Nostr. Connect your key below — we'll check your membership status on-chain in seconds.</p>
+        <p>Membership is peer-verified on Nostr. Sign in to check your membership status and access community resources.</p>
 
         <div class="signin-card">
 
@@ -962,7 +957,7 @@
             </div>
 
             <div class="secure-warning">
-              <strong>Never share your nsec.</strong> Anyone who has it can take over your identity. Don't paste it into sites you don't trust. Store it like a password — preferably in a password manager or downloaded file.
+              <strong>Never share your nsec.</strong> Anyone who has it can take over your identity. Don't paste it into sites you don't trust.
             </div>
 
             <div class="secure-actions">
@@ -985,9 +980,6 @@
               <button class="new-to-nostr-link" onclick="showState('generate')">Generate a key pair →</button>
             </div>
 
-            <p class="state-idle-title">Connect with Nostr</p>
-            <p class="state-idle-sub">Sign in to check your membership status and access the community Telegram.</p>
-
             <button class="btn btn-primary signin-full-btn" onclick="startSignIn()">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
               Sign in with extension
@@ -1006,7 +998,7 @@
                 onkeydown="if(event.key==='Enter') signInManually()"
               />
               <p class="nsec-warning" id="nsec-warning" style="display:block">
-                ⚠️ Next you'll set a passphrase. Your secret key is encrypted with it and stored only on this device — it's never uploaded anywhere.
+                ⚠️ Next you'll set a passphrase to encrypt your secret key for safe keeping in this browser only.
               </p>
               <p class="manual-key-error" id="manual-key-error"></p>
               <button class="btn btn-outline signin-full-btn" onclick="signInManually()">Continue</button>
@@ -1016,7 +1008,7 @@
           <!-- STATE: SET PASSPHRASE (encrypt the local key) -->
           <div id="state-set-passphrase" class="signin-state">
             <p class="state-idle-title">Protect your key on this device</p>
-            <p class="state-idle-sub">Set a passphrase to encrypt your secret key in this browser. You'll enter it each time you sign in here. Your key is never uploaded anywhere.</p>
+            <p class="state-idle-sub">Set a passphrase to encrypt your secret key in this browser. You'll enter it each time you sign in here. Your passphrase cannot be recovered, but you can reset it by reuploading your nsec.</p>
             <div class="manual-input-wrap">
               <input
                 type="password"
@@ -1033,9 +1025,6 @@
                 oninput="document.getElementById('passphrase-error').textContent=''"
                 onkeydown="if(event.key==='Enter') submitPassphrase()"
               />
-              <p class="nsec-warning" id="passphrase-warning" style="display:block">
-                ⚠️ Your passphrase <strong>can't be recovered</strong>. If you forget it you'll need your nsec backup to sign in again — so keep your nsec saved somewhere safe.
-              </p>
               <p class="manual-key-error" id="passphrase-error"></p>
               <button class="btn btn-primary signin-full-btn" onclick="submitPassphrase()">Encrypt &amp; continue</button>
             </div>
@@ -1088,13 +1077,9 @@
                 <p class="not-member-npub" id="not-member-npub-text"></p>
               </div>
             </div>
-            <div class="not-member-body">
-              Membership requires being tagged with the LFO tag by an existing verified member of Les Femmes Orange.
-            </div>
 
             <!-- Apply prompt — shown when not already pending -->
             <div id="apply-prompt" style="margin-top:1.2rem">
-              <p style="font-size:0.85rem;color:#888;line-height:1.6;margin-bottom:0.9rem">Tag yourself with the LFO membership tag — a verified member can then attest you from the members page.</p>
               <button class="btn btn-primary signin-full-btn" onclick="startApplyFlow()">Apply for membership</button>
             </div>
 
@@ -1123,7 +1108,7 @@
           <!-- STATE: APPLY CONFIRM -->
           <div id="state-apply-confirm" class="signin-state">
             <p class="state-idle-title">Apply for membership</p>
-            <p style="font-size:0.85rem;color:#888;line-height:1.7;margin-bottom:1.2rem">This will publish a signed Nostr event tagging your npub with the LFO membership tag. Your profile will appear in the <strong style="color:#ccc">pending</strong> section of the members list, where a verified member can attest you.</p>
+            <p style="font-size:0.85rem;color:#888;line-height:1.7;margin-bottom:1.2rem">Your profile will appear in the pending section of the members list, where a <strong style="color:#ccc">verified member can attest you</strong>. This action will publish a signed Nostr event tagging your npub with the LFO membership tag.</p>
             <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;padding:0.6rem 0.9rem;margin-bottom:1.4rem;font-size:0.78rem;font-family:monospace;color:#777;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="apply-confirm-npub"></div>
 
             <!-- No-extension warning, revealed if user clicks confirm without one -->
