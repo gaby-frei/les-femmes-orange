@@ -51,3 +51,21 @@ damus (marginal gain unproven), nostr.band (Cloudflare-gated, unreachable). See 
 **Epic:** `community-feed` (new). Stories: #1 `feed-view` (drafted), #2 `curated-selection` (planned).
 **Open questions:** specific hashtag list; header copy/semantics (parked by user).
 **Phase path confirmed with user:** yes — entered Planning via `/plan-feature`.
+
+---
+
+## 2026-06-12 — Membership query may not need all 4 relays *(backlog / future review)*
+
+**Origin:** Surfaced during community-feed Architecture (ADR 0029, Future considerations).
+
+**Item:** The membership computation (`getTagItems()` in `public/index.html`) queries the full
+4-relay set, but LFO tag events (kind 9999/39999) appear complete on `tags.brainstorm.world` and
+`nos.lol` (per CLAUDE.md, both up-to-date as of 2026-06-01; damus/primal hold few/none). Trimming
+the membership relay set would cut sign-in / feed-load latency.
+
+**Caveat:** Measure per-relay tagger coverage **before** trimming — dropping a relay that holds a
+unique tagger could silently drop a member from the verified set.
+
+**Classification:** Refactor/optimization (touches existing membership code, not the feed).
+**Status:** Not planned — candidate story. Not part of the `community-feed` book.
+**Phase path:** TBD (own story when picked up).
