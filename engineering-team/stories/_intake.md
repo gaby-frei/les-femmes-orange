@@ -25,3 +25,29 @@ existing NIP-07 path retained. See `~/.claude/plans/abundant-twirling-fountain.m
 **Book:** new, no PRD → acceptance frame at `engineering-team/audits/local-signing/book.md`
 **Epic:** `local-signing` (new)
 **Phase path confirmed with user:** yes — user said "Proceed with implementation using the engineering-team harness."
+
+---
+
+## 2026-06-12 — Native community-authored feed (v1)
+
+**Raw request (user's words):**
+> I want to build a native, community authored feed within the LFO app. This is v1. The native
+> feed displays posts from verified community members that discuss one of two topics: Bitcoin or
+> Nostr. […] Lets create v1 as a hashtag-only feed. […] for now lets just create one unified feed
+> for bitcoin and nostr related t-tagged notes. We can create more narrow feed views in v2. […]
+> I want a smaller, more curated feed […] Let's start with [100] notes. […] favor newer tweets
+> while also showing a diversity of member accounts. […] every member represented to some degree.
+
+**Exploration / decision context (pre-planning research):** Empirically tested relay coverage and
+hashtag prevalence (throwaway scripts in `scripts/`). Decided: content relay = **nos.lol only**
+(clean probe: 45/48 verified members covered, current); topic detection = **hashtag-only**.
+Rejected for feed content: tags.brainstorm (0 social notes), primal (unreliable bulk queries),
+damus (marginal gain unproven), nostr.band (Cloudflare-gated, unreachable). See memory
+`project-community-feed-relay`.
+
+**Classification:** Feature
+**Strictness:** Standard → all phases (Planning → Architecture → Test Design → Implementation → Review)
+**Book:** new, no PRD → acceptance frame at `engineering-team/audits/community-feed/book.md`
+**Epic:** `community-feed` (new). Stories: #1 `feed-view` (drafted), #2 `curated-selection` (planned).
+**Open questions:** specific hashtag list; header copy/semantics (parked by user).
+**Phase path confirmed with user:** yes — entered Planning via `/plan-feature`.
