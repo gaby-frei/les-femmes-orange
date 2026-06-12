@@ -19,6 +19,9 @@ playwright-report/
 *.nsec.txt
 *.nsec
 
+# Throwaway relay/coverage probe scripts (diagnostics, not part of the app)
+scripts/Relay Probe Scripts/
+
 # External repos (reference only — not part of this project)
 tapestry/
 convergence-app-main/
