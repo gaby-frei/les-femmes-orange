@@ -599,7 +599,29 @@
 
     /* ── COMMUNITY FEED ───────────────────────────────────── */
 
-    .feed-page { padding: 3rem 2rem 5rem; max-width: 720px; margin: 0 auto; }
+    .feed-layout {
+      display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 2rem;
+      max-width: 1040px; margin: 0 auto; padding: 3rem 2rem 5rem; align-items: start;
+    }
+    .feed-page { min-width: 0; }
+
+    .feed-aside { display: flex; flex-direction: column; gap: 1.2rem; position: sticky; top: 1.5rem; }
+    .feed-panel {
+      background: var(--white); border: 1px solid var(--grey-mid);
+      border-radius: 12px; padding: 1rem 1.1rem;
+    }
+    .feed-panel-title {
+      font-size: 0.78rem; font-weight: 700; color: var(--dark);
+      text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.7rem;
+    }
+    .feed-panel-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+    .feed-panel-list li { font-size: 0.82rem; color: var(--grey-text); font-family: monospace; }
+
+    @media (max-width: 860px) {
+      .feed-layout { grid-template-columns: 1fr; padding: 2rem 1.25rem 4rem; }
+      .feed-aside { position: static; flex-direction: row; flex-wrap: wrap; }
+      .feed-panel { flex: 1; min-width: 180px; }
+    }
 
     .feed-header {
       font-size: 0.95rem; font-weight: 700; color: var(--dark);
@@ -622,10 +644,17 @@
     }
     .feed-note:hover { border-color: var(--orange); box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
 
-    .feed-note-head { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+    .feed-note-head { display: flex; align-items: flex-start; gap: 0.6rem; margin-bottom: 0.5rem; }
     .feed-note-name { font-weight: 700; color: var(--dark); font-size: 0.92rem; }
-    .feed-note-npub { font-family: monospace; font-size: 0.72rem; color: var(--grey-text); }
-    .feed-note-time { margin-left: auto; font-size: 0.72rem; color: var(--grey-text); }
+    .feed-note-npub { font-family: monospace; font-size: 0.72rem; color: var(--grey-text); margin-left: 0.4rem; }
+    .feed-note-time { font-size: 0.72rem; color: var(--grey-text); margin-left: 0.4rem; }
+    .feed-note-avatar {
+      flex: 0 0 auto; width: 38px; height: 38px; border-radius: 50%; overflow: hidden;
+      background: var(--grey-light); border: 1px solid var(--grey-mid);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .feed-note-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .feed-note-avatar-fallback { font-size: 0.78rem; font-weight: 700; color: var(--grey-text); }
     .feed-note-excerpt { font-size: 0.9rem; line-height: 1.55; color: var(--dark); white-space: pre-wrap; word-break: break-word; margin: 0; }
     .feed-note-open { margin-top: 0.6rem; font-size: 0.72rem; font-weight: 600; color: var(--orange); }
 
@@ -1313,20 +1342,33 @@
   <!-- PAGE: FEED                                               -->
   <!-- ═══════════════════════════════════════════════════════ -->
   <div id="page-feed" class="page hidden">
-    <div class="feed-page">
+    <div class="feed-layout">
 
-      <div id="feed-header" class="feed-header" style="display:none"></div>
+      <div class="feed-page">
+        <div id="feed-header" class="feed-header" style="display:none"></div>
 
-      <div id="feed-loading" class="members-loading" style="display:none">
-        <div class="spinner"></div>
-        <p>Loading the community feed…</p>
+        <div id="feed-loading" class="members-loading" style="display:none">
+          <div class="spinner"></div>
+          <p>Loading the community feed…</p>
+        </div>
+
+        <div id="feed-empty" class="feed-empty" style="display:none">
+          No notes to show yet — check back soon as members post about Bitcoin and Nostr.
+        </div>
+
+        <div id="feed-notes" class="feed-notes"></div>
       </div>
 
-      <div id="feed-empty" class="feed-empty" style="display:none">
-        No notes to show yet — check back soon as members post about Bitcoin and Nostr.
-      </div>
-
-      <div id="feed-notes" class="feed-notes"></div>
+      <aside class="feed-aside">
+        <div class="feed-panel" id="feed-relays-panel">
+          <h3 class="feed-panel-title">Feed Source Relays</h3>
+          <ul class="feed-panel-list" id="feed-relays-list"></ul>
+        </div>
+        <div class="feed-panel" id="feed-hashtags-panel">
+          <h3 class="feed-panel-title">Topics</h3>
+          <ul class="feed-panel-list" id="feed-hashtags-list"></ul>
+        </div>
+      </aside>
 
     </div>
   </div><!-- /page-feed -->
@@ -1957,11 +1999,22 @@
           author: {
             displayName: m.display_name || m.name || hexToNpubShort(ev.pubkey),
             npubShort:   hexToNpubShort(ev.pubkey),
+            picture:     safePicUrl(m.picture),
           },
         };
       });
 
       return { memberCount: authors.length, notes };
+    }
+
+    // Informational side panels (read-only): which relay(s) the feed reads, and the
+    // hashtags it filters on. Sourced from the JS constants — data-independent.
+    function renderFeedPanels() {
+      const relayHost = url => url.replace(/^wss?:\/\//, '').replace(/\/relay$/, '');
+      const relaysEl = document.getElementById('feed-relays-list');
+      relaysEl.innerHTML = [FEED_RELAY].map(r => `<li>${escHtml(relayHost(r))}</li>`).join('');
+      const tagsEl = document.getElementById('feed-hashtags-list');
+      tagsEl.innerHTML = FEED_HASHTAGS.map(h => `<li>#${escHtml(h)}</li>`).join('');
     }
 
     // Render layer — deliberately ignorant of where the data came from.
@@ -1970,6 +2023,8 @@
       const emptyEl   = document.getElementById('feed-empty');
       const headerEl  = document.getElementById('feed-header');
       const notesEl   = document.getElementById('feed-notes');
+
+      renderFeedPanels();
 
       loadingEl.style.display = 'flex';
       emptyEl.style.display   = 'none';
@@ -2010,15 +2065,35 @@
       const when     = formatTimeAgo(note.created_at);
       const whenAbs  = new Date(note.created_at * 1000).toLocaleString();
 
+      const initials = getInitials(note.author.displayName);
+
       card.innerHTML = `
         <div class="feed-note-head">
-          <span class="feed-note-name">${escHtml(note.author.displayName)}</span>
-          <span class="feed-note-npub">${escHtml(note.author.npubShort)}</span>
-          <span class="feed-note-time" title="${escHtml(whenAbs)}">${escHtml(when)}</span>
+          <div style="min-width:0;flex:1">
+            <span class="feed-note-name">${escHtml(note.author.displayName)}</span>
+            <span class="feed-note-npub">${escHtml(note.author.npubShort)}</span>
+            <span class="feed-note-time" title="${escHtml(whenAbs)}">${escHtml(when)}</span>
+          </div>
+          <div class="feed-note-avatar">
+            <span class="feed-note-avatar-fallback">${escHtml(initials)}</span>
+          </div>
         </div>
         <p class="feed-note-excerpt">${escHtml(text)}</p>
         <div class="feed-note-open">Open in Primal ↗</div>
       `;
+
+      // Inject avatar image safely (mirrors makeMemberCard): drop on error, never a broken image.
+      const picUrl = note.author.picture;
+      if (picUrl) {
+        const avatarEl   = card.querySelector('.feed-note-avatar');
+        const fallbackEl = card.querySelector('.feed-note-avatar-fallback');
+        const img = document.createElement('img');
+        img.alt = '';
+        img.src = picUrl;
+        img.onerror = () => img.remove();
+        img.onload  = () => { fallbackEl.style.display = 'none'; };
+        avatarEl.appendChild(img);
+      }
 
       const open = () => {
         let id = note.id;

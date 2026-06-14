@@ -140,6 +140,31 @@ test.describe('Community feed — data layer (getFeed)', () => {
     expect(byPubkey[B]).toContain('…');
   });
 
+  // Avatar (data side: picture resolved + sanitized)
+  test('getFeed includes a sanitized author.picture from metadata', async ({ page }) => {
+    await page.goto('/');
+    expect(await page.evaluate(() => typeof window.getFeed)).toBe('function');
+    await stubMembership(page, A, B);
+
+    const pics = await page.evaluate(async ({ a, b }) => {
+      window.queryRelay = async () => ([
+        { id: 'pa', pubkey: a, kind: 1, created_at: 200, content: 'a', tags: [['t','nostr']] },
+        { id: 'pb', pubkey: b, kind: 1, created_at: 100, content: 'b', tags: [['t','btc']] },
+      ]);
+      window.fetchMetadata = async () => new Map([
+        [a, { picture: 'https://example.com/a.png' }],
+        [b, { picture: 'javascript:alert(1)' }], // unsafe scheme
+      ]);
+      const feed = await window.getFeed();
+      const m = {};
+      for (const n of feed.notes) m[n.pubkey] = n.author.picture;
+      return m;
+    }, { a: A, b: B });
+
+    expect(pics[A], 'an https picture passes through').toBe('https://example.com/a.png');
+    expect(pics[B], 'a non-http(s) picture is dropped (sanitized to empty)').toBe('');
+  });
+
   // AC-8 (data side: distinct-author count)
   test('getFeed reports memberCount as the number of distinct authors represented', async ({ page }) => {
     await page.goto('/');
@@ -164,8 +189,12 @@ test.describe('Community feed — data layer (getFeed)', () => {
 // ── render-layer tests: loadFeedPage() / makeFeedNote() ──────────────────────
 const NOTE = (over = {}) => ({
   id: ID, pubkey: A, created_at: Math.floor(Date.now() / 1000) - 3600,
-  content: 'hello world #nostr', author: { displayName: 'Alice', npubShort: 'npub1aaaa…aaaaaa' }, ...over,
+  content: 'hello world #nostr',
+  author: { displayName: 'Alice', npubShort: 'npub1aaaa…aaaaaa', picture: '' }, ...over,
 });
+
+// A tiny valid 1×1 PNG — loads successfully so the avatar <img> survives onload.
+const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
 // Stub getFeed and open the feed view.
 async function openFeedWith(page, payload) {
@@ -252,6 +281,44 @@ test.describe('Community feed — rendering (loadFeedPage / makeFeedNote)', () =
     // getFeed never resolves → the loading state must remain visible.
     await page.evaluate(() => { window.getFeed = () => new Promise(() => {}); window.showView('feed'); });
     await expect(page.locator('#feed-loading')).toBeVisible({ timeout: 10_000 });
+  });
+});
+
+// ── avatar & side-panel tests ────────────────────────────────────────────────
+test.describe('Community feed — avatar & side panels', () => {
+  // AC: profile image top-right, initials fallback
+  test('a feed card shows the author profile image when present, with an initials fallback when not', async ({ page }) => {
+    await openFeedWith(page, { memberCount: 2, notes: [
+      NOTE({ id: 'ab'.repeat(32), pubkey: A, author: { displayName: 'Alice', npubShort: 'npub1a…a', picture: PNG } }),
+      NOTE({ id: 'cd'.repeat(32), pubkey: B, author: { displayName: 'Bob',   npubShort: 'npub1b…b', picture: '' } }),
+    ] });
+    const cards = page.locator('#feed-notes .feed-note');
+    await expect(cards).toHaveCount(2, { timeout: 10_000 });
+
+    // Card 1 (has picture): an avatar image is rendered.
+    await expect(cards.nth(0).locator('.feed-note-avatar img'), 'author with a picture shows an image').toHaveCount(1);
+    // Card 2 (no picture): no image, initials fallback shown instead.
+    await expect(cards.nth(1).locator('.feed-note-avatar img'), 'author without a picture shows no image').toHaveCount(0);
+    await expect(cards.nth(1).locator('.feed-note-avatar'), 'initials fallback is shown').toContainText(/B/i);
+  });
+
+  // AC: "Feed Source Relays" panel
+  test('a "Feed Source Relays" panel lists the feed relay', async ({ page }) => {
+    await openFeedWith(page, { memberCount: 0, notes: [] });
+    const panel = page.locator('#feed-relays-panel');
+    await expect(panel, 'the relays panel must render').toBeVisible({ timeout: 10_000 });
+    await expect(panel).toContainText(/Feed Source Relays/i);
+    await expect(panel).toContainText('nos.lol');
+  });
+
+  // AC: hashtag query list panel
+  test('a panel lists the query hashtags the feed filters on', async ({ page }) => {
+    await openFeedWith(page, { memberCount: 0, notes: [] });
+    const panel = page.locator('#feed-hashtags-panel');
+    await expect(panel, 'the hashtags panel must render').toBeVisible({ timeout: 10_000 });
+    for (const h of FEED_HASHTAGS) {
+      await expect(panel, `panel must list #${h}`).toContainText('#' + h);
+    }
   });
 });
 

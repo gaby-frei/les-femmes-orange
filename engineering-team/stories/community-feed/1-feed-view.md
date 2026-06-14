@@ -27,10 +27,13 @@ Testable from the outside. Each criterion gets at least one test.
 - [ ] Given the feed loads, then it shows **only** kind-1 notes that are **(a)** authored by a verified member **and (b)** carry a qualifying Bitcoin/Nostr hashtag; notes from non-members, and member notes without a qualifying hashtag, **do not appear**.
 - [ ] Given more than 100 qualifying notes exist, when the feed loads, then **at most 100** notes are shown, ordered **newest-first** (descending post time). _(Selection within the 100 is refined in Story 2; here it is simply the newest 100.)_
 - [ ] Given a displayed note, then its card shows the author's **display name** (falling back to a **truncated npub** when no profile name is available), a **truncated npub**, and the **post time**.
+- [ ] Given a displayed note, then its card shows the author's **profile image** in the top-right; when the author has no usable picture, an **initials fallback** is shown instead (never a broken image).
 - [ ] Given a displayed note, then its card shows the note's **text content** as plain text, shown in full **up to 280 characters** and **truncated with an ellipsis** beyond that. Images/embeds/mention resolution are not rendered (out of scope).
 - [ ] Given a displayed note, when the user clicks it, then **that specific note opens in Primal** in a new browser tab; and the feed presents **no** zap / like / repost / reply / message controls anywhere.
 - [ ] Given the feed is loaded, then a **header** shows the count of **distinct members represented** in the displayed feed, phrased as **"X members contributing to the discussion"** (where X = number of distinct authors whose notes appear).
 - [ ] Given the feed is **loading**, then a loading indicator is shown; and given the query returns **no** qualifying notes, then an **empty-state message** is shown (not a blank screen).
+- [ ] Given the feed view, then a **"Feed Source Relays"** side panel lists the relay(s) the feed is sourced from (v1: `nos.lol`).
+- [ ] Given the feed view, then a side panel lists the **query hashtags** the feed filters on (the qualifying `t` tags).
 
 ## Concepts touched
 Concept Graph API (`http://localhost:8877`) was **not reachable** during planning — concepts named in plain language; the Architect should resolve handles.
@@ -44,7 +47,8 @@ Concept Graph API (`http://localhost:8877`) was **not reachable** during plannin
 - **Curated selection** (representation floor, soft per-member cap ~10, recency fill) — **Story 2**.
 - Any **write / interaction** (zap, like, repost, reply, follow) — the feed is read-only.
 - **Relays other than nos.lol** for feed content.
-- Profile **avatars/photos**, rich note rendering (images, embeds, mentions) — plain text card for v1 unless trivial.
+- Rich note rendering (inline images, embeds, mention/nevent resolution) — note text stays plain. _(Author profile images on cards ARE in scope — see acceptance criteria.)_
+- Editable relay/hashtag config from the side panels — the panels are **read-only/informational** for v1.
 
 ## Open questions
 - Hashtag **case-sensitivity** of matching (lowercase assumed) — Architect to confirm against relay behavior.

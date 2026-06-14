@@ -146,7 +146,7 @@ the four small wiring points (nav, `showView`, verified-reveal, sign-out reset).
    shape is **identical to the planned `GET /api/feed` response** (see *Planned evolution*):
    ```js
    { memberCount: <int>, notes: [ { id, pubkey, created_at, content,
-       author: { displayName, npubShort } }, ... ] }   // notes newest-first
+       author: { displayName, npubShort, picture } }, ... ] }   // notes newest-first
    ```
    v1 body (all relay/curation logic lives here, and only here):
    - `const tagItems = await getTagItems();` → `const { verifiedMap } = buildMemberSets(tagItems);`
@@ -157,7 +157,8 @@ the four small wiring points (nav, `showView`, verified-reveal, sign-out reset).
    - `const authors = [...new Set(selected.map(e => e.pubkey))];`
    - `const metaMap = await fetchMetadata(authors);`
    - map each selected event into the contract shape, resolving `author.displayName =
-     meta.display_name || meta.name || hexToNpubShort(pk)` and `author.npubShort = hexToNpubShort(pk)`.
+     meta.display_name || meta.name || hexToNpubShort(pk)`, `author.npubShort = hexToNpubShort(pk)`,
+     and `author.picture = safePicUrl(meta.picture)` (sanitized; `''` when none).
    - return `{ memberCount: authors.length, notes: <mapped, newest-first> }`.
    - **Migration note (in-code):** `// PLANNED: replace this body with `return (await fetch('/api/feed')).json()` — see ADR 0029`.
 
@@ -171,9 +172,12 @@ the four small wiring points (nav, `showView`, verified-reveal, sign-out reset).
    - hide loading; show header + notes.
 
 9. **`makeFeedNote(note)`** (new, model on `makeMemberCard` 1724). Takes a contract-shaped note
-   (`{ id, pubkey, created_at, content, author:{displayName, npubShort} }`) and builds a `.feed-note`
-   card (a `<div>` with click affordance) showing:
+   (`{ id, pubkey, created_at, content, author:{displayName, npubShort, picture} }`) and builds a
+   `.feed-note` card (a `<div>` with click affordance) showing:
    - display name: `note.author.displayName`; truncated npub: `note.author.npubShort`;
+   - **avatar (top-right):** `.feed-note-avatar` with an initials fallback (`getInitials(displayName)`);
+     if `note.author.picture` is set, inject an `<img>` the same safe way as `makeMemberCard`
+     (1786-1794): `img.onerror = () => img.remove()` and hide the fallback on load — never a broken image.
    - post time: `formatTimeAgo(note.created_at)` with absolute `title`;
    - note text: `note.content` as **plain text**, shown in full **up to 280 characters**, truncated
      with an ellipsis ("…") beyond that (`content.length > 280 ? content.slice(0,280)+'…' : content`).
@@ -186,9 +190,22 @@ the four small wiring points (nav, `showView`, verified-reveal, sign-out reset).
 10. **`formatTimeAgo(unixSeconds)`** (new small helper near display helpers ~1505): relative string
    (`"just now"`, `"5m"`, `"3h"`, `"2d"`, else a date), used for the card timestamp.
 
-11. **CSS.** Add `.feed-note`, `.feed-note:hover`, `.feed-note-head`, `.feed-note-name`,
-    `.feed-note-npub`, `.feed-note-time`, `.feed-note-excerpt`, `.feed-note-open`, `#feed-header`,
-    `#feed-empty` near the members-page styles (~561+), reusing existing color variables.
+11. **Side panels (informational, read-only).** `#page-feed` is laid out as a two-column
+    `.feed-layout`: the main column (`.feed-page`, header/loading/empty/notes) and an `<aside
+    class="feed-aside">` holding two panels:
+    - `#feed-relays-panel` — title **"Feed Source Relays"**, list `#feed-relays-list` populated from
+      `[FEED_RELAY]` (display the host, e.g. `nos.lol`, stripped of `wss://` + `/relay`).
+    - `#feed-hashtags-panel` — list `#feed-hashtags-list` populated from `FEED_HASHTAGS` (rendered as
+      `#nostr`, `#bitcoin`, …).
+    A small `renderFeedPanels()` populates both from the JS constants; call it from `loadFeedPage()`
+    (data-independent, idempotent). On narrow screens the aside stacks below the feed.
+
+12. **CSS.** Add `.feed-note`, `.feed-note:hover`, `.feed-note-head`, `.feed-note-name`,
+    `.feed-note-npub`, `.feed-note-time`, `.feed-note-excerpt`, `.feed-note-open`,
+    `.feed-note-avatar` (+ fallback/img, mirroring `.member-avatar`), `#feed-header`, `#feed-empty`,
+    and the layout/panels (`.feed-layout`, `.feed-aside`, `.feed-panel`, `.feed-panel-title`,
+    `.feed-panel-list`) near the members-page styles (~561+), reusing existing color variables;
+    `.feed-layout` collapses to a single column on narrow viewports.
 
 ## Planned evolution: `GET /api/feed` (backend) — *not built in this story*
 
@@ -197,7 +214,7 @@ warrants it (filter-size limits, pagination past the 500-cap, shared one-time cu
 robustness), the data layer moves server-side **without touching the render layer**:
 
 - **Shape contract.** `GET /api/feed` returns exactly the object `getFeed()` returns today:
-  `{ memberCount, notes: [{ id, pubkey, created_at, content, author:{ displayName, npubShort } }] }`.
+  `{ memberCount, notes: [{ id, pubkey, created_at, content, author:{ displayName, npubShort, picture } }] }`.
 - **Likely shape (Vercel-native, no always-on process):** a scheduled function (Vercel Cron) computes
   the member set, paginates relays past the cap, runs the Story-2 curation, and writes the payload to
   a store (Vercel KV/Blob); a stateless `GET /api/feed` serves it; the browser's `getFeed()` becomes

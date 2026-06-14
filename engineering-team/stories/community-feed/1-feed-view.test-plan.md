@@ -54,6 +54,10 @@ Constants the data layer must use: relay `wss://nos.lol`; hashtags `['nostr','as
 | AC-8 (header member count) | `the header reads "X members contributing to the discussion"` | same | integration+e2e |
 | AC-9 (loading) | `a loading indicator is shown while the feed is fetching` | same | e2e |
 | AC-9 (empty) | `an empty feed shows an empty-state message, not a blank screen` | same | e2e |
+| AC-10 (avatar, data) | `getFeed includes a sanitized author.picture from metadata` | same | integration |
+| AC-10 (avatar, render) | `a feed card shows the author profile image when present, with an initials fallback when not` | same | e2e |
+| AC-11 (relays panel) | `a "Feed Source Relays" panel lists the feed relay` | same | e2e |
+| AC-12 (hashtags panel) | `a panel lists the query hashtags the feed filters on` | same | e2e |
 
 ## Edge cases
 
