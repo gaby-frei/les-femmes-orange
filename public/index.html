@@ -1473,7 +1473,7 @@
     // Feed content comes from nos.lol only (see ADR 0029) — distinct from the
     // membership computation above, which queries the full RELAYS set.
     const FEED_RELAY    = 'wss://nos.lol';
-    const FEED_HASHTAGS = ['nostr', 'asknostr', 'grownostr', 'bitcoin', 'btc', 'lightning', 'sats'];
+    const FEED_HASHTAGS = ['nostr', 'asknostr', 'grownostr', 'bitcoin', 'btc', 'lightning', 'sats', 'lfo'];
     const FEED_LIMIT    = 100;
 
     // ── State ───────────────────────────────────────────────────────────────
@@ -2060,8 +2060,7 @@
       card.setAttribute('role', 'link');
       card.tabIndex = 0;
 
-      const content  = note.content || '';
-      const text     = content.length > 280 ? content.slice(0, 280) + '…' : content;
+      const text     = note.content || '';
       const when     = formatTimeAgo(note.created_at);
       const whenAbs  = new Date(note.created_at * 1000).toLocaleString();
 

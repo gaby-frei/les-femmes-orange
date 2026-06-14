@@ -28,7 +28,7 @@ Testable from the outside. Each criterion gets at least one test.
 - [ ] Given more than 100 qualifying notes exist, when the feed loads, then **at most 100** notes are shown, ordered **newest-first** (descending post time). _(Selection within the 100 is refined in Story 2; here it is simply the newest 100.)_
 - [ ] Given a displayed note, then its card shows the author's **display name** (falling back to a **truncated npub** when no profile name is available), a **truncated npub**, and the **post time**.
 - [ ] Given a displayed note, then its card shows the author's **profile image** in the top-right; when the author has no usable picture, an **initials fallback** is shown instead (never a broken image).
-- [ ] Given a displayed note, then its card shows the note's **text content** as plain text, shown in full **up to 280 characters** and **truncated with an ellipsis** beyond that. Images/embeds/mention resolution are not rendered (out of scope).
+- [ ] Given a displayed note, then its card shows the note's **full text content** as plain text (no length limit / no truncation). Images/embeds/mention resolution are not rendered (out of scope).
 - [ ] Given a displayed note, when the user clicks it, then **that specific note opens in Primal** in a new browser tab; and the feed presents **no** zap / like / repost / reply / message controls anywhere.
 - [ ] Given the feed is loaded, then a **header** shows the count of **distinct members represented** in the displayed feed, phrased as **"X members contributing to the discussion"** (where X = number of distinct authors whose notes appear).
 - [ ] Given the feed is **loading**, then a loading indicator is shown; and given the query returns **no** qualifying notes, then an **empty-state message** is shown (not a blank screen).
@@ -55,7 +55,7 @@ Concept Graph API (`http://localhost:8877`) was **not reachable** during plannin
 
 ## Decided constraints (for the Architect)
 - Content relay: **nos.lol only**.
-- Topic detection: **hashtag-only** (`t` tags). **Qualifying hashtag list (v1):** `nostr`, `asknostr`, `grownostr`, `bitcoin`, `btc`, `lightning`, `sats`. A note qualifies if it carries **any** of these as a `t` tag.
+- Topic detection: **hashtag-only** (`t` tags). **Qualifying hashtag list (v1):** `nostr`, `asknostr`, `grownostr`, `bitcoin`, `btc`, `lightning`, `sats`, `lfo`. A note qualifies if it carries **any** of these as a `t` tag.
 - Feed size cap: **100**.
 - Membership computation: reuse the app's existing logic unchanged.
 

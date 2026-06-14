@@ -26,7 +26,7 @@ import { nip19 } from 'nostr-tools';
 const LFO_TAG_EVENT_ID = '4ddde08a7b1b3c2dffda5161ff5b0151554b9e86d94a059b1434aab95d546795';
 const SEED_PUBKEY      = 'e83fff7a10b30dc0c296c62b440aa9071c904d80b18420341b5425a81bd6856c';
 const FEED_RELAY       = 'wss://nos.lol';
-const FEED_HASHTAGS    = ['nostr', 'asknostr', 'grownostr', 'bitcoin', 'btc', 'lightning', 'sats'];
+const FEED_HASHTAGS    = ['nostr', 'asknostr', 'grownostr', 'bitcoin', 'btc', 'lightning', 'sats', 'lfo'];
 
 // Distinct, valid 32-byte hex pubkeys / ids for fixtures.
 const A  = '11'.repeat(32);
@@ -215,23 +215,17 @@ test.describe('Community feed — rendering (loadFeedPage / makeFeedNote)', () =
     await expect(card.locator('.feed-note-time')).not.toBeEmpty();
   });
 
-  // AC-6
-  test('note text is shown up to 280 characters and truncated with an ellipsis beyond', async ({ page }) => {
-    const long  = 'x'.repeat(300);
-    const exact = 'y'.repeat(280);
-    await openFeedWith(page, { memberCount: 1, notes: [
-      NOTE({ id: 'ab'.repeat(32), pubkey: A, content: long }),
-      NOTE({ id: 'cd'.repeat(32), pubkey: B, content: exact, author: { displayName: 'Bob', npubShort: 'npub1bbbb…bbbbbb' } }),
-    ] });
+  // AC-6 (no length limit — full content shown)
+  test('note text is shown in full, with no length limit or ellipsis', async ({ page }) => {
+    const long = 'x'.repeat(600);
+    await openFeedWith(page, { memberCount: 1, notes: [ NOTE({ content: long }) ] });
 
-    const excerpts = page.locator('#feed-notes .feed-note-excerpt');
-    await expect(excerpts.first()).toBeVisible({ timeout: 10_000 });
-    const longText  = await excerpts.nth(0).textContent();
-    const exactText = await excerpts.nth(1).textContent();
+    const excerpt = page.locator('#feed-notes .feed-note-excerpt').first();
+    await expect(excerpt).toBeVisible({ timeout: 10_000 });
+    const text = await excerpt.textContent();
 
-    expect(longText.endsWith('…'), '300-char note must be truncated with an ellipsis').toBe(true);
-    expect(longText.length, '280 chars + ellipsis = 281').toBe(281);
-    expect(exactText, '280-char note must show in full, no ellipsis').toBe(exact);
+    expect(text, 'the full note content must be shown, untruncated').toBe(long);
+    expect(text.includes('…'), 'no ellipsis truncation').toBe(false);
   });
 
   // AC-7

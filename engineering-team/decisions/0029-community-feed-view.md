@@ -21,7 +21,7 @@ discussion."
   in `scripts/` and memory `project-community-feed-relay`). Note this differs from the membership
   computation, which keeps querying the 4-relay set.
 - **Hashtag-only detection.** Qualifying `t` tags (v1): `nostr`, `asknostr`, `grownostr`,
-  `bitcoin`, `btc`, `lightning`, `sats`. A note qualifies if it carries **any** of these.
+  `bitcoin`, `btc`, `lightning`, `sats`, `lfo`. A note qualifies if it carries **any** of these.
 - **Reuse existing membership computation** unchanged: `getTagItems()` (index.html:1505-ish region)
   → `buildMemberSets()` → `verifiedMap`.
 - **No new concepts.** This is a read-only consumer of kind-1 notes; the Concept Graph API was
@@ -122,7 +122,7 @@ the four small wiring points (nav, `showView`, verified-reveal, sign-out reset).
 
 2. **Config.** Near the `RELAYS` / config block (~1362), add:
    - `const FEED_RELAY = 'wss://nos.lol';`
-   - `const FEED_HASHTAGS = ['nostr','asknostr','grownostr','bitcoin','btc','lightning','sats'];`
+   - `const FEED_HASHTAGS = ['nostr','asknostr','grownostr','bitcoin','btc','lightning','sats','lfo'];`
    - `const FEED_LIMIT = 100;`
    - state flag `let _feedLoaded = false;` (alongside `_membersLoaded`).
 
@@ -179,8 +179,7 @@ the four small wiring points (nav, `showView`, verified-reveal, sign-out reset).
      if `note.author.picture` is set, inject an `<img>` the same safe way as `makeMemberCard`
      (1786-1794): `img.onerror = () => img.remove()` and hide the fallback on load — never a broken image.
    - post time: `formatTimeAgo(note.created_at)` with absolute `title`;
-   - note text: `note.content` as **plain text**, shown in full **up to 280 characters**, truncated
-     with an ellipsis ("…") beyond that (`content.length > 280 ? content.slice(0,280)+'…' : content`).
+   - note text: `note.content` as **plain text**, shown **in full (no length limit / no truncation)**.
      Escaped via `escHtml`; whitespace preserved (`white-space: pre-wrap`). **No** media/embeds/
      mention resolution (out of scope).
    - a subtle hint/affordance, e.g. "Open in Primal ↗". All text via `escHtml`. **No**

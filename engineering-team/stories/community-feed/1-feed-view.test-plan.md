@@ -49,7 +49,7 @@ Constants the data layer must use: relay `wss://nos.lol`; hashtags `['nostr','as
 | AC-4 (≤100, newest-first) | `getFeed returns at most 100 notes, newest-first, when more qualify` | same | integration |
 | AC-5 (name → npub fallback) | `getFeed resolves the display name from metadata, falling back to a truncated npub` | same | integration |
 | AC-5 (card shows name/npub/time) | `a feed card shows the display name, truncated npub, and post time` | same | e2e |
-| AC-6 (text ≤280 + ellipsis) | `note text is shown up to 280 characters and truncated with an ellipsis beyond` | same | e2e |
+| AC-6 (full text, no limit) | `note text is shown in full, with no length limit or ellipsis` | same | e2e |
 | AC-7 (open in Primal; no controls) | `clicking a note opens it in Primal in a new tab, with no interaction controls present` | same | e2e |
 | AC-8 (header member count) | `the header reads "X members contributing to the discussion"` | same | integration+e2e |
 | AC-9 (loading) | `a loading indicator is shown while the feed is fetching` | same | e2e |
