@@ -614,6 +614,10 @@
       font-size: 0.78rem; font-weight: 700; color: var(--dark);
       text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.7rem;
     }
+    .feed-panel-note {
+      text-transform: none; font-weight: 400; font-size: 0.68rem;
+      color: var(--grey-text); opacity: 0.7; letter-spacing: 0;
+    }
     .feed-panel-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
     .feed-panel-list li { font-size: 0.82rem; color: var(--grey-text); font-family: monospace; }
 
@@ -1365,7 +1369,7 @@
           <ul class="feed-panel-list" id="feed-relays-list"></ul>
         </div>
         <div class="feed-panel" id="feed-hashtags-panel">
-          <h3 class="feed-panel-title">Topics</h3>
+          <h3 class="feed-panel-title">Topics <span class="feed-panel-note">(case sensitive)</span></h3>
           <ul class="feed-panel-list" id="feed-hashtags-list"></ul>
         </div>
       </aside>
@@ -1473,7 +1477,8 @@
     // Feed content comes from nos.lol only (see ADR 0029) — distinct from the
     // membership computation above, which queries the full RELAYS set.
     const FEED_RELAY    = 'wss://nos.lol';
-    const FEED_HASHTAGS = ['nostr', 'asknostr', 'grownostr', 'bitcoin', 'btc', 'lightning', 'sats', 'lfo'];
+    // Relay #t filtering is case-sensitive, so case variants are listed explicitly.
+    const FEED_HASHTAGS = ['nostr', 'asknostr', 'grownostr', 'bitcoin', 'btc', 'lightning', 'sats', 'lfo', 'LFO', 'lesfemmesorange'];
     const FEED_LIMIT    = 100;
 
     // ── State ───────────────────────────────────────────────────────────────

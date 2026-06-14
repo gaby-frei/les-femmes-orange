@@ -33,7 +33,7 @@ Testable from the outside. Each criterion gets at least one test.
 - [ ] Given the feed is loaded, then a **header** shows the count of **distinct members represented** in the displayed feed, phrased as **"X members contributing to the discussion"** (where X = number of distinct authors whose notes appear).
 - [ ] Given the feed is **loading**, then a loading indicator is shown; and given the query returns **no** qualifying notes, then an **empty-state message** is shown (not a blank screen).
 - [ ] Given the feed view, then a **"Feed Source Relays"** side panel lists the relay(s) the feed is sourced from (v1: `nos.lol`).
-- [ ] Given the feed view, then a side panel lists the **query hashtags** the feed filters on (the qualifying `t` tags).
+- [ ] Given the feed view, then a side panel ("Topics") lists the **query hashtags** the feed filters on (the qualifying `t` tags) and notes that matching is **case-sensitive**.
 
 ## Concepts touched
 Concept Graph API (`http://localhost:8877`) was **not reachable** during planning — concepts named in plain language; the Architect should resolve handles.
@@ -51,11 +51,11 @@ Concept Graph API (`http://localhost:8877`) was **not reachable** during plannin
 - Editable relay/hashtag config from the side panels — the panels are **read-only/informational** for v1.
 
 ## Open questions
-- Hashtag **case-sensitivity** of matching (lowercase assumed) — Architect to confirm against relay behavior.
+- _(none open)_ — hashtag matching is **case-sensitive** (relay `#t` behavior); case variants are listed explicitly (e.g. `lfo` and `LFO`) and the Topics panel surfaces "(case sensitive)".
 
 ## Decided constraints (for the Architect)
 - Content relay: **nos.lol only**.
-- Topic detection: **hashtag-only** (`t` tags). **Qualifying hashtag list (v1):** `nostr`, `asknostr`, `grownostr`, `bitcoin`, `btc`, `lightning`, `sats`, `lfo`. A note qualifies if it carries **any** of these as a `t` tag.
+- Topic detection: **hashtag-only** (`t` tags). **Qualifying hashtag list (v1):** `nostr`, `asknostr`, `grownostr`, `bitcoin`, `btc`, `lightning`, `sats`, `lfo`, `LFO`, `lesfemmesorange`. Matching is **case-sensitive**, so case variants are listed explicitly. A note qualifies if it carries **any** of these as a `t` tag.
 - Feed size cap: **100**.
 - Membership computation: reuse the app's existing logic unchanged.
 

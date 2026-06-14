@@ -58,6 +58,7 @@ Constants the data layer must use: relay `wss://nos.lol`; hashtags `['nostr','as
 | AC-10 (avatar, render) | `a feed card shows the author profile image when present, with an initials fallback when not` | same | e2e |
 | AC-11 (relays panel) | `a "Feed Source Relays" panel lists the feed relay` | same | e2e |
 | AC-12 (hashtags panel) | `a panel lists the query hashtags the feed filters on` | same | e2e |
+| AC-12 (case-sensitive note) | `the Topics panel notes that hashtags are case sensitive` | same | e2e |
 
 ## Edge cases
 

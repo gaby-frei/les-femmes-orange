@@ -93,11 +93,10 @@ untouched. We validate the curation algorithm client-side first (fast iteration,
 port that exact logic into the backend when post/user volume justifies it.
 
 **Open question resolved — hashtag case-sensitivity:** Nostr relay tag filters (`#t`) match
-**exactly** (case-sensitive); `t` tags are lowercase by convention, and the prevalence research
-that chose these tags was gathered lowercase and matched real notes. **v1 queries the seven tags
-in lowercase and relies on the relay-side `#t` filter** — no client-side re-filtering. Documented
-limitation: notes that tag with non-lowercase variants (rare) won't appear. Revisit only if the
-feed looks thin.
+**exactly** (case-sensitive). Rather than lowercase-only, v1 **lists case variants explicitly**
+where they matter (e.g. both `lfo` and `LFO`) and relies on the relay-side `#t` filter — no
+client-side re-filtering. The Topics side panel surfaces this to users with a dulled
+"(case sensitive)" label. Add further variants to `FEED_HASHTAGS` if a topic is being missed.
 
 ## Consequences
 
@@ -122,7 +121,7 @@ the four small wiring points (nav, `showView`, verified-reveal, sign-out reset).
 
 2. **Config.** Near the `RELAYS` / config block (~1362), add:
    - `const FEED_RELAY = 'wss://nos.lol';`
-   - `const FEED_HASHTAGS = ['nostr','asknostr','grownostr','bitcoin','btc','lightning','sats','lfo'];`
+   - `const FEED_HASHTAGS = ['nostr','asknostr','grownostr','bitcoin','btc','lightning','sats','lfo','LFO','lesfemmesorange'];`
    - `const FEED_LIMIT = 100;`
    - state flag `let _feedLoaded = false;` (alongside `_membersLoaded`).
 
@@ -194,8 +193,9 @@ the four small wiring points (nav, `showView`, verified-reveal, sign-out reset).
     class="feed-aside">` holding two panels:
     - `#feed-relays-panel` — title **"Feed Source Relays"**, list `#feed-relays-list` populated from
       `[FEED_RELAY]` (display the host, e.g. `nos.lol`, stripped of `wss://` + `/relay`).
-    - `#feed-hashtags-panel` — list `#feed-hashtags-list` populated from `FEED_HASHTAGS` (rendered as
-      `#nostr`, `#bitcoin`, …).
+    - `#feed-hashtags-panel` — title "Topics" with a dulled `.feed-panel-note` "(case sensitive)"
+      suffix; list `#feed-hashtags-list` populated from `FEED_HASHTAGS` (rendered as `#nostr`,
+      `#bitcoin`, …, including case variants like `#lfo` and `#LFO`).
     A small `renderFeedPanels()` populates both from the JS constants; call it from `loadFeedPage()`
     (data-independent, idempotent). On narrow screens the aside stacks below the feed.
 
