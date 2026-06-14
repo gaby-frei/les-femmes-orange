@@ -1,6 +1,6 @@
 # Story 1: Feed view — gated community feed of Bitcoin/Nostr notes
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-06-12
 **Type:** Feature
 **Epic:** `community-feed` · **Book:** `community-feed`
@@ -63,4 +63,4 @@ Concept Graph API (`http://localhost:8877`) was **not reachable** during plannin
 - ADR: `engineering-team/decisions/0029-community-feed-view.md`
 - Test plan: `engineering-team/stories/community-feed/1-feed-view.test-plan.md`
 - Tests: `tests/community-feed.spec.js`
-- Review: (filled in after Review phase)
+- Review: `engineering-team/reviews/community-feed/1-feed-view.md` — **PASS** (2026-06-14)
