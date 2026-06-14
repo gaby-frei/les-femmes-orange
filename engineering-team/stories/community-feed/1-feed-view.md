@@ -57,5 +57,6 @@ Concept Graph API (`http://localhost:8877`) was **not reachable** during plannin
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0029-community-feed-view.md`
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/community-feed/1-feed-view.test-plan.md`
+- Tests: `tests/community-feed.spec.js`
 - Review: (filled in after Review phase)
