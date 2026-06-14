@@ -597,6 +597,38 @@
 
     .members-loading p { font-size: 0.9rem; color: var(--grey-text); }
 
+    /* ── COMMUNITY FEED ───────────────────────────────────── */
+
+    .feed-page { padding: 3rem 2rem 5rem; max-width: 720px; margin: 0 auto; }
+
+    .feed-header {
+      font-size: 0.95rem; font-weight: 700; color: var(--dark);
+      margin-bottom: 1.5rem; padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--grey-mid);
+    }
+
+    .feed-empty {
+      display: flex; align-items: center; justify-content: center;
+      padding: 4rem 1rem; text-align: center;
+      color: var(--grey-text); font-size: 0.9rem;
+    }
+
+    .feed-notes { display: flex; flex-direction: column; gap: 1rem; }
+
+    .feed-note {
+      background: var(--white); border: 1px solid var(--grey-mid); border-radius: 12px;
+      padding: 1rem 1.2rem; cursor: pointer;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .feed-note:hover { border-color: var(--orange); box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+
+    .feed-note-head { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+    .feed-note-name { font-weight: 700; color: var(--dark); font-size: 0.92rem; }
+    .feed-note-npub { font-family: monospace; font-size: 0.72rem; color: var(--grey-text); }
+    .feed-note-time { margin-left: auto; font-size: 0.72rem; color: var(--grey-text); }
+    .feed-note-excerpt { font-size: 0.9rem; line-height: 1.55; color: var(--dark); white-space: pre-wrap; word-break: break-word; margin: 0; }
+    .feed-note-open { margin-top: 0.6rem; font-size: 0.72rem; font-weight: 600; color: var(--orange); }
+
     /* ── MEMBER CARD ──────────────────────────────────────── */
 
     .member-card {
@@ -820,6 +852,7 @@
     <ul class="nav-center">
       <li><button class="nav-link-btn active" id="nav-about-btn" onclick="showView('about')">About</button></li>
       <li id="nav-members-li" style="display:none"><button class="nav-link-btn" id="nav-members-btn" onclick="showView('members')">Members</button></li>
+      <li id="nav-feed-li" style="display:none"><button class="nav-link-btn" id="nav-feed-btn" onclick="showView('feed')">Feed</button></li>
     </ul>
 
     <button id="nav-signin-btn" class="btn btn-primary" onclick="scrollToJoin()">Sign In</button>
@@ -1276,6 +1309,28 @@
     </div>
   </div><!-- /page-members -->
 
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- PAGE: FEED                                               -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="page-feed" class="page hidden">
+    <div class="feed-page">
+
+      <div id="feed-header" class="feed-header" style="display:none"></div>
+
+      <div id="feed-loading" class="members-loading" style="display:none">
+        <div class="spinner"></div>
+        <p>Loading the community feed…</p>
+      </div>
+
+      <div id="feed-empty" class="feed-empty" style="display:none">
+        No notes to show yet — check back soon as members post about Bitcoin and Nostr.
+      </div>
+
+      <div id="feed-notes" class="feed-notes"></div>
+
+    </div>
+  </div><!-- /page-feed -->
+
   <!-- FOOTER -->
   <footer>
     <div class="footer-inner">
@@ -1312,6 +1367,7 @@
     window._nostrDecode      = (str) => nip19.decode(str);
     window._nostrGetPubkey   = (secretBytes) => getPublicKey(secretBytes);
     window._nostrNpubEncode  = (hex) => nip19.npubEncode(hex);
+    window._nostrNoteEncode  = (hex) => nip19.noteEncode(hex);
     window._nostrGenerate    = () => {
       const sk   = generateSecretKey();
       const nsec = nip19.nsecEncode(sk);
@@ -1371,10 +1427,18 @@
       'wss://relay.primal.net',
     ];
 
+    // ── Community feed config (Story 1, community-feed) ──────────────────────
+    // Feed content comes from nos.lol only (see ADR 0029) — distinct from the
+    // membership computation above, which queries the full RELAYS set.
+    const FEED_RELAY    = 'wss://nos.lol';
+    const FEED_HASHTAGS = ['nostr', 'asknostr', 'grownostr', 'bitcoin', 'btc', 'lightning', 'sats'];
+    const FEED_LIMIT    = 100;
+
     // ── State ───────────────────────────────────────────────────────────────
     let currentPubkey     = null;
     let _tagItemsCache    = null;
     let _membersLoaded    = false;
+    let _feedLoaded       = false;
     let _generatedHex     = null;
     let _generatedNsec    = null;
     let _generatedNpub    = null;
@@ -1401,20 +1465,21 @@
     function showView(name) {
       const aboutPage   = document.getElementById('page-about');
       const membersPage = document.getElementById('page-members');
+      const feedPage    = document.getElementById('page-feed');
 
       document.getElementById('nav-about-btn').classList.toggle('active', name === 'about');
       document.getElementById('nav-members-btn').classList.toggle('active', name === 'members');
+      const feedBtn = document.getElementById('nav-feed-btn');
+      if (feedBtn) feedBtn.classList.toggle('active', name === 'feed');
 
-      if (name === 'members') {
-        aboutPage.classList.add('hidden');
-        membersPage.classList.remove('hidden');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        if (!_membersLoaded) { _membersLoaded = true; loadMembersPage(); }
-      } else {
-        membersPage.classList.add('hidden');
-        aboutPage.classList.remove('hidden');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+      aboutPage.classList.toggle('hidden', name !== 'about');
+      membersPage.classList.toggle('hidden', name !== 'members');
+      if (feedPage) feedPage.classList.toggle('hidden', name !== 'feed');
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      if (name === 'members' && !_membersLoaded) { _membersLoaded = true; loadMembersPage(); }
+      if (name === 'feed'    && !_feedLoaded)    { _feedLoaded    = true; loadFeedPage(); }
     }
 
     // ── Sign-in state helpers ───────────────────────────────────────────────
@@ -1863,6 +1928,122 @@
       if (pendingPubkeys.length > 0) pendingSec.style.display = '';
     }
 
+    // ── Community feed (Story 1, community-feed) ─────────────────────────────
+    // getFeed() is the data-layer boundary. Its return shape is identical to the
+    // planned GET /api/feed response (ADR 0029), so a future backend is a drop-in:
+    // PLANNED: replace this body with `return (await fetch('/api/feed')).json()`.
+    async function getFeed() {
+      const tagItems = await getTagItems();
+      const { verifiedMap } = buildMemberSets(tagItems);
+      const memberPubkeys = [...verifiedMap.keys()].filter(pk => pk !== SEED_PUBKEY);
+
+      const raw = await queryRelay(FEED_RELAY, {
+        kinds: [1], authors: memberPubkeys, '#t': FEED_HASHTAGS, limit: FEED_LIMIT,
+      }, 12000);
+
+      // STORY 2: curated selection (representation floor + soft per-member cap + recency) replaces this slice.
+      const selected = raw.slice().sort((a, b) => b.created_at - a.created_at).slice(0, FEED_LIMIT);
+
+      const authors = [...new Set(selected.map(ev => ev.pubkey))];
+      const metaMap = await fetchMetadata(authors);
+
+      const notes = selected.map(ev => {
+        const m = metaMap.get(ev.pubkey) || {};
+        return {
+          id:         ev.id,
+          pubkey:     ev.pubkey,
+          created_at: ev.created_at,
+          content:    ev.content || '',
+          author: {
+            displayName: m.display_name || m.name || hexToNpubShort(ev.pubkey),
+            npubShort:   hexToNpubShort(ev.pubkey),
+          },
+        };
+      });
+
+      return { memberCount: authors.length, notes };
+    }
+
+    // Render layer — deliberately ignorant of where the data came from.
+    async function loadFeedPage() {
+      const loadingEl = document.getElementById('feed-loading');
+      const emptyEl   = document.getElementById('feed-empty');
+      const headerEl  = document.getElementById('feed-header');
+      const notesEl   = document.getElementById('feed-notes');
+
+      loadingEl.style.display = 'flex';
+      emptyEl.style.display   = 'none';
+      headerEl.style.display  = 'none';
+      notesEl.innerHTML       = '';
+
+      let feed;
+      try {
+        feed = await getFeed();
+      } catch (err) {
+        loadingEl.style.display = 'none';
+        emptyEl.textContent     = 'Could not load the feed right now. Please try again later.';
+        emptyEl.style.display   = 'flex';
+        return;
+      }
+
+      loadingEl.style.display = 'none';
+
+      if (!feed.notes.length) {
+        emptyEl.style.display = 'flex';
+        return;
+      }
+
+      for (const note of feed.notes) notesEl.appendChild(makeFeedNote(note));
+      headerEl.textContent = `${feed.memberCount} member${feed.memberCount === 1 ? '' : 's'} contributing to the discussion`;
+      headerEl.style.display = '';
+    }
+
+    // Build a single non-interactive feed card. Clicking it opens the note in Primal.
+    function makeFeedNote(note) {
+      const card = document.createElement('div');
+      card.className = 'feed-note';
+      card.setAttribute('role', 'link');
+      card.tabIndex = 0;
+
+      const content  = note.content || '';
+      const text     = content.length > 280 ? content.slice(0, 280) + '…' : content;
+      const when     = formatTimeAgo(note.created_at);
+      const whenAbs  = new Date(note.created_at * 1000).toLocaleString();
+
+      card.innerHTML = `
+        <div class="feed-note-head">
+          <span class="feed-note-name">${escHtml(note.author.displayName)}</span>
+          <span class="feed-note-npub">${escHtml(note.author.npubShort)}</span>
+          <span class="feed-note-time" title="${escHtml(whenAbs)}">${escHtml(when)}</span>
+        </div>
+        <p class="feed-note-excerpt">${escHtml(text)}</p>
+        <div class="feed-note-open">Open in Primal ↗</div>
+      `;
+
+      const open = () => {
+        let id = note.id;
+        if (window._nostrNoteEncode) { try { id = window._nostrNoteEncode(note.id); } catch {} }
+        window.open('https://primal.net/e/' + id, '_blank', 'noopener');
+      };
+      card.addEventListener('click', open);
+      card.addEventListener('keydown', e => { if (e.key === 'Enter') open(); });
+
+      return card;
+    }
+
+    // Compact relative timestamp ("just now", "5m", "3h", "2d", else a date).
+    function formatTimeAgo(unixSeconds) {
+      const s = Math.max(0, Math.floor(Date.now() / 1000 - unixSeconds));
+      if (s < 45) return 'just now';
+      const m = Math.floor(s / 60);
+      if (m < 60) return m + 'm';
+      const h = Math.floor(m / 60);
+      if (h < 24) return h + 'h';
+      const d = Math.floor(h / 24);
+      if (d < 7) return d + 'd';
+      return new Date(unixSeconds * 1000).toLocaleDateString();
+    }
+
     // ── Shared: proceed once we have a hex pubkey ───────────────────────────
     async function proceedWithPubkey(hexPubkey) {
       currentPubkey = hexPubkey;
@@ -1886,8 +2067,9 @@
       _isVerifiedMember = isVerified;
 
       if (isVerified) {
-        // Show Members nav link, hide join section, navigate to members
+        // Show Members + Feed nav links, hide join section, navigate to members
         document.getElementById('nav-members-li').style.display = '';
+        document.getElementById('nav-feed-li').style.display = '';
         document.getElementById('join').style.display = 'none';
         const heroCta = document.getElementById('hero-cta-btn');
         heroCta.textContent = 'View Members →';
@@ -2291,6 +2473,7 @@
       document.getElementById('nav-pill-wrap').classList.remove('visible', 'open');
       document.getElementById('nav-pubkey-pill').setAttribute('aria-expanded', 'false');
       document.getElementById('nav-members-li').style.display = 'none';
+      document.getElementById('nav-feed-li').style.display = 'none';
       document.getElementById('join').style.display = '';
 
       const heroCta = document.getElementById('hero-cta-btn');
