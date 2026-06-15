@@ -1,6 +1,6 @@
 # Story 3: Rich note rendering — inline images
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-06-15
 **Type:** Feature
 **Epic:** `community-feed` · **Book:** `community-feed`
@@ -53,4 +53,4 @@ purely client-side rendering of note content.
 - ADR: `engineering-team/decisions/0030-feed-inline-images.md`
 - Test plan: `engineering-team/stories/community-feed/3-inline-images.test-plan.md`
 - Tests: `tests/community-feed.spec.js` (Story 3 describe blocks)
-- Review: (filled in after Review phase)
+- Review: `engineering-team/reviews/community-feed/3-inline-images.md` — **PASS** (2026-06-15)
