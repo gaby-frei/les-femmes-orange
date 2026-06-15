@@ -660,6 +660,18 @@
     .feed-note-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .feed-note-avatar-fallback { font-size: 0.78rem; font-weight: 700; color: var(--grey-text); }
     .feed-note-excerpt { font-size: 0.9rem; line-height: 1.55; color: var(--dark); white-space: pre-wrap; word-break: break-word; margin: 0; }
+    .feed-note-media {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.4rem; margin-top: 0.7rem;
+    }
+    .feed-note-media-tile {
+      position: relative; border-radius: 8px; overflow: hidden;
+      aspect-ratio: 16 / 10; background: var(--grey-light); border: 1px solid var(--grey-mid);
+    }
+    .feed-note-media-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .feed-note-media-overlay {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: rgba(0, 0, 0, 0.55); color: #fff; font-weight: 700; font-size: 1.4rem;
+    }
     .feed-note-open { margin-top: 0.6rem; font-size: 0.72rem; font-weight: 600; color: var(--orange); }
 
     /* ── MEMBER CARD ──────────────────────────────────────── */
@@ -1647,6 +1659,33 @@
       return (t.startsWith('https://') || t.startsWith('http://')) ? t : '';
     }
 
+    // ── Note content parsing (community-feed #3) ────────────────────────────
+    // Shorten a non-image URL for display: drop the scheme + trailing slash, truncate long ones.
+    function shortenUrl(url) {
+      const bare = String(url).replace(/^https?:\/\//, '').replace(/\/$/, '');
+      return bare.length > 30 ? bare.slice(0, 30) + '…' : bare;
+    }
+
+    // Split note content into displayable text + image URLs. Pure (no DOM). Image URLs are
+    // pulled out (sanitized, deduped); other URLs are shortened in place so they don't clutter.
+    function parseNoteContent(content) {
+      const images = [];
+      const seen = new Set();
+      const isImage = u => /\.(?:jpg|jpeg|png|gif|webp|avif)(?:\?[^\s<>"']*)?$/i.test(u);
+
+      let text = String(content || '').replace(/(https?:\/\/[^\s<>"']+)/gi, (url) => {
+        const safe = safePicUrl(url);
+        if (safe && isImage(url)) {
+          if (!seen.has(safe)) { seen.add(safe); images.push(safe); }
+          return '';                       // strip image URLs from the text
+        }
+        return shortenUrl(url);            // shorten any other link
+      });
+
+      text = text.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+      return { text, images };
+    }
+
     // ── Publish a signed event to a single relay via raw WebSocket ──────────
     function publishEventToRelay(relayUrl, event, timeoutMs = 6000) {
       return new Promise(resolve => {
@@ -2065,7 +2104,7 @@
       card.setAttribute('role', 'link');
       card.tabIndex = 0;
 
-      const text     = note.content || '';
+      const { text, images } = parseNoteContent(note.content || '');
       const when     = formatTimeAgo(note.created_at);
       const whenAbs  = new Date(note.created_at * 1000).toLocaleString();
 
@@ -2082,9 +2121,34 @@
             <span class="feed-note-avatar-fallback">${escHtml(initials)}</span>
           </div>
         </div>
-        <p class="feed-note-excerpt">${escHtml(text)}</p>
+        ${text ? `<p class="feed-note-excerpt">${escHtml(text)}</p>` : ''}
         <div class="feed-note-open">Open in Primal ↗</div>
       `;
+
+      // Inline images (community-feed #3): up to 2 tiles below the text; "+N" overlay for extras.
+      // Built via DOM (never innerHTML of a URL); broken images drop their <img> like the avatar.
+      if (images.length) {
+        const media = document.createElement('div');
+        media.className = 'feed-note-media';
+        const shown = Math.min(2, images.length);
+        for (let i = 0; i < shown; i++) {
+          const tile = document.createElement('div');
+          tile.className = 'feed-note-media-tile';
+          const img = document.createElement('img');
+          img.alt = '';
+          img.src = images[i];
+          img.onerror = () => img.remove();
+          tile.appendChild(img);
+          if (i === 1 && images.length > 2) {
+            const overlay = document.createElement('div');
+            overlay.className = 'feed-note-media-overlay';
+            overlay.textContent = '+' + (images.length - 2);
+            tile.appendChild(overlay);
+          }
+          media.appendChild(tile);
+        }
+        card.querySelector('.feed-note-open').before(media);
+      }
 
       // Inject avatar image safely (mirrors makeMemberCard): drop on error, never a broken image.
       const picUrl = note.author.picture;
