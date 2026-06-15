@@ -24,7 +24,7 @@ The ADR's three-layer split gives two clean test surfaces:
 DOM:
 - `#nav-feed-li` (wrapper, `display:none` until the signed-in user is a verified member) → `#nav-feed-btn` (text "Feed").
 - `#page-feed` (`class="page hidden"`, toggled by `showView('feed')`).
-- `#feed-header` — text "X members contributing to the discussion".
+- `#feed-header` — title "What LFO members are saying…" + subtitle "X members contributing across the latest 100 posts".
 - `#feed-loading` — loading indicator; `#feed-empty` — empty state; `#feed-notes` — notes container.
 - `.feed-note` — one per note (the clickable card); children `.feed-note-name`, `.feed-note-npub`,
   `.feed-note-time`, `.feed-note-excerpt` (note text), `.feed-note-open` ("Open in Primal").
@@ -51,7 +51,7 @@ Constants the data layer must use: relay `wss://nos.lol`; hashtags `['nostr','as
 | AC-5 (card shows name/npub/time) | `a feed card shows the display name, truncated npub, and post time` | same | e2e |
 | AC-6 (full text, no limit) | `note text is shown in full, with no length limit or ellipsis` | same | e2e |
 | AC-7 (open in Primal; no controls) | `clicking a note opens it in Primal in a new tab, with no interaction controls present` | same | e2e |
-| AC-8 (header member count) | `the header reads "X members contributing to the discussion"` | same | integration+e2e |
+| AC-8 (header title + member-count subtitle) | `the header shows the title and a member-count subtitle` | same | integration+e2e |
 | AC-9 (loading) | `a loading indicator is shown while the feed is fetching` | same | e2e |
 | AC-9 (empty) | `an empty feed shows an empty-state message, not a blank screen` | same | e2e |
 | AC-10 (avatar, data) | `getFeed includes a sanitized author.picture from metadata` | same | integration |

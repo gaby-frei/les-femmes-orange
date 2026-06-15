@@ -261,17 +261,19 @@ test.describe('Community feed — rendering (loadFeedPage / makeFeedNote)', () =
     expect(popup.url(), 'clicking a note opens that note in Primal').toContain('primal.net/e/' + expectedNote1);
   });
 
-  // AC-8 (render side: header copy + singular/plural)
-  test('the header reads "X members contributing to the discussion"', async ({ page }) => {
+  // AC-8 (render side: header title + member-count subtitle, singular/plural)
+  test('the header shows the title and a member-count subtitle', async ({ page }) => {
     await openFeedWith(page, { memberCount: 3, notes: [NOTE()] });
-    await expect(page.locator('#feed-header')).toHaveText(/3 members contributing to the discussion/i, { timeout: 10_000 });
+    const header = page.locator('#feed-header');
+    await expect(header).toContainText(/What LFO members are saying/i, { timeout: 10_000 });
+    await expect(header).toContainText(/3 members contributing across the latest 100 posts/i);
 
     await page.evaluate(() => { window.getFeed = async () => ({ memberCount: 1, notes: [
       { id: 'ee'.repeat(32), pubkey: '11'.repeat(32), created_at: 1730000000, content: 'solo', author: { displayName: 'Solo', npubShort: 'npub1c…c' } },
     ] }); });
     await page.evaluate(() => window.loadFeedPage());
-    await expect(page.locator('#feed-header')).toHaveText(/1 member contributing to the discussion/i);
-    await expect(page.locator('#feed-header')).not.toHaveText(/1 members/i);
+    await expect(header).toContainText(/1 member contributing across the latest 100 posts/i);
+    await expect(header).not.toContainText(/1 members/i);
   });
 
   // AC-9 (empty)

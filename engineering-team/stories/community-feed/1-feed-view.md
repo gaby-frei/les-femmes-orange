@@ -30,7 +30,7 @@ Testable from the outside. Each criterion gets at least one test.
 - [ ] Given a displayed note, then its card shows the author's **profile image** in the top-right; when the author has no usable picture, an **initials fallback** is shown instead (never a broken image).
 - [ ] Given a displayed note, then its card shows the note's **full text content** as plain text (no length limit / no truncation). Images/embeds/mention resolution are not rendered (out of scope).
 - [ ] Given a displayed note, when the user clicks it, then **that specific note opens in Primal** in a new browser tab; and the feed presents **no** zap / like / repost / reply / message controls anywhere.
-- [ ] Given the feed is loaded, then a **header** shows the count of **distinct members represented** in the displayed feed, phrased as **"X members contributing to the discussion"** (where X = number of distinct authors whose notes appear).
+- [ ] Given the feed is loaded, then a **header** shows the title **"What LFO members are saying…"** and a subtitle with the count of **distinct members represented**, phrased **"X members contributing across the latest 100 posts"** (X = number of distinct authors whose notes appear). _(Header copy amended 2026-06-15.)_
 - [ ] Given the feed is **loading**, then a loading indicator is shown; and given the query returns **no** qualifying notes, then an **empty-state message** is shown (not a blank screen).
 - [ ] Given the feed view, then a **"Feed Source Relays"** side panel lists the relay(s) the feed is sourced from (v1: `nos.lol`).
 - [ ] Given the feed view, then a side panel ("Topics") lists the **query hashtags** the feed filters on (the qualifying `t` tags) and notes that matching is **case-sensitive**.

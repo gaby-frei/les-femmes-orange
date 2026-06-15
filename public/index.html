@@ -628,10 +628,11 @@
     }
 
     .feed-header {
-      font-size: 0.95rem; font-weight: 700; color: var(--dark);
       margin-bottom: 1.5rem; padding-bottom: 0.75rem;
       border-bottom: 1px solid var(--grey-mid);
     }
+    .feed-header-title { font-size: 1.15rem; font-weight: 700; color: var(--dark); letter-spacing: -0.01em; }
+    .feed-header-sub { margin-top: 0.25rem; font-size: 0.8rem; color: var(--grey-text); }
 
     .feed-empty {
       display: flex; align-items: center; justify-content: center;
@@ -2128,7 +2129,9 @@
       }
 
       for (const note of feed.notes) notesEl.appendChild(makeFeedNote(note, feed.memberNames || {}));
-      headerEl.textContent = `${feed.memberCount} member${feed.memberCount === 1 ? '' : 's'} contributing to the discussion`;
+      headerEl.innerHTML =
+        `<div class="feed-header-title">What LFO members are saying…</div>` +
+        `<div class="feed-header-sub">${feed.memberCount} member${feed.memberCount === 1 ? '' : 's'} contributing across the latest ${FEED_LIMIT} posts</div>`;
       headerEl.style.display = '';
     }
 

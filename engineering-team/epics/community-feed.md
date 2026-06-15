@@ -35,5 +35,5 @@ we don't publish social content).
 - _(none open)_
 
 ## Resolved
-- **Header** = distinct member count, phrased "X members contributing to the discussion" (resolved 2026-06-12).
+- **Header** = title "What LFO members are saying…" + subtitle "X members contributing across the latest 100 posts" (member count; copy updated 2026-06-15).
 - **Hashtag list (v1)** = `nostr`, `asknostr`, `grownostr`, `bitcoin`, `btc`, `lightning`, `sats` (resolved 2026-06-12).

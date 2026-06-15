@@ -136,7 +136,7 @@ the four small wiring points (nav, `showView`, verified-reveal, sign-out reset).
    `nav-feed-li` alongside `nav-members-li`. In the sign-out reset (~2293) hide it again.
 
 6. **`page-feed` section.** After `page-members` (closes ~1218+), add a `<div id="page-feed" class="page hidden">` containing:
-   - a header element `#feed-header` for "X members contributing to the discussion",
+   - a header element `#feed-header` (title "What LFO members are saying…" + member-count subtitle; copy updated by Story-1 amendment 2026-06-15),
    - a loading block `#feed-loading` (reuse `.spinner` markup from members-loading),
    - an empty-state block `#feed-empty` (hidden by default),
    - a notes container `#feed-notes`.
@@ -167,7 +167,7 @@ the four small wiring points (nav, `showView`, verified-reveal, sign-out reset).
    - `const feed = await getFeed();`
    - empty (`!feed.notes.length`) → show `#feed-empty`, hide loading, return.
    - clear `#feed-notes`; for each `feed.notes[i]` append `makeFeedNote(note)`.
-   - header: `#feed-header` text = `${feed.memberCount} member${feed.memberCount===1?'':'s'} contributing to the discussion`.
+   - header: `#feed-header` = title "What LFO members are saying…" + subtitle `${feed.memberCount} member(s) contributing across the latest ${FEED_LIMIT} posts`.
    - hide loading; show header + notes.
 
 9. **`makeFeedNote(note)`** (new, model on `makeMemberCard` 1724). Takes a contract-shaped note
