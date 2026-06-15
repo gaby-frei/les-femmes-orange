@@ -35,6 +35,10 @@ const C  = '33'.repeat(32);
 const Z  = '44'.repeat(32); // a non-member
 const ID = 'ab'.repeat(32); // a note id
 
+// Build real Nostr mention strings for the mention-resolution tests (Story 4).
+const npubOf     = hex => nip19.npubEncode(hex);
+const nprofileOf = hex => nip19.nprofileEncode({ pubkey: hex });
+
 // ── data-layer helpers (run in the browser via evaluate args) ────────────────
 // A synthetic LFO tag item: tagger attests target as a member.
 function lfoTagSrc() {
@@ -447,6 +451,112 @@ test.describe('Community feed — inline images (Story 3)', () => {
     await expect(card.locator('.feed-note-excerpt')).toContainText('onerror=alert(1)');
     await page.waitForTimeout(300);
     expect(dialogFired, 'no script/dialog runs from note content').toBe(false);
+  });
+});
+
+// ── mention resolution tests (Story 4) ───────────────────────────────────────
+test.describe('Community feed — mention resolution helper (Story 4)', () => {
+  test('resolveMentions resolves member mentions (npub, nprofile, bare) to @DisplayName', async ({ page }) => {
+    await page.goto('/');
+    expect(await page.evaluate(() => typeof window.resolveMentions), 'resolveMentions must be a global').toBe('function');
+
+    const names = { [B]: 'Bob' };
+    const forms = [`nostr:${npubOf(B)}`, `nostr:${nprofileOf(B)}`, npubOf(B)];
+    for (const form of forms) {
+      const out = await page.evaluate(({ t, names }) => window.resolveMentions(t, names), { t: `gm ${form} ok`, names });
+      expect(out, `member mention (${form.slice(0, 16)}…) resolves to @Bob`).toContain('@Bob');
+      expect(out, 'the raw mention token is replaced').not.toContain(form);
+    }
+  });
+
+  test('resolveMentions shortens unknown mentions to @npub… and leaves malformed tokens unchanged', async ({ page }) => {
+    await page.goto('/');
+    expect(await page.evaluate(() => typeof window.resolveMentions)).toBe('function');
+
+    // Unknown pubkey (not in names) → shortened @npub… handle.
+    const unknown = await page.evaluate(({ t }) => window.resolveMentions(t, {}), { t: `hi nostr:${npubOf(Z)} bye` });
+    expect(unknown, 'unknown mention shortened to @npub…').toContain('@npub1');
+    expect(unknown).toContain('…');
+    expect(unknown, 'full-length npub is not shown').not.toContain(npubOf(Z));
+
+    // Malformed token → left unchanged, no throw.
+    const malformed = await page.evaluate(() => window.resolveMentions('x nostr:npub1zzz y', {}));
+    expect(malformed, 'malformed token left as-is').toContain('npub1zzz');
+  });
+});
+
+test.describe('Community feed — mention resolution (render, Story 4)', () => {
+  // AC1
+  test('a member mention renders as @DisplayName from the feed payload', async ({ page }) => {
+    await openFeedWith(page, {
+      memberCount: 1,
+      notes: [ NOTE({ pubkey: A, content: `gm nostr:${npubOf(B)} 🚀` }) ],
+      memberNames: { [B]: 'Bob' },
+    });
+    const excerpt = page.locator('#feed-notes .feed-note-excerpt').first();
+    await expect(excerpt).toBeVisible({ timeout: 10_000 });
+    await expect(excerpt).toContainText('@Bob');
+    await expect(excerpt, 'the full npub is not shown').not.toContainText(npubOf(B));
+  });
+
+  // AC2
+  test('a non-member mention renders as a shortened @npub handle', async ({ page }) => {
+    await openFeedWith(page, {
+      memberCount: 1,
+      notes: [ NOTE({ pubkey: A, content: `hi nostr:${npubOf(Z)}` }) ],
+      memberNames: {},
+    });
+    const excerpt = page.locator('#feed-notes .feed-note-excerpt').first();
+    await expect(excerpt).toBeVisible({ timeout: 10_000 });
+    await expect(excerpt).toContainText('@npub1');
+    await expect(excerpt).toContainText('…');
+    await expect(excerpt, 'full-length npub not shown').not.toContainText(npubOf(Z));
+  });
+
+  // AC3
+  test('member mentions resolve on a cold feed load (no Members visit)', async ({ page }) => {
+    await openFeedWith(page, {
+      memberCount: 1,
+      notes: [ NOTE({ pubkey: A, content: `cc nostr:${npubOf(B)}` }) ],
+      memberNames: { [B]: 'Bob' },
+    });
+    const excerpt = page.locator('#feed-notes .feed-note-excerpt').first();
+    await expect(excerpt).toBeVisible({ timeout: 10_000 });
+    await expect(excerpt).toContainText('@Bob');
+    // Proof we never went through the Members page (its grid was never populated):
+    await expect(page.locator('#verified-members-grid > *'), 'Members page was not loaded').toHaveCount(0);
+  });
+
+  // AC4 (guard)
+  test('a note with no mentions is rendered unchanged', async ({ page }) => {
+    await openFeedWith(page, {
+      memberCount: 1,
+      notes: [ NOTE({ pubkey: A, content: 'hello world, no mentions here' }) ],
+      memberNames: { [B]: 'Bob' },
+    });
+    const excerpt = page.locator('#feed-notes .feed-note-excerpt').first();
+    await expect(excerpt).toBeVisible({ timeout: 10_000 });
+    await expect(excerpt).toContainText('hello world, no mentions here');
+    expect(await excerpt.textContent(), 'no stray @ inserted').not.toContain('@');
+  });
+
+  // AC5 (security guard)
+  test('a malformed/hostile mention token renders inert — no script, no injection', async ({ page }) => {
+    let dialogFired = false;
+    page.on('dialog', d => { dialogFired = true; d.dismiss(); });
+
+    await openFeedWith(page, {
+      memberCount: 1,
+      notes: [ NOTE({ pubkey: A, content: 'pre nostr:npub1zzz <b>boom</b> end' }) ],
+      memberNames: {},
+    });
+    const card = page.locator('#feed-notes .feed-note').first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.locator('.feed-note-excerpt')).toContainText('<b>boom</b>'); // escaped, shown as text
+    await expect(card.locator('.feed-note-excerpt')).toContainText('npub1zzz');    // malformed token left as-is
+    await expect(card.locator('b'), 'no injected element').toHaveCount(0);
+    await page.waitForTimeout(300);
+    expect(dialogFired, 'no script/dialog runs').toBe(false);
   });
 });
 

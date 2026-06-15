@@ -45,5 +45,6 @@ Concept Graph API not reachable during planning. This story touches **no concept
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0031-feed-mention-resolution.md`
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/community-feed/4-mention-resolution.test-plan.md`
+- Tests: `tests/community-feed.spec.js` (Story 4 describe blocks)
 - Review: (filled in after Review phase)
