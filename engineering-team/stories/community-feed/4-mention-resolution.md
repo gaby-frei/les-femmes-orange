@@ -1,6 +1,6 @@
 # Story 4: Rich note rendering — @ mention resolution
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-06-15
 **Type:** Feature
 **Epic:** `community-feed` · **Book:** `community-feed`
@@ -47,4 +47,4 @@ Concept Graph API not reachable during planning. This story touches **no concept
 - ADR: `engineering-team/decisions/0031-feed-mention-resolution.md`
 - Test plan: `engineering-team/stories/community-feed/4-mention-resolution.test-plan.md`
 - Tests: `tests/community-feed.spec.js` (Story 4 describe blocks)
-- Review: (filled in after Review phase)
+- Review: `engineering-team/reviews/community-feed/4-mention-resolution.md` — **PASS** (2026-06-15)

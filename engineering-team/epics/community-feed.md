@@ -27,7 +27,7 @@ we don't publish social content).
 - #1 — `1-feed-view` — Gated Feed view: fetch & display qualifying member notes (newest-first, cap 100), cards, open-in-Primal, loading/empty states. *(Done — review PASS)*
 - #2 — `2-curated-selection` — Curated selection within the 100: representation floor (every qualifying member ≥1 note) + soft per-member cap (~10) + recency fill. *(Planned — circle back after #3)*
 - #3 — `3-inline-images` — Rich rendering: inline images (up to 2 side-by-side, "+N" overlay for extras), media URLs stripped from text. *(Done — review PASS)*
-- #4 — `4-mention-resolution` — Rich rendering: resolve @ mentions (members → @DisplayName, others → short @npub handle), backed by a shared member-metadata cache. *(Approved — in progress)*
+- #4 — `4-mention-resolution` — Rich rendering: resolve @ mentions (members → @DisplayName, others → short @npub handle), backed by a shared member-metadata cache. *(Done — review PASS)*
 
 **Execution order:** #1 (done) → **#3** → #4 → #2.
 
