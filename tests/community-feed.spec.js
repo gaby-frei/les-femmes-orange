@@ -204,6 +204,15 @@ async function openFeedWith(page, payload) {
   await page.evaluate(() => window.showView('feed'));
 }
 
+// 1×1 PNG bytes — served for the test image host so feed <img>s actually load
+// (the onerror handler removes images that fail, which would make assertions flaky).
+const ONE_PX_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+// Fulfill any request to the test image host with a valid image. No live network.
+async function routeImages(page) {
+  await page.route(/img\.test/, route => route.fulfill({ status: 200, contentType: 'image/png', body: ONE_PX_PNG }));
+}
+const IMG = n => `https://img.test/${n}.jpg`;
+
 test.describe('Community feed — rendering (loadFeedPage / makeFeedNote)', () => {
   // AC-5 (render side)
   test('a feed card shows the display name, truncated npub, and post time', async ({ page }) => {
@@ -321,6 +330,123 @@ test.describe('Community feed — avatar & side panels', () => {
     const panel = page.locator('#feed-hashtags-panel');
     await expect(panel, 'the hashtags panel must render').toBeVisible({ timeout: 10_000 });
     await expect(panel, 'panel must note case sensitivity').toContainText(/case[- ]sensitive/i);
+  });
+});
+
+// ── inline image / content-parsing tests (Story 3) ───────────────────────────
+test.describe('Community feed — content parsing helpers (Story 3)', () => {
+  test('parseNoteContent extracts image URLs and strips them from the text', async ({ page }) => {
+    await page.goto('/');
+    expect(await page.evaluate(() => typeof window.parseNoteContent), 'parseNoteContent must be a global').toBe('function');
+    const r = await page.evaluate(() =>
+      window.parseNoteContent('hi https://img.test/a.jpg and https://img.test/b.png bye'));
+    expect(r.images.length, 'both image URLs extracted').toBe(2);
+    expect(r.images).toContain('https://img.test/a.jpg');
+    expect(r.text, 'image URLs stripped from text').not.toContain('img.test/a.jpg');
+    expect(r.text).toContain('hi');
+    expect(r.text).toContain('bye');
+  });
+
+  test('shortenUrl strips the scheme and truncates long URLs', async ({ page }) => {
+    await page.goto('/');
+    expect(await page.evaluate(() => typeof window.shortenUrl), 'shortenUrl must be a global').toBe('function');
+    const out = await page.evaluate(() =>
+      window.shortenUrl('https://imgproxy.example/aHR0cHM6Ly9zb21lLXZlcnktbG9uZy1iYXNlNjQtc3RyaW5n'));
+    expect(out.startsWith('imgproxy.example'), 'host preserved, scheme stripped').toBe(true);
+    expect(out.endsWith('…'), 'long URL truncated with an ellipsis').toBe(true);
+    expect(out.length, 'shortened form is short').toBeLessThan(40);
+  });
+});
+
+test.describe('Community feed — inline images (Story 3)', () => {
+  // AC1 + AC4
+  test('a single image URL renders as an image, no overlay, and is removed from the text', async ({ page }) => {
+    await routeImages(page);
+    await openFeedWith(page, { memberCount: 1, notes: [ NOTE({ content: `look at this ${IMG(1)} please` }) ] });
+
+    const card = page.locator('#feed-notes .feed-note').first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    const media = card.locator('.feed-note-media');
+    await expect(media, 'a media grid renders').toHaveCount(1);
+    await expect(media.locator('.feed-note-media-tile'), 'one tile for one image').toHaveCount(1);
+    await expect(media.locator('img'), 'image rendered as <img>').toHaveCount(1);
+    await expect(media.locator('img').first()).toHaveAttribute('src', /img\.test\/1\.jpg/);
+    await expect(card.locator('.feed-note-media-overlay'), 'no overlay for a single image').toHaveCount(0);
+
+    const excerpt = card.locator('.feed-note-excerpt');
+    await expect(excerpt).toContainText('look at this');
+    await expect(excerpt, 'the raw image URL is removed from the text').not.toContainText('img.test/1.jpg');
+  });
+
+  // AC2
+  test('two image URLs render as two side-by-side tiles', async ({ page }) => {
+    await routeImages(page);
+    await openFeedWith(page, { memberCount: 1, notes: [ NOTE({ content: `a ${IMG(1)} b ${IMG(2)} c` }) ] });
+
+    const card = page.locator('#feed-notes .feed-note').first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.locator('.feed-note-media-tile'), 'two tiles').toHaveCount(2);
+    await expect(card.locator('.feed-note-media img'), 'two images').toHaveCount(2);
+    await expect(card.locator('.feed-note-media-overlay'), 'no overlay for exactly two').toHaveCount(0);
+  });
+
+  // AC3
+  test('more than two images show a "+N" overlay on the second tile', async ({ page }) => {
+    await routeImages(page);
+    const content = `gallery ${IMG(1)} ${IMG(2)} ${IMG(3)} ${IMG(4)} ${IMG(5)}`; // 5 images
+    await openFeedWith(page, { memberCount: 1, notes: [ NOTE({ content }) ] });
+
+    const card = page.locator('#feed-notes .feed-note').first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    const tiles = card.locator('.feed-note-media-tile');
+    await expect(tiles, 'only the first two render').toHaveCount(2);
+    await expect(tiles.nth(0).locator('.feed-note-media-overlay'), 'first tile has no overlay').toHaveCount(0);
+    const overlay = tiles.nth(1).locator('.feed-note-media-overlay');
+    await expect(overlay, 'second tile carries the overlay').toHaveCount(1);
+    await expect(overlay, '5 images → +3 extras').toHaveText(/\+3/);
+  });
+
+  // AC5
+  test('a non-image URL is shown shortened and is not a clickable link', async ({ page }) => {
+    const longUrl = 'https://imgproxy.example/aHR0cHM6Ly9zb21lLXZlcnktbG9uZy1iYXNlNjQtc3RyaW5nLWhlcmU';
+    await openFeedWith(page, { memberCount: 1, notes: [ NOTE({ content: `check ${longUrl} out` }) ] });
+
+    const card = page.locator('#feed-notes .feed-note').first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    const excerpt = card.locator('.feed-note-excerpt');
+    await expect(excerpt, 'host stays visible').toContainText('imgproxy.example');
+    await expect(excerpt, 'shortened with an ellipsis').toContainText('…');
+    await expect(excerpt, 'the full-length URL is not shown').not.toContainText(longUrl);
+    await expect(card.locator('.feed-note-media'), 'a non-image URL is not rendered as media').toHaveCount(0);
+    await expect(card.locator('a'), 'shortened link is display-only (not an anchor)').toHaveCount(0);
+  });
+
+  // AC6
+  test('a note with no URLs renders plain text with no media grid', async ({ page }) => {
+    await openFeedWith(page, { memberCount: 1, notes: [ NOTE({ content: 'just a plain note, nothing special' }) ] });
+    const card = page.locator('#feed-notes .feed-note').first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.locator('.feed-note-excerpt')).toContainText('just a plain note, nothing special');
+    await expect(card.locator('.feed-note-media'), 'no media grid when there are no images').toHaveCount(0);
+  });
+
+  // AC7 (security)
+  test('hostile content renders as inert text — no injected image, no script', async ({ page }) => {
+    let dialogFired = false;
+    page.on('dialog', d => { dialogFired = true; d.dismiss(); });
+
+    const hostile = 'pre <img src=x onerror=alert(1)> mid javascript:alert(2)//evil.jpg and data:image/png;base64,AAAA end';
+    await openFeedWith(page, { memberCount: 1, notes: [ NOTE({ content: hostile }) ] });
+
+    const card = page.locator('#feed-notes .feed-note').first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    // No element injected from the hostile tokens (none are valid http(s) images):
+    await expect(card.locator('img[src="x"]'), 'no injected <img> from raw HTML').toHaveCount(0);
+    await expect(card.locator('.feed-note-media'), 'no media grid from non-http(s) "images"').toHaveCount(0);
+    // The markup is shown as escaped, inert text:
+    await expect(card.locator('.feed-note-excerpt')).toContainText('onerror=alert(1)');
+    await page.waitForTimeout(300);
+    expect(dialogFired, 'no script/dialog runs from note content').toBe(false);
   });
 });
 

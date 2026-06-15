@@ -51,5 +51,6 @@ purely client-side rendering of note content.
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0030-feed-inline-images.md`
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/community-feed/3-inline-images.test-plan.md`
+- Tests: `tests/community-feed.spec.js` (Story 3 describe blocks)
 - Review: (filled in after Review phase)
