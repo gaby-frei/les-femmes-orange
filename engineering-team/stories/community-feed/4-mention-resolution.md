@@ -44,6 +44,6 @@ Concept Graph API not reachable during planning. This story touches **no concept
 - Builds on Story 3's `parseNoteContent()` seam + Story 1's `makeFeedNote()` / `getFeed()` in `public/index.html`.
 
 ## Linked artifacts
-- ADR: (filled in after Architecture phase)
+- ADR: `engineering-team/decisions/0031-feed-mention-resolution.md`
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
