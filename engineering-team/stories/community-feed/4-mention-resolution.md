@@ -1,6 +1,6 @@
 # Story 4: Rich note rendering — @ mention resolution
 
-**Status:** Draft (planned — execute after Story 3)
+**Status:** Approved
 **Created:** 2026-06-15
 **Type:** Feature
 **Epic:** `community-feed` · **Book:** `community-feed`
@@ -18,26 +18,30 @@ notes referencing other people are readable.
 ## Acceptance criteria
 Testable from the outside. Each criterion gets at least one test.
 
-- [ ] Given a note that mentions an **LFO member**, then the mention displays as **`@<member display name>`** (not the full npub).
-- [ ] Given a note that mentions a **non-member or unresolvable** pubkey, then the mention displays as a **shortened `@npub1…` handle** (not the full-length npub).
-- [ ] Given a note with no mentions, then rendering is unchanged.
-- [ ] Given a malformed or hostile mention token, then it is rendered as **inert text** — no element injected, no script runs.
+- [ ] Given a note that mentions an **LFO member who has a display name**, in any supported form (`nostr:npub1…`, `nostr:nprofile1…`, or a bare `npub1…`), then the mention displays as **`@<member display name>`** (not the full npub).
+- [ ] Given a note that mentions a **non-member**, or a member **without a resolvable display name**, then the mention displays as a **shortened `@npub1abc…wxyz` handle** (prefix + ellipsis + tail), not the full-length npub.
+- [ ] Given the feed loaded **directly** (without first visiting the Members page), member mentions still resolve to names — resolution does not depend on navigation order.
+- [ ] Given a note with **no** mentions, then rendering is unchanged (Story 3 images/links still behave as before).
+- [ ] Given a **malformed or hostile** mention token (e.g. `nostr:npub1zzz…`, or HTML), then it is rendered as **inert text** — nothing crashes, no element is injected, no script runs.
 
 ## Concepts touched
-- **Verified LFO member set** — reused to decide which mentions resolve to a name (members) vs. truncate (everyone else). Not modified.
+Concept Graph API not reachable during planning. This story touches **no concept definitions**.
+- **Verified LFO member set** — reused (unchanged) to decide which mentions resolve to a name (members) vs. shorten (everyone else).
 
 ## Out of scope
-- **Inline images** — Story 3.
-- **Fetching non-member profiles** to name them — non-members truncate to a short handle (no extra relay fetch), per product decision.
-- `nevent`/`note` quote expansion.
+- **Inline images / link shortening** — Story 3 (this story extends the same content-parsing seam).
+- **Fetching non-member profiles** to name them — non-members shorten to a handle (no extra relay fetch), per product decision.
+- The deprecated **`#[index]` tag-reference** mention form, and `nevent`/`note` quote expansion.
 
 ## Open questions
-- Exact set of mention forms to support: `nostr:npub1…`, `nostr:nprofile1…`, and bare `npub1…` — Architect to confirm against real note content.
+- _(none open)_ — mention forms decided (`nostr:npub1…`, `nostr:nprofile1…`, bare `npub1…`).
 
 ## Decided constraints (for the Architect)
-- **Members only** resolve to `@DisplayName`; non-members/unresolvable → shortened `@npub1…` handle. **No non-member relay fetch.**
-- Resolving member mentions may require member display names beyond just the note authors (bounded to the ~45-member set) — likely a small change to how `getFeed()` assembles member metadata. Flag in the ADR.
-- Builds on Story 1's `makeFeedNote()` / `getFeed()` in `public/index.html`.
+- **Members only** resolve to `@DisplayName`; non-members / no-name / unresolvable → shortened `@npub1abc…wxyz`. **No non-member relay fetch.**
+- **Enabling change — shared member-metadata cache (Option B):** introduce a module-level member-metadata map, populated once via `fetchMetadata`, **reused** by the Members page (`loadMembersPage` ~`:1987`), the feed cards (`getFeed` ~`:2034`), **and** mention resolution. This guarantees member names are available regardless of navigation order **and de-duplicates** today's separate, redundant member/author fetches. This is the core architectural move — design it in the ADR.
+- **Mention forms:** `nostr:npub1…`, `nostr:nprofile1…`, bare `npub1…`. Decode via the existing `window._nostrDecode` (`nip19.decode`, `:1425`). Skip legacy `#[index]`.
+- **Security:** resolved `@handles` are escaped text (`escHtml`) like all other content; malformed/undecodable tokens must not throw — leave them shortened or as inert text.
+- Builds on Story 3's `parseNoteContent()` seam + Story 1's `makeFeedNote()` / `getFeed()` in `public/index.html`.
 
 ## Linked artifacts
 - ADR: (filled in after Architecture phase)
