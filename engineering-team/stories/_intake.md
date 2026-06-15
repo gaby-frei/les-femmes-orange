@@ -69,3 +69,25 @@ unique tagger could silently drop a member from the verified set.
 **Classification:** Refactor/optimization (touches existing membership code, not the feed).
 **Status:** Not planned — candidate story. Not part of the `community-feed` book.
 **Phase path:** TBD (own story when picked up).
+
+---
+
+## 2026-06-15 — Rich note rendering (images + mentions)
+
+**Raw request (user's words):**
+> add support for images and "@". Right now images appear as links. "@" calls list the whole npub,
+> whereas i would like the username to be displayed. If a post contains multiple images, lets show
+> the first two in a side by side grid and signal through the ui that there are others that can be
+> viewed in primal.
+
+**Decisions:** images — render up to 2 side-by-side, dimmed "+N" overlay on the 2nd tile for extras,
+strip media URLs from text, sanitize to http(s). Mentions — members → `@DisplayName`, non-members →
+short `@npub1…` handle (no non-member fetch).
+
+**Classification:** Feature (all phases). Was OUT OF SCOPE in Story 1 (rich rendering); promoted to
+its own work. **Split** into two stories at the user's direction:
+- `community-feed #3` — `3-inline-images` (Approved, executing now).
+- `community-feed #4` — `4-mention-resolution` (Draft, after #3).
+
+**Reminder:** circle back to `community-feed #2` (curated-selection) after #3.
+**Phase path confirmed with user:** yes — split #3/#4, execute #3 first.
