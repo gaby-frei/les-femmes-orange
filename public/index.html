@@ -620,6 +620,14 @@
     }
     .feed-panel-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
     .feed-panel-list li { font-size: 0.82rem; color: var(--grey-text); font-family: monospace; }
+    /* Live relay status dot: grey while checking, green if it responded, red if it failed. */
+    .relay-dot {
+      display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+      margin-right: 0.5rem; vertical-align: middle; flex: none;
+      background: var(--grey-mid); transition: background 0.2s ease;
+    }
+    .relay-dot.relay-dot-ok   { background: #2e9b4f; }
+    .relay-dot.relay-dot-fail { background: #d1453b; }
 
     @media (max-width: 860px) {
       .feed-layout { grid-template-columns: 1fr; padding: 2rem 1.25rem 4rem; }
@@ -1570,26 +1578,34 @@
     }
 
     // ── Nostr relay query ───────────────────────────────────────────────────
-    function queryRelay(relayUrl, filter, timeoutMs = 8000) {
+    // Core query: resolves { events, ok }. ok === true only when the relay sent a
+    // proper EOSE (it responded fully); a timeout, socket error, or failure to even
+    // open the connection resolves ok === false. The status feeds the feed-panel dots.
+    function queryRelayStatus(relayUrl, filter, timeoutMs = 8000) {
       return new Promise(resolve => {
         const events = [];
         let ws;
-        try { ws = new WebSocket(relayUrl); } catch { return resolve([]); }
+        try { ws = new WebSocket(relayUrl); } catch { return resolve({ events, ok: false }); }
 
         const subId = Math.random().toString(36).slice(2, 10);
-        const timer = setTimeout(() => { try { ws.close(); } catch {} resolve(events); }, timeoutMs);
+        const timer = setTimeout(() => { try { ws.close(); } catch {} resolve({ events, ok: false }); }, timeoutMs);
 
         ws.onopen    = () => ws.send(JSON.stringify(['REQ', subId, filter]));
         ws.onmessage = e => {
           try {
             const msg = JSON.parse(e.data);
             if (msg[0] === 'EVENT' && msg[1] === subId) events.push(msg[2]);
-            else if (msg[0] === 'EOSE') { clearTimeout(timer); ws.close(); resolve(events); }
+            else if (msg[0] === 'EOSE') { clearTimeout(timer); ws.close(); resolve({ events, ok: true }); }
           } catch {}
         };
-        ws.onerror = () => { clearTimeout(timer); resolve(events); };
+        ws.onerror = () => { clearTimeout(timer); resolve({ events, ok: false }); };
         ws.onclose = () => { clearTimeout(timer); };
       });
+    }
+
+    // Back-compat wrapper: callers that only want the events array (membership, etc.).
+    function queryRelay(relayUrl, filter, timeoutMs = 8000) {
+      return queryRelayStatus(relayUrl, filter, timeoutMs).then(r => r.events);
     }
 
     async function queryRelays(filter, timeoutMs = 10000) {
@@ -2058,16 +2074,21 @@
       // Query every feed relay in parallel and merge (dedup by event id). Each
       // relay has its own timeout; allSettled means a slow/failed augment (primal)
       // degrades gracefully — the feed still renders from whatever nos.lol returns.
+      // relayStatus records, per relay, whether it responded (drives the panel dots).
       const feedFilter = { kinds: [1], authors: memberPubkeys, '#t': FEED_HASHTAGS, limit: FEED_LIMIT };
       const settled = await Promise.allSettled(
-        FEED_RELAYS.map(r => queryRelay(r.url, feedFilter, r.timeout))
+        FEED_RELAYS.map(r => queryRelayStatus(r.url, feedFilter, r.timeout))
       );
       const seenIds = new Set();
       const raw = [];
-      for (const s of settled) {
-        if (s.status !== 'fulfilled') continue;
-        for (const ev of s.value) if (!seenIds.has(ev.id)) { seenIds.add(ev.id); raw.push(ev); }
-      }
+      const relayStatus = FEED_RELAYS.map((r, i) => {
+        const s = settled[i];
+        const ok = s.status === 'fulfilled' && s.value.ok === true;
+        if (s.status === 'fulfilled') {
+          for (const ev of s.value.events) if (!seenIds.has(ev.id)) { seenIds.add(ev.id); raw.push(ev); }
+        }
+        return { url: r.url, ok };
+      });
 
       // STORY 2: curated selection (representation floor + soft per-member cap + recency) replaces this slice.
       const selected = raw.slice().sort((a, b) => b.created_at - a.created_at).slice(0, FEED_LIMIT);
@@ -2100,17 +2121,34 @@
         if (nm) memberNames[pk] = nm;
       }
 
-      return { memberCount: authors.length, notes, memberNames };
+      return { memberCount: authors.length, notes, memberNames, relayStatus };
     }
 
     // Informational side panels (read-only): which relay(s) the feed reads, and the
     // hashtags it filters on. Sourced from the JS constants — data-independent.
+    const relayHost = url => url.replace(/^wss?:\/\//, '').replace(/\/relay$/, '');
+
     function renderFeedPanels() {
-      const relayHost = url => url.replace(/^wss?:\/\//, '').replace(/\/relay$/, '');
       const relaysEl = document.getElementById('feed-relays-list');
-      relaysEl.innerHTML = FEED_RELAYS.map(r => `<li>${escHtml(relayHost(r.url))}</li>`).join('');
+      // Each relay gets a status dot (grey "checking" until the feed fetch reports back).
+      relaysEl.innerHTML = FEED_RELAYS.map(r => {
+        const host = relayHost(r.url);
+        return `<li><span class="relay-dot" data-relay-host="${escHtml(host)}" title="checking…"></span>${escHtml(host)}</li>`;
+      }).join('');
       const tagsEl = document.getElementById('feed-hashtags-list');
       tagsEl.innerHTML = FEED_HASHTAGS.map(h => `<li>#${escHtml(h)}</li>`).join('');
+    }
+
+    // Paint each relay's dot green (responded) or red (failed/timed out) from getFeed's relayStatus.
+    function updateRelayDots(relayStatus = []) {
+      for (const s of relayStatus) {
+        const host = relayHost(s.url);
+        const dot = document.querySelector(`.relay-dot[data-relay-host="${CSS.escape(host)}"]`);
+        if (!dot) continue;
+        dot.classList.toggle('relay-dot-ok', s.ok === true);
+        dot.classList.toggle('relay-dot-fail', s.ok !== true);
+        dot.title = s.ok === true ? 'responded' : 'no response';
+      }
     }
 
     // Render layer — deliberately ignorant of where the data came from.
@@ -2138,6 +2176,7 @@
       }
 
       loadingEl.style.display = 'none';
+      updateRelayDots(feed.relayStatus);
 
       if (!feed.notes.length) {
         emptyEl.style.display = 'flex';

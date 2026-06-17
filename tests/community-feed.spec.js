@@ -15,10 +15,11 @@
 //        .feed-note (clickable card) > .feed-note-name, .feed-note-npub,
 //                    .feed-note-time, .feed-note-excerpt, .feed-note-open.
 //   Globals (so window.<name> overrides take effect): getFeed, loadFeedPage,
-//        makeFeedNote, showView, queryRelay, getTagItems, fetchMetadata,
-//        plus window._nostrNoteEncode.
+//        makeFeedNote, showView, queryRelay, queryRelayStatus, getTagItems,
+//        fetchMetadata, plus window._nostrNoteEncode.
 //   getFeed() → { memberCount, notes:[{ id, pubkey, created_at, content,
-//                 author:{ displayName, npubShort } }] }, notes newest-first.
+//                 author:{ displayName, npubShort } }], relayStatus:[{ url, ok }] },
+//                 notes newest-first.
 
 import { test, expect } from '@playwright/test';
 import { nip19 } from 'nostr-tools';
@@ -67,20 +68,21 @@ test.describe('Community feed — data layer (getFeed)', () => {
 
     const out = await page.evaluate(async ({ a, b }) => {
       window.__calls = [];
-      // Each relay returns an overlapping note (n1) plus one only it has, so the
-      // test proves both relays are queried AND results are deduped by id.
-      window.queryRelay = async (url, filter) => {
+      // The feed uses queryRelayStatus → { events, ok }. Each relay returns an
+      // overlapping note (n1) plus one only it has, so the test proves both relays
+      // are queried AND results are deduped by id.
+      window.queryRelayStatus = async (url, filter) => {
         window.__calls.push({ url, filter });
         if (url.includes('primal')) {
-          return [
+          return { ok: true, events: [
             { id: 'n1', pubkey: a, kind: 1, created_at: 200, content: 'gm #nostr', tags: [['t','nostr']] },
             { id: 'n3', pubkey: b, kind: 1, created_at: 150, content: 'primal-only #btc', tags: [['t','btc']] },
-          ];
+          ] };
         }
-        return [
+        return { ok: true, events: [
           { id: 'n1', pubkey: a, kind: 1, created_at: 200, content: 'gm #nostr', tags: [['t','nostr']] },
           { id: 'n2', pubkey: b, kind: 1, created_at: 100, content: 'stacking #sats', tags: [['t','sats']] },
-        ];
+        ] };
       };
       window.fetchMetadata = async () => new Map();
       const feed = await window.getFeed();
@@ -106,6 +108,11 @@ test.describe('Community feed — data layer (getFeed)', () => {
       n.id && n.pubkey && typeof n.created_at === 'number' && typeof n.content === 'string'
       && n.author && typeof n.author.displayName === 'string' && typeof n.author.npubShort === 'string');
     expect(shapeOk, 'each note must match { id, pubkey, created_at, content, author:{displayName,npubShort} }').toBe(true);
+
+    // relayStatus reports each feed relay's outcome (drives the panel status dots).
+    expect(out.feed.relayStatus.map(r => r.url).sort(), 'relayStatus must cover both feed relays')
+      .toEqual([FEED_RELAY_AUGMENT, FEED_RELAY].sort());
+    expect(out.feed.relayStatus.every(r => r.ok === true), 'both relays reported ok in this fixture').toBe(true);
   });
 
   // AC-4
@@ -115,12 +122,12 @@ test.describe('Community feed — data layer (getFeed)', () => {
     await stubMembership(page, A);
 
     const notes = await page.evaluate(async ({ a }) => {
-      window.queryRelay = async () => {
+      window.queryRelayStatus = async () => {
         // 150 notes by a single member, created_at 0..149, deliberately unsorted.
         const arr = [];
         for (let i = 0; i < 150; i++) arr.push({ id: 'e' + i, pubkey: a, kind: 1, created_at: i, content: 'n' + i, tags: [['t','nostr']] });
         for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
-        return arr;
+        return { ok: true, events: arr };
       };
       window.fetchMetadata = async () => new Map();
       const feed = await window.getFeed();
@@ -141,10 +148,10 @@ test.describe('Community feed — data layer (getFeed)', () => {
     await stubMembership(page, A, B);
 
     const byPubkey = await page.evaluate(async ({ a, b }) => {
-      window.queryRelay = async () => ([
+      window.queryRelayStatus = async () => ({ ok: true, events: [
         { id: 'na', pubkey: a, kind: 1, created_at: 200, content: 'A #nostr', tags: [['t','nostr']] },
         { id: 'nb', pubkey: b, kind: 1, created_at: 100, content: 'B #btc',   tags: [['t','btc']] },
-      ]);
+      ] });
       window.fetchMetadata = async () => new Map([[a, { display_name: 'Alice' }]]); // B has none
       const feed = await window.getFeed();
       const m = {};
@@ -164,10 +171,10 @@ test.describe('Community feed — data layer (getFeed)', () => {
     await stubMembership(page, A, B);
 
     const pics = await page.evaluate(async ({ a, b }) => {
-      window.queryRelay = async () => ([
+      window.queryRelayStatus = async () => ({ ok: true, events: [
         { id: 'pa', pubkey: a, kind: 1, created_at: 200, content: 'a', tags: [['t','nostr']] },
         { id: 'pb', pubkey: b, kind: 1, created_at: 100, content: 'b', tags: [['t','btc']] },
-      ]);
+      ] });
       window.fetchMetadata = async () => new Map([
         [a, { picture: 'https://example.com/a.png' }],
         [b, { picture: 'javascript:alert(1)' }], // unsafe scheme
@@ -189,12 +196,12 @@ test.describe('Community feed — data layer (getFeed)', () => {
     await stubMembership(page, A, B, C);
 
     const memberCount = await page.evaluate(async ({ a, b, c }) => {
-      window.queryRelay = async () => ([
+      window.queryRelayStatus = async () => ({ ok: true, events: [
         { id: 'x1', pubkey: a, kind: 1, created_at: 400, content: '#nostr', tags: [['t','nostr']] },
         { id: 'x2', pubkey: a, kind: 1, created_at: 300, content: '#bitcoin', tags: [['t','bitcoin']] },
         { id: 'x3', pubkey: b, kind: 1, created_at: 200, content: '#sats', tags: [['t','sats']] },
         { id: 'x4', pubkey: c, kind: 1, created_at: 100, content: '#lightning', tags: [['t','lightning']] },
-      ]);
+      ] });
       window.fetchMetadata = async () => new Map();
       return (await window.getFeed()).memberCount;
     }, { a: A, b: B, c: C });
@@ -332,6 +339,19 @@ test.describe('Community feed — avatar & side panels', () => {
     await expect(panel).toContainText(/Feed Source Relays/i);
     await expect(panel).toContainText('nos.lol');
     await expect(panel, 'the primal augment relay must also be listed').toContainText('primal.net');
+  });
+
+  // AC: each relay shows a live status dot — green if it responded, red if it failed.
+  test('each feed relay shows a status dot: green when it responds, red when it fails', async ({ page }) => {
+    await openFeedWith(page, { memberCount: 0, notes: [], relayStatus: [
+      { url: 'wss://nos.lol',          ok: true  },
+      { url: 'wss://relay.primal.net', ok: false },
+    ] });
+    const okDot   = page.locator('#feed-relays-panel .relay-dot[data-relay-host="nos.lol"]');
+    const failDot = page.locator('#feed-relays-panel .relay-dot[data-relay-host="relay.primal.net"]');
+    await expect(okDot,   'a relay that responded is marked ok').toHaveClass(/relay-dot-ok/,   { timeout: 10_000 });
+    await expect(failDot, 'a relay that failed is marked fail').toHaveClass(/relay-dot-fail/, { timeout: 10_000 });
+    await expect(okDot,   'the ok dot is not also marked fail').not.toHaveClass(/relay-dot-fail/);
   });
 
   // AC: hashtag query list panel

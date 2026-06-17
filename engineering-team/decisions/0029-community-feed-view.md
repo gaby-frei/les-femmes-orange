@@ -27,6 +27,12 @@ This is an *augment*, not a *failover*: primal alone returns too little to serve
 fallback if nos.lol fails. Implementation: `FEED_RELAYS` array + parallel/dedup in `getFeed()`
 (`public/index.html`); tests updated in `tests/community-feed.spec.js`.
 
+The "Feed Source Relays" panel now shows a per-relay **status dot** — grey while checking, green
+if the relay returned a proper EOSE on load, red on timeout/error. Backed by `queryRelayStatus()`
+(resolves `{ events, ok }`); `queryRelay()` is now a thin wrapper over it. getFeed() returns
+`relayStatus: [{ url, ok }]`, which `updateRelayDots()` paints. This makes the write-block
+situation visible at a glance (if primal goes red, the augment isn't contributing).
+
 ## Context
 
 Story 1 of the `community-feed` epic adds a gated **Feed** view: recent kind-1 notes authored by
