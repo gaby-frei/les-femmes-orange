@@ -20,7 +20,7 @@ playwright-report/
 *.nsec
 
 # Throwaway relay/coverage probe scripts (diagnostics, not part of the app)
-scripts/Relay Probe Scripts/
+scripts/
 
 # External repos (reference only — not part of this project)
 tapestry/

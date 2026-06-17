@@ -1479,11 +1479,11 @@
     const LFO_CONCEPT_ADDRESS = '39999:e83fff7a10b30dc0c296c62b440aa9071c904d80b18420341b5425a81bd6856c:lfo';
     const NOSTR_USER_TAG_ADDR = '39998:82b75e474dda005e912bcbb910391c60c2b89cc7faf5d3c30b7c59a324973833:nostr-user-tag';
     const SEED_PUBKEY         = 'e83fff7a10b30dc0c296c62b440aa9071c904d80b18420341b5425a81bd6856c';
+    // Membership relays — each independently returns the complete tag-event set;
+    // both kept for redundancy. damus/primal dropped (no net coverage); see ADR 0032.
     const RELAYS = [
       'wss://tags.brainstorm.world/relay',
       'wss://nos.lol',
-      'wss://relay.damus.io',
-      'wss://relay.primal.net',
     ];
 
     // ── Community feed config (Story 1, community-feed) ──────────────────────

@@ -22,10 +22,10 @@ The feilds of the LFO concept definition are as follows:
 | Tag concept d-tag | `lfo` |
 | Tag concept address | `39999:e83fff7a10b30dc0c296c62b440aa9071c904d80b18420341b5425a81bd6856c:lfo` |
 | Parent concept | `39998:82b75e474dda005e912bcbb910391c60c2b89cc7faf5d3c30b7c59a324973833:tag` |
-| Events live on | `wss://tags.brainstorm.world/relay`, `wss://nos.lol`, `wss://relay.primal.net`, `wss://relay.damus.io` |
+| Events live on | `wss://tags.brainstorm.world/relay` and `wss://nos.lol` — the two relays we query, each independently complete. (Events also partially propagate to `wss://relay.damus.io` and `wss://relay.primal.net`, but those are no longer queried — see ADR 0032.) |
 | DCoSL relay | `wss://dcosl.brainstorm.world` — reachable but holds 0 LFO tag events (not synced there) |
 
-**Note:** As of June 1, 10:00PM CET, `wss://tags.brainstorm.world/relay` and `wss://nos.lol` were complete and up to date. 
+**Note:** As of 2026-06-17, `wss://tags.brainstorm.world/relay` and `wss://nos.lol` were each independently complete and up to date (verified by `scripts/relay-coverage-brainstorm-only.mjs`). Earlier confirmed complete on June 1, 10:00PM CET. 
 
 A user is "tagged LFO" when a kind 39999 DList item exists that:
 1. Has an `#e` tag pointing to the tag concept event ID 
@@ -109,14 +109,17 @@ Filter by both `#e` (concept event ID) and `#z` (parent concept) to match only t
 }
 ```
 
-**Relay priority order** (most complete first):
-1. `wss://tags.brainstorm.world/relay` 
-2. `wss://nos.lol` 
-3. `wss://relay.primal.net` 
-4. `wss://relay.damus.io` 
-5. `wss://dcosl.brainstorm.world`
+**Membership relays** (both independently complete; kept for redundancy):
+1. `wss://tags.brainstorm.world/relay`
+2. `wss://nos.lol`
 
-Always query multiple relays in parallel via `SimplePool.querySync()` and deduplicate by event ID to get the full set.
+As of 2026-06-17, each of these two relays independently returns the **complete**
+LFO tag-event set (verified by `scripts/relay-coverage-brainstorm-only.mjs`. 
+We dropped `wss://relay.damus.io` (partial subset) and `wss://relay.primal.net` (~0 items) 
+because they added zero net coverage after dedup. `wss://dcosl.brainstorm.world` holds 0 LFO 
+tag events (not synced there). See ADR 0032 for the full rationale.
+
+Always query both relays in parallel and deduplicate by event ID to get the full set.
 
 For each result item:
 - Tagged pubkey = `item.tags.find(t => t[0] === 'p')?.[1]`
