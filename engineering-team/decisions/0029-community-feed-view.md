@@ -19,7 +19,8 @@ discussion."
   be added.
 - **Content relay: `wss://nos.lol` only** (decided; 45/48 member coverage — see ADR-less research
   in `scripts/` and memory `project-community-feed-relay`). Note this differs from the membership
-  computation, which keeps querying the 4-relay set.
+  computation, which queries a separate relay set (originally 4 relays; trimmed to brainstorm +
+  nos.lol by ADR 0032).
 - **Hashtag-only detection.** Qualifying `t` tags (v1): `nostr`, `asknostr`, `grownostr`,
   `bitcoin`, `btc`, `lightning`, `sats`, `lfo`. A note qualifies if it carries **any** of these.
 - **Reuse existing membership computation** unchanged: `getTagItems()` (index.html:1505-ish region)
