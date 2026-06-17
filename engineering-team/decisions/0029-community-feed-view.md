@@ -1,8 +1,31 @@
 # ADR 0029: Community feed view (Story 1)
 
-**Status:** Accepted
+**Status:** Accepted (content-relay decision amended 2026-06-17 — see Amendment below)
 **Date:** 2026-06-12
 **Story:** `engineering-team/stories/community-feed/1-feed-view.md`
+
+## Amendment (2026-06-17) — add primal as a marginal augment
+
+The "nos.lol only" content-relay decision below is **superseded**: the feed now queries
+**`wss://nos.lol` (primary) + `wss://relay.primal.net` (augment)** in parallel and merges by
+event id, with per-relay timeouts (nos.lol 12s, primal 10s) under `Promise.allSettled` so a
+slow/failed primal degrades gracefully to nos.lol-only.
+
+Rationale, backed by fresh probes (in `scripts/Relay Probe Scripts/`):
+- **Coverage gain is marginal** — under the real bulk feed query, primal returned only ~2
+  qualifying notes vs nos.lol's 100 (which is capped), adding ~1 net note. damus was also
+  tested and added **0** (strict subset of nos.lol).
+- **Performance is a non-issue** — primal under the real bulk query ran ~700ms (faster than
+  nos.lol's ~1050ms), 0 timeouts over 3 trials; the old "flaky on bulk" reputation did not
+  reproduce. It comfortably shares nos.lol's timeout budget.
+- **The deciding reason is testability/write-resilience** — nos.lol runs a Web-of-Trust write
+  filter that blocks some pubkeys (including the maintainer's own npub) from *publishing*
+  there. Those authors' notes never reach nos.lol, so a nos.lol-only feed can't show them
+  (or be tested against them). primal, an aggregating relay with no write gate, surfaces them.
+
+This is an *augment*, not a *failover*: primal alone returns too little to serve as a real
+fallback if nos.lol fails. Implementation: `FEED_RELAYS` array + parallel/dedup in `getFeed()`
+(`public/index.html`); tests updated in `tests/community-feed.spec.js`.
 
 ## Context
 
@@ -18,7 +41,8 @@ discussion."
   file server (deployed on Vercel per `vercel.json`). Per CLAUDE.md, no lint/build tooling is to
   be added.
 - **Content relay: `wss://nos.lol` only** (decided; 45/48 member coverage — see ADR-less research
-  in `scripts/` and memory `project-community-feed-relay`). Note this differs from the membership
+  in `scripts/` and memory `project-community-feed-relay`). **Amended 2026-06-17** — primal added
+  as a marginal augment; see the Amendment at the top. Note this differs from the membership
   computation, which queries a separate relay set (originally 4 relays; trimmed to brainstorm +
   nos.lol by ADR 0032).
 - **Hashtag-only detection.** Qualifying `t` tags (v1): `nostr`, `asknostr`, `grownostr`,

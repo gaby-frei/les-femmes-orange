@@ -1487,9 +1487,15 @@
     ];
 
     // ── Community feed config (Story 1, community-feed) ──────────────────────
-    // Feed content comes from nos.lol only (see ADR 0029) — distinct from the
-    // membership computation above, which queries the full RELAYS set.
-    const FEED_RELAY    = 'wss://nos.lol';
+    // Feed content relays (see ADR 0029). nos.lol is the primary/complete source;
+    // primal is a marginal augment, queried in parallel and merged (dedup by id).
+    // Primal earns its place mainly because nos.lol's WoT write-filter blocks some
+    // members from publishing there — those authors' notes only surface via primal.
+    // Distinct from the membership RELAYS set above.
+    const FEED_RELAYS   = [
+      { url: 'wss://nos.lol',          timeout: 12000 },  // primary — complete
+      { url: 'wss://relay.primal.net', timeout: 10000 },  // augment; bulk-tested ~700ms, no timeouts
+    ];
     // Relay #t filtering is case-sensitive, so case variants are listed explicitly.
     const FEED_HASHTAGS = ['nostr', 'asknostr', 'grownostr', 'bitcoin', 'btc', 'lightning', 'sats', 'lfo', 'LFO', 'lesfemmesorange'];
     const FEED_LIMIT    = 100;
@@ -2049,9 +2055,19 @@
       const { verifiedMap } = buildMemberSets(tagItems);
       const memberPubkeys = [...verifiedMap.keys()].filter(pk => pk !== SEED_PUBKEY);
 
-      const raw = await queryRelay(FEED_RELAY, {
-        kinds: [1], authors: memberPubkeys, '#t': FEED_HASHTAGS, limit: FEED_LIMIT,
-      }, 12000);
+      // Query every feed relay in parallel and merge (dedup by event id). Each
+      // relay has its own timeout; allSettled means a slow/failed augment (primal)
+      // degrades gracefully — the feed still renders from whatever nos.lol returns.
+      const feedFilter = { kinds: [1], authors: memberPubkeys, '#t': FEED_HASHTAGS, limit: FEED_LIMIT };
+      const settled = await Promise.allSettled(
+        FEED_RELAYS.map(r => queryRelay(r.url, feedFilter, r.timeout))
+      );
+      const seenIds = new Set();
+      const raw = [];
+      for (const s of settled) {
+        if (s.status !== 'fulfilled') continue;
+        for (const ev of s.value) if (!seenIds.has(ev.id)) { seenIds.add(ev.id); raw.push(ev); }
+      }
 
       // STORY 2: curated selection (representation floor + soft per-member cap + recency) replaces this slice.
       const selected = raw.slice().sort((a, b) => b.created_at - a.created_at).slice(0, FEED_LIMIT);
@@ -2092,7 +2108,7 @@
     function renderFeedPanels() {
       const relayHost = url => url.replace(/^wss?:\/\//, '').replace(/\/relay$/, '');
       const relaysEl = document.getElementById('feed-relays-list');
-      relaysEl.innerHTML = [FEED_RELAY].map(r => `<li>${escHtml(relayHost(r))}</li>`).join('');
+      relaysEl.innerHTML = FEED_RELAYS.map(r => `<li>${escHtml(relayHost(r.url))}</li>`).join('');
       const tagsEl = document.getElementById('feed-hashtags-list');
       tagsEl.innerHTML = FEED_HASHTAGS.map(h => `<li>#${escHtml(h)}</li>`).join('');
     }

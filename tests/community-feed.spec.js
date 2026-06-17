@@ -4,7 +4,7 @@
 //
 // No live relays: the app's global seams are overridden via page.evaluate —
 //   - getTagItems()   → synthetic LFO tag items (membership input)
-//   - queryRelay()    → synthetic nos.lol response (the feed fetch)
+//   - queryRelay()    → synthetic feed-relay response (nos.lol + primal, the feed fetch)
 //   - fetchMetadata() → synthetic kind-0 profiles
 //   - getFeed()       → the ADR's data-layer boundary; stubbed for render tests
 //
@@ -25,7 +25,8 @@ import { nip19 } from 'nostr-tools';
 
 const LFO_TAG_EVENT_ID = '4ddde08a7b1b3c2dffda5161ff5b0151554b9e86d94a059b1434aab95d546795';
 const SEED_PUBKEY      = 'e83fff7a10b30dc0c296c62b440aa9071c904d80b18420341b5425a81bd6856c';
-const FEED_RELAY       = 'wss://nos.lol';
+const FEED_RELAY       = 'wss://nos.lol';        // primary feed relay
+const FEED_RELAY_AUGMENT = 'wss://relay.primal.net'; // marginal augment (ADR 0029)
 const FEED_HASHTAGS    = ['nostr', 'asknostr', 'grownostr', 'bitcoin', 'btc', 'lightning', 'sats', 'lfo', 'LFO', 'lesfemmesorange'];
 
 // Distinct, valid 32-byte hex pubkeys / ids for fixtures.
@@ -59,15 +60,23 @@ async function stubMembership(page, ...verified) {
 // ── data-layer tests: getFeed() ──────────────────────────────────────────────
 test.describe('Community feed — data layer (getFeed)', () => {
   // AC-3
-  test('getFeed queries nos.lol for kind-1 notes restricted to verified members and the qualifying hashtags', async ({ page }) => {
+  test('getFeed queries nos.lol + primal for kind-1 notes restricted to verified members and the qualifying hashtags, merged by id', async ({ page }) => {
     await page.goto('/');
     expect(await page.evaluate(() => typeof window.getFeed), 'getFeed() must exist as a global').toBe('function');
     await stubMembership(page, A, B);
 
     const out = await page.evaluate(async ({ a, b }) => {
-      window.__filter = null;
+      window.__calls = [];
+      // Each relay returns an overlapping note (n1) plus one only it has, so the
+      // test proves both relays are queried AND results are deduped by id.
       window.queryRelay = async (url, filter) => {
-        window.__filter = { url, filter };
+        window.__calls.push({ url, filter });
+        if (url.includes('primal')) {
+          return [
+            { id: 'n1', pubkey: a, kind: 1, created_at: 200, content: 'gm #nostr', tags: [['t','nostr']] },
+            { id: 'n3', pubkey: b, kind: 1, created_at: 150, content: 'primal-only #btc', tags: [['t','btc']] },
+          ];
+        }
         return [
           { id: 'n1', pubkey: a, kind: 1, created_at: 200, content: 'gm #nostr', tags: [['t','nostr']] },
           { id: 'n2', pubkey: b, kind: 1, created_at: 100, content: 'stacking #sats', tags: [['t','sats']] },
@@ -75,20 +84,24 @@ test.describe('Community feed — data layer (getFeed)', () => {
       };
       window.fetchMetadata = async () => new Map();
       const feed = await window.getFeed();
-      return { filter: window.__filter, feed };
+      return { calls: window.__calls, feed };
     }, { a: A, b: B });
 
-    // Exclusion is enforced by the filter sent to the relay.
-    expect(out.filter, 'getFeed must call queryRelay').toBeTruthy();
-    expect(out.filter.url, 'feed content must come from nos.lol only').toBe(FEED_RELAY);
-    expect(out.filter.filter.kinds, 'feed is kind-1 notes').toEqual([1]);
-    expect([...out.filter.filter.authors].sort(), 'authors must be exactly the verified members (no seed, no non-members)')
-      .toEqual([A, B].sort());
-    expect([...out.filter.filter['#t']].sort(), 'must filter on the seven qualifying hashtags')
-      .toEqual([...FEED_HASHTAGS].sort());
+    // Both feed relays must be queried (order-independent).
+    const urls = out.calls.map(c => c.url).sort();
+    expect(urls, 'feed content must come from nos.lol + primal').toEqual([FEED_RELAY_AUGMENT, FEED_RELAY].sort());
 
-    // Returned notes are mapped to the contract shape.
-    expect(out.feed.notes.length).toBe(2);
+    // Every relay gets the same filter: kind-1, verified members only, qualifying hashtags.
+    for (const c of out.calls) {
+      expect(c.filter.kinds, 'feed is kind-1 notes').toEqual([1]);
+      expect([...c.filter.authors].sort(), 'authors must be exactly the verified members (no seed, no non-members)')
+        .toEqual([A, B].sort());
+      expect([...c.filter['#t']].sort(), 'must filter on the qualifying hashtags')
+        .toEqual([...FEED_HASHTAGS].sort());
+    }
+
+    // Merge is deduped by id: n1 (on both) appears once → n1, n2, n3 = 3 notes.
+    expect(out.feed.notes.length, 'overlapping notes must be deduped by id across relays').toBe(3);
     const shapeOk = out.feed.notes.every((n) =>
       n.id && n.pubkey && typeof n.created_at === 'number' && typeof n.content === 'string'
       && n.author && typeof n.author.displayName === 'string' && typeof n.author.npubShort === 'string');
@@ -312,12 +325,13 @@ test.describe('Community feed — avatar & side panels', () => {
   });
 
   // AC: "Feed Source Relays" panel
-  test('a "Feed Source Relays" panel lists the feed relay', async ({ page }) => {
+  test('a "Feed Source Relays" panel lists the feed relays', async ({ page }) => {
     await openFeedWith(page, { memberCount: 0, notes: [] });
     const panel = page.locator('#feed-relays-panel');
     await expect(panel, 'the relays panel must render').toBeVisible({ timeout: 10_000 });
     await expect(panel).toContainText(/Feed Source Relays/i);
     await expect(panel).toContainText('nos.lol');
+    await expect(panel, 'the primal augment relay must also be listed').toContainText('primal.net');
   });
 
   // AC: hashtag query list panel
