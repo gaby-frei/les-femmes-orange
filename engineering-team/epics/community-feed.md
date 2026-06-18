@@ -24,12 +24,21 @@ we don't publish social content).
 - Non-interactive cards; click opens the note in Primal.
 
 ## Stories
+
+> **Note — stories are not executed in authoring order.** Story numbers reflect the order stories were
+> *written*, not the order they're *built*. Execution follows logical dependencies (see "Execution
+> order" below). In particular, **#2 (`2-curated-selection`) has been deliberately left in the queue**,
+> awaiting stories that logically come first — namely #5 (`5-content-relevance-filter`), whose ADR
+> decides whether curation runs server-side and therefore where #2's ranking is built. #2 stays in
+> Draft until those land.
+
 - #1 — `1-feed-view` — Gated Feed view: fetch & display qualifying member notes (newest-first, cap 100), cards, open-in-Primal, loading/empty states. *(Done — review PASS)*
 - #2 — `2-curated-selection` — Endorsement-ranked curation over a multi-source candidate pool: widen the `getFeed()` seam into 3 layers (sources → merge → selection); primary relevance signal = count of distinct verified-member LFO `nostr-event-tag` attestations on a note; hashtag source (Provider 1) backfills for freshness; event-tag source (Provider 2) stubbed until the protocol lands. *(Draft — 2026-06-18)*
 - #3 — `3-inline-images` — Rich rendering: inline images (up to 2 side-by-side, "+N" overlay for extras), media URLs stripped from text. *(Done — review PASS)*
 - #4 — `4-mention-resolution` — Rich rendering: resolve @ mentions (members → @DisplayName, others → short @npub handle), backed by a shared member-metadata cache. *(Done — review PASS)*
+- #5 — `5-content-relevance-filter` — Step A pool refinement: server-side AI (Claude Haiku) judges whether a hashtagged note's *content* is actually about Bitcoin/Nostr/LFO and drops off-topic notes; stands up the app's first backend (`GET /api/feed`) + persisted relevance signal. *(Draft — 2026-06-18)*
 
-**Execution order:** #1 (done) → **#3** → #4 → #2.
+**Execution order:** #1 (done) → #3 (done) → #4 (done) → **#5** → #2. #5 is sequenced before #2: its ADR decides whether curation runs server-side, which determines where #2's ranking is built (avoids building #2 twice). #2 stays in Draft until #5's ADR lands.
 
 ## Open questions (epic-level)
 - _(none open)_

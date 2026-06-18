@@ -91,3 +91,30 @@ its own work. **Split** into two stories at the user's direction:
 
 **Reminder:** circle back to `community-feed #2` (curated-selection) after #3.
 **Phase path confirmed with user:** yes — split #3/#4, execute #3 first.
+
+---
+
+## 2026-06-18 — Content-relevance filter (Step A; server-side, AI-assisted)
+
+**Raw request (user's words):**
+> I want to refine the pool of notes contributed from provider 1 … specifically by content relevance.
+> A significant number of tweets … contain one of the relevant hashtags, but do not contain bitcoin,
+> nostr, or LFO specific *content* (e.g. a post about dogs with #grownostr). This will likely require a
+> persistent backend and an ai layer (likely Claude Haiku). I want to work on this … before working on
+> other kinds of curation that may be dependent on content tags.
+
+**Framing:** curation = **Step A** (what's eligible) + **Step B** (ranking). Story 2 is Step B; this is
+Step A — an independent job that refines Provider 1's contribution before ranking. Hashtags label intent,
+not content; an AI read of the note judges actual topical relevance.
+
+**Why it forces a backend (and goes first):** the app is currently 100% client-side (`server.js` is a
+static file server). AI classification can't run client-side (key exposure; re-judging every load), so it
+needs a **server + persistence** — the app's first real backend, i.e. the `GET /api/feed` boundary ADR
+0029 anticipated. That backend becomes the home for *all* curation, so its ADR is sequenced **before**
+Story 2's implementation to avoid building Story 2 twice. (Not a data dependency — a "where it runs"
+dependency.)
+
+**Classification:** Feature (all phases). New backend + secret + persistence + AI dependency → ADR is the
+crux. Possible later split (stand-up-backend vs. classifier) if it grows.
+**Drafted as:** `community-feed #5` — `5-content-relevance-filter` (Draft, 2026-06-18).
+**Phase path confirmed with user:** drafted as a story at user's direction; not yet planned/architected.
