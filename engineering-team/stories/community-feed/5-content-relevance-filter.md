@@ -125,7 +125,7 @@ relevance definition in Decided constraints below.
 - **Cost** (resolved 2026-06-19): **not a concern**; no ceiling set.
 
 ## Linked artifacts
-- ADR: (filled in after Architecture phase — **not yet started; gates Story 2 implementation**)
+- ADR: `engineering-team/decisions/0033-content-relevance-backend.md` (**Proposed** — gates Story 2 implementation)
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
 - Related: ADR 0029 (community-feed view / `GET /api/feed` boundary); Story 2 `2-curated-selection`
