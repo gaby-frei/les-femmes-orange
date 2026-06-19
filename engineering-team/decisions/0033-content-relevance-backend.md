@@ -4,6 +4,17 @@
 **Date:** 2026-06-19
 **Story:** `engineering-team/stories/community-feed/5-content-relevance-filter.md`
 
+## Amendment (2026-06-19) — persistence client & env-var names
+
+The store has been provisioned on Vercel. The original "`@vercel/kv`" choice is **superseded**:
+`@vercel/kv` is being phased out as Vercel folds KV into the Upstash Marketplace, so the client is now
+**`@upstash/redis`**. The provisioned integration injects **`KV_REST_API_URL` / `KV_REST_API_TOKEN`**
+(plus `KV_REST_API_READ_ONLY_TOKEN`, `KV_URL`, `REDIS_URL`) — *not* the `UPSTASH_REDIS_REST_*` names a
+bare Upstash project would use. So the Upstash client is initialized **explicitly** from those vars:
+`new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN })`. (Vercel KV is
+Upstash Redis under the hood, so the `KV_REST_API_*` REST creds are exactly what the Upstash REST client
+expects.) The design is unchanged — still `get`/`set` by key. Inline references below updated to match.
+
 ## Context
 
 Story 5 (Step A — pool refinement) adds a **content-relevance filter** to Provider 1 (the hashtag
@@ -112,9 +123,9 @@ also needs no cron and no long-lived process — it slots into Vercel serverless
 - **Note id is an ideal key:** the Nostr event id is immutable, globally unique, content-addressed.
 - **Values are tiny and fixed-shape** (`{ bitcoin, nostr, lfo, model, scoredAt }`, ~tens of bytes).
 - **Minimal ops, no schema/migrations** — matches JS-without-build and keeps the backend thin.
-- **Vercel-native** (`@vercel/kv`, Upstash Redis under the hood) integrates with the existing Vercel
-  deployment with near-zero setup — and is exactly what **ADR 0029 anticipated**, so we are executing a
-  pre-blessed direction, not inventing one.
+- **Vercel-native** (`@upstash/redis` via Vercel's Upstash Marketplace integration, see Amendment)
+  integrates with the existing Vercel deployment with near-zero setup — and is exactly what **ADR 0029
+  anticipated** (it named Vercel KV), so we are executing a pre-blessed direction, not inventing one.
 
 **Candidate pool vs. display size — decouple the two caps:** today `FEED_LIMIT = 100` is both the
 fetch cap and the display cap. Once the relevance filter drops notes, those diverge — and because at
@@ -148,9 +159,10 @@ smaller relevant feed beats a padded one.
     into a **shared plain-JS ES module** (`public/lib/membership.js`) imported by **both** the inline
     client script (gated members view) and the Node `/api/feed` function — written once, no build step,
     no duplication.
-  - New **env vars**: `ANTHROPIC_API_KEY`, and KV creds (`KV_REST_API_URL`, `KV_REST_API_TOKEN`) on
-    Vercel — must be set before deploy. New **runtime deps** (authorized here): `@anthropic-ai/sdk`,
-    `@vercel/kv`; `nostr-tools` (already present) now also runs server-side.
+  - New **env vars**: `ANTHROPIC_API_KEY` (set by hand), and the Redis creds `KV_REST_API_URL` /
+    `KV_REST_API_TOKEN` (auto-injected by the Upstash integration) — must be present in the target
+    environment before deploy. New **runtime deps** (authorized here): `@anthropic-ai/sdk`,
+    `@upstash/redis`; `nostr-tools` (already present) now also runs server-side.
 - **Debt / follow-ups:**
   - **Cold-start + first-sight latency.** On a fully cold cache the first load classifies up to
     `CANDIDATE_LIMIT` (~500) notes in one request — a **one-time** cost (all cached afterward),
@@ -198,8 +210,9 @@ Concrete surface for the Tester/Implementer.
 4. **Client `getFeed()`** (`public/index.html`): replace the body with
    `return (await fetch('/api/feed')).json();` — render layer, nav, cards, header, and the "Feed Source
    Relays"/"Topics" panels are **unchanged** (they consume the contract).
-5. **Deps & config:** add `@anthropic-ai/sdk`, `@vercel/kv` to `package.json`; document required Vercel
-   env vars; `vercel.json` continues serving `public/` statically with `/api/*` as functions.
+5. **Deps & config:** add `@anthropic-ai/sdk`, `@upstash/redis` to `package.json`; init the client as
+   `new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN })`; document
+   required env vars; `vercel.json` continues serving `public/` statically with `/api/*` as functions.
 
 ## Out of scope
 - **Story 2 curation algorithm** (endorsement+recency) — runs server-side *after* this lands; not built here.
