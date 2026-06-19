@@ -1,7 +1,8 @@
 # Story 5: Content-relevance filter for the hashtag source (server-side, AI-assisted)
 
-**Status:** Draft
+**Status:** Approved
 **Created:** 2026-06-18
+**Approved:** 2026-06-19
 **Type:** Feature
 **Epic:** `community-feed` · **Book:** `community-feed`
 
@@ -53,23 +54,33 @@ small **golden fixture set**, not exact per-note model output.
   client code or network responses.
 - [ ] Given a note that carries a qualifying hashtag but whose **content is off-topic** (golden example:
   a dog post tagged `#grownostr`), when the feed is built, then that note is **excluded**.
-- [ ] Given a note that is genuinely about Bitcoin/Nostr/LFO, then it is **included**.
+- [ ] Given a note clearly about — or clearly **adjacent** to — Bitcoin, Nostr, or LFO (e.g. lightning
+  / mining / crypto count toward the **bitcoin** score), then it scores ≥ the threshold on that bucket
+  and is **included**.
+- [ ] Given two on-topic notes of differing sophistication (e.g. "heading to a Bitcoin meetup" vs. a
+  technical deep-dive), then relevance does **not** favor the more technical one — both score
+  comparably; relevance is **topical, not a depth/quality judgment**.
 - [ ] Given a note has already been classified, when the feed is requested again, then it is **not
   re-classified** — the stored verdict is reused (each note judged once; verdict persisted).
+- [ ] Given classification runs **synchronously**, when the feed is served, then it contains **only
+  notes already classified** — an unjudged note is never shown (it waits for its verdict rather than
+  appearing then disappearing).
 - [ ] Given the classifier is **unavailable or errors**, when the feed is built, then it **falls back to
   hashtag-only** (no content filtering) and still renders — the feed never breaks on classifier failure.
 - [ ] Given the golden fixture set of labelled on-topic / off-topic notes, when run through the pipeline,
   then verdicts match the labels for that set.
-- [ ] Given a classified note, then its **relevance verdict/score is persisted as a reusable content
-  signal** (not a fire-and-forget drop), so later curation can consume it.
+- [ ] Given a classified note, then **three per-topic relevance scores** `{ bitcoin, nostr, lfo } ∈
+  [0,1]` are **persisted** as a reusable content signal; on-topic for filtering = `max(...) ≥
+  threshold`, and the per-topic scores remain available to later curation and v2 topic tabs.
 
 ## Concepts touched
 Concept Graph API should be consulted by the Architect for live handles.
 
 - **Nostr kind-1 text note** — the unit classified and filtered.
 - **Topic hashtag (`t` tag)** — Provider 1's coarse signal; this story adds a *content* signal on top.
-- **Content-relevance signal** *(new)* — a persisted per-note verdict/score (on-topic vs off-topic),
-  produced by the classifier; initially a Provider-1 filter, available to later curation.
+- **Content-relevance signal** *(new)* — three persisted per-note scores `{ bitcoin, nostr, lfo } ∈
+  [0,1]` from the classifier; initially a Provider-1 filter (`max(...) ≥ threshold`), available to later
+  curation and v2 topic tabs.
 - **`GET /api/feed` backend boundary** *(new; anticipated by ADR 0029)* — the server-side seam this
   story stands up.
 - **Verified LFO member set** — unchanged; still gates Provider 1's authors.
@@ -84,26 +95,34 @@ Concept Graph API should be consulted by the Architect for live handles.
   not fixed here (Claude Haiku is the PO's default; see below).
 
 ## Open questions
-Resolve before approving.
+Product questions resolved 2026-06-19 (see Decided constraints). Remaining — **for the Architect/ADR**:
 
-1. **Model & prompt** — confirm Claude Haiku; classification prompt and the on-topic definition
-   (Bitcoin OR Nostr OR LFO — how broadly?).
-2. **Borderline handling** — strict drop vs. a score with a threshold; what happens to "maybe" notes.
-3. **Persistence** — what store holds verdicts, and the **cache key** (note id; re-classify never, or on
-   some interval?).
-4. **When classification runs** — synchronously on first request (slower first load) vs. a background
-   pass (feed may briefly include not-yet-judged notes).
-5. **Cost budget** — expected classification volume and a ceiling.
-6. **Single verdict vs. content tags** — does the classifier emit one relevance verdict now, or also
-   coarse content tags (e.g. `bitcoin`/`nostr`) that v2 topic tabs and later curation could reuse?
+1. **Persistence** — what store holds the per-note scores, the **cache key** (note id), and whether
+   verdicts are ever re-computed (never / on an interval). Architecture decision.
+
+The exact **classification prompt wording** is the Architect/Implementer's to author, guided by the
+relevance definition in Decided constraints below.
 
 ## Decided constraints (PO direction)
 - Classification **must run server-side**; the API key never reaches the client.
 - Verdicts are **persisted and reused** — each note classified once, not per feed load.
 - The feed **degrades gracefully** to hashtag-only if the classifier is unavailable.
-- The classifier emits a **reusable content signal**, not just an in-place filter decision.
 - This story's **ADR gates Story 2 implementation** (where curation runs is decided here).
-- Default model: **Claude Haiku** (latest), pending confirmation in Open questions.
+- **Model: Claude Haiku** (latest) — confirmed (2026-06-19).
+- **Output contract** (resolved 2026-06-19): three per-topic relevance scores `{ bitcoin, nostr, lfo }
+  ∈ [0,1]`, all persisted. On-topic for filtering = `max(bitcoin, nostr, lfo) ≥ threshold`. No separate
+  overall field; the per-topic scores feed later curation and v2 topic tabs.
+- **Relevance definition** (resolved 2026-06-19): *moderate* breadth, with **adjacency built into the
+  prompt** — clearly-adjacent subjects count toward their bucket (e.g. lightning / mining / crypto →
+  **bitcoin**; the broader Nostr ecosystem → **nostr**; LFO community life → **lfo**). Relevance is
+  **topical and depth-neutral**: it must **not** favor technical/detailed notes over casual ones (a
+  Bitcoin-event post is as relevant as a technical deep-dive).
+- **Threshold** (resolved 2026-06-19): start **conservative / lean-inclusive** — a low bar that admits
+  borderline notes rather than dropping genuine member content; rationale: small membership (~50) means
+  over-filtering would visibly empty the feed. Tunable; tighten as real verdicts are observed.
+- **Timing** (resolved 2026-06-19): **synchronous** classification — never show an unjudged note;
+  accept a slower first load over a flicker.
+- **Cost** (resolved 2026-06-19): **not a concern**; no ceiling set.
 
 ## Linked artifacts
 - ADR: (filled in after Architecture phase — **not yet started; gates Story 2 implementation**)
