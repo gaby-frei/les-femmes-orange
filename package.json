@@ -5,8 +5,10 @@
   "description": "Community site gated by a Nostr web-of-trust membership list.",
   "scripts": {
     "start": "node server.js",
-    "test": "playwright test",
-    "test:playwright": "playwright test"
+    "test": "node --test test/*.test.js && playwright test",
+    "test:unit": "node --test test/*.test.js",
+    "test:playwright": "playwright test",
+    "eval:relevance": "node eval/relevance.eval.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
