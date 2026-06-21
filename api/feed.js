@@ -14,9 +14,12 @@ const LFO_TAG_EVENT_ID = '4ddde08a7b1b3c2dffda5161ff5b0151554b9e86d94a059b1434aa
 const NOSTR_USER_TAG_ADDR = '39998:82b75e474dda005e912bcbb910391c60c2b89cc7faf5d3c30b7c59a324973833:nostr-user-tag';
 const SEED_PUBKEY = 'e83fff7a10b30dc0c296c62b440aa9071c904d80b18420341b5425a81bd6856c';
 const MEMBERSHIP_RELAYS = ['wss://tags.brainstorm.world/relay', 'wss://nos.lol'];
+// nos.lol = primary/complete source. damus = INTERIM augment that is server-reachable
+// and carries the write-blocked test npubs. The durable coverage fix is an epic-level open
+// question (community-feed: coverage probe / NIP-65 outbox).
 const FEED_RELAYS = [
   { url: 'wss://nos.lol', timeout: 12000 },
-  { url: 'wss://relay.primal.net', timeout: 10000 },
+  { url: 'wss://relay.damus.io', timeout: 10000 },
 ];
 const FEED_HASHTAGS = ['nostr', 'asknostr', 'grownostr', 'bitcoin', 'btc', 'lightning', 'sats', 'lfo', 'LFO', 'lesfemmesorange'];
 // Widened fetch (relay natural cap). Env-overridable so a preview deploy can pull a

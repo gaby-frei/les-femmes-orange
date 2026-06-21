@@ -1497,15 +1497,16 @@
       'wss://nos.lol',
     ];
 
-    // ── Community feed config (Story 1, community-feed) ──────────────────────
-    // Feed content relays (see ADR 0029). nos.lol is the primary/complete source;
-    // primal is a marginal augment, queried in parallel and merged (dedup by id).
-    // Primal earns its place mainly because nos.lol's WoT write-filter blocks some
-    // members from publishing there — those authors' notes only surface via primal.
-    // Distinct from the membership RELAYS set above.
+    // ── Community feed config (community-feed) ───────────────────────────────
+    // Display list for the "Feed Source Relays" panel (the actual fetch now happens
+    // server-side in /api/feed — ADR 0033 — and reports per-relay status back here).
+    // nos.lol is the primary/complete source; damus is the INTERIM augment that replaced
+    // primal (primal silently drops REQs from a datacenter IP). nos.lol's WoT write-filter
+    // blocks some members from publishing there, so the augment carries those authors.
+    // Durable coverage fix = epic-level open question. Distinct from the membership RELAYS set.
     const FEED_RELAYS   = [
-      { url: 'wss://nos.lol',          timeout: 12000 },  // primary — complete
-      { url: 'wss://relay.primal.net', timeout: 10000 },  // augment; bulk-tested ~700ms, no timeouts
+      { url: 'wss://nos.lol',         timeout: 12000 },  // primary — complete
+      { url: 'wss://relay.damus.io',  timeout: 10000 },  // interim augment (replaced primal)
     ];
     // Relay #t filtering is case-sensitive, so case variants are listed explicitly.
     const FEED_HASHTAGS = ['nostr', 'asknostr', 'grownostr', 'bitcoin', 'btc', 'lightning', 'sats', 'lfo', 'LFO', 'lesfemmesorange'];

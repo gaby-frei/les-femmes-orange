@@ -197,17 +197,17 @@ test.describe('Community feed — avatar & side panels', () => {
     await expect(panel, 'the relays panel must render').toBeVisible({ timeout: 10_000 });
     await expect(panel).toContainText(/Feed Source Relays/i);
     await expect(panel).toContainText('nos.lol');
-    await expect(panel, 'the primal augment relay must also be listed').toContainText('primal.net');
+    await expect(panel, 'the damus augment relay must also be listed').toContainText('damus.io');
   });
 
   // AC: each relay shows a live status dot — green if it responded, red if it failed.
   test('each feed relay shows a status dot: green when it responds, red when it fails', async ({ page }) => {
     await openFeedWith(page, { memberCount: 0, notes: [], relayStatus: [
-      { url: 'wss://nos.lol',          ok: true  },
-      { url: 'wss://relay.primal.net', ok: false },
+      { url: 'wss://nos.lol',         ok: true  },
+      { url: 'wss://relay.damus.io',  ok: false },
     ] });
     const okDot   = page.locator('#feed-relays-panel .relay-dot[data-relay-host="nos.lol"]');
-    const failDot = page.locator('#feed-relays-panel .relay-dot[data-relay-host="relay.primal.net"]');
+    const failDot = page.locator('#feed-relays-panel .relay-dot[data-relay-host="relay.damus.io"]');
     await expect(okDot,   'a relay that responded is marked ok').toHaveClass(/relay-dot-ok/,   { timeout: 10_000 });
     await expect(failDot, 'a relay that failed is marked fail').toHaveClass(/relay-dot-fail/, { timeout: 10_000 });
     await expect(okDot,   'the ok dot is not also marked fail').not.toHaveClass(/relay-dot-fail/);

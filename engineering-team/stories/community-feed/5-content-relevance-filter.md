@@ -146,6 +146,12 @@ Small judgment calls during implementation (harvested at book close):
 - **`buildFeedPayload` returns `{ memberCount, notes, memberNames }`; the handler spreads in
   `relayStatus`.** Keeps the full ADR 0029 payload (incl. #4 `memberNames` and the relay dots) so the
   render layer is unchanged, while keeping `relayStatus` out of the pure (relay-agnostic) orchestrator.
+- **Augment relay swapped primal → damus** (interim, 2026-06-21). Moving the relay fetch server-side
+  exposed that `relay.primal.net` silently drops REQ subscriptions from a datacenter IP (opens, 0
+  messages, times out; verified by probe, headers don't help). Replaced it with `relay.damus.io` in
+  `FEED_RELAYS` (both `api/feed.js` and the `index.html` panel) — server-reachable and carries the
+  maintainer's write-blocked test npubs. The durable member-coverage fix is an **epic-level open
+  question** (coverage probe of a permissive shortlist vs. NIP-65 outbox model).
 - **`CANDIDATE_LIMIT` is env-overridable** (`FEED_CANDIDATE_LIMIT`, default 500). Added so the first
   preview deploy can pull a small pool (e.g. 100) to make KV writes reviewable by hand, without a
   commit-then-revert; Production keeps the ~500 default. Config knob only — no behavior change.

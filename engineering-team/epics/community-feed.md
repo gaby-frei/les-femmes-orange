@@ -41,7 +41,28 @@ we don't publish social content).
 **Execution order:** #1 (done) → #3 (done) → #4 (done) → **#5** → #2. #5 is sequenced before #2: its ADR decides whether curation runs server-side, which determines where #2's ranking is built (avoids building #2 twice). #2 stays in Draft until #5's ADR lands.
 
 ## Open questions (epic-level)
-- _(none open)_
+- **Member coverage of the feed source** Initially, Primal was the augment relay
+  because nos.lol's web-of-trust **write** filter blocks some members from publishing there, so their
+  notes only surfaced via primal. Story #5 moved the relay fetch **server-side**, where `relay.primal.net`
+  accepts the WebSocket but silently drops REQ subscriptions from a datacenter IP (verified 2026-06-21:
+  opens, 0 messages, times out — headers don't help), so primal no longer contributes. nos.lol alone
+  covered ~45/48 members, dropping the contributions of write-blocked members from the feed -- a gap likely to
+  grow with membership. Two routes worth exploring:
+  - **(a) Swap in a datacenter-friendly augment relay.** Coverage-probe the permissive, server-reachable
+    shortlist (`relay.snort.social`, `offchain.pub`, `nostr-pub.wellorder.net`, `nostr.oxtr.dev`) against
+    the **real member set** to find which actually carries the write-blocked members (reuse
+    `scripts/Relay Probe Scripts/`). `relay.nostr.band` is out — Cloudflare-gated from servers;
+    `relay.mostr.pub` is a fediverse bridge. **`relay.damus.io` is the current interim augment** —
+    server-reachable and confirmed to carry the maintainer's write-blocked test npubs (contra ADR 0029's
+    earlier browser-only "strict subset of nos.lol" finding); it should be re-measured in this probe.
+  - **(b) Adopt the NIP-65 outbox model.** Read each member's `kind:10002` relay list and query their own
+    **write** relays — fetching each author from where they actually publish, which inherently covers the
+    write-blocked members rather than betting on one augment relay. More work (per-author relay resolution),
+    but the protocol-correct, durable fix.
+
+  **Interim (Story #5):** `relay.damus.io` replaced `relay.primal.net` as the augment in `FEED_RELAYS`
+  (backend + panel), since primal silently drops server-side REQs. This is a stopgap that restores the
+  write-blocked test npubs; the routes above are the real resolution.
 
 ## Resolved
 - **Header** = title "What LFO members are saying…" + subtitle "X members contributing across the latest 100 posts" (member count; copy updated 2026-06-15).
