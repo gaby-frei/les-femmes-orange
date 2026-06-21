@@ -19,7 +19,10 @@ const FEED_RELAYS = [
   { url: 'wss://relay.primal.net', timeout: 10000 },
 ];
 const FEED_HASHTAGS = ['nostr', 'asknostr', 'grownostr', 'bitcoin', 'btc', 'lightning', 'sats', 'lfo', 'LFO', 'lesfemmesorange'];
-const CANDIDATE_LIMIT = 500; // widened fetch (relay natural cap)
+// Widened fetch (relay natural cap). Env-overridable so a preview deploy can pull a
+// small pool (e.g. FEED_CANDIDATE_LIMIT=100) to make KV writes easy to review by hand;
+// default stays ~500. Unset/invalid → 500.
+const CANDIDATE_LIMIT = Number(process.env.FEED_CANDIDATE_LIMIT) || 500;
 const DISPLAY_LIMIT = 100; // post-filter display size
 const THRESHOLD = 0.3; // conservative / lean-inclusive; tunable
 

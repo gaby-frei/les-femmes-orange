@@ -146,6 +146,9 @@ Small judgment calls during implementation (harvested at book close):
 - **`buildFeedPayload` returns `{ memberCount, notes, memberNames }`; the handler spreads in
   `relayStatus`.** Keeps the full ADR 0029 payload (incl. #4 `memberNames` and the relay dots) so the
   render layer is unchanged, while keeping `relayStatus` out of the pure (relay-agnostic) orchestrator.
+- **`CANDIDATE_LIMIT` is env-overridable** (`FEED_CANDIDATE_LIMIT`, default 500). Added so the first
+  preview deploy can pull a small pool (e.g. 100) to make KV writes reviewable by hand, without a
+  commit-then-revert; Production keeps the ~500 default. Config knob only — no behavior change.
 - **Removed 5 obsolete Story-1 `getFeed` data-layer tests** from `tests/community-feed.spec.js` (with the
   user's approval, 2026-06-21). They asserted the *client-side* feed pipeline that ADR 0033 moved to
   `/api/feed`; their coverage now lives in the `node --test` suite + `tests/feed-api.spec.js`. A
