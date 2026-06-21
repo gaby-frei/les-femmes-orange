@@ -26,8 +26,6 @@ import { nip19 } from 'nostr-tools';
 
 const LFO_TAG_EVENT_ID = '4ddde08a7b1b3c2dffda5161ff5b0151554b9e86d94a059b1434aab95d546795';
 const SEED_PUBKEY      = 'e83fff7a10b30dc0c296c62b440aa9071c904d80b18420341b5425a81bd6856c';
-const FEED_RELAY       = 'wss://nos.lol';        // primary feed relay
-const FEED_RELAY_AUGMENT = 'wss://relay.primal.net'; // marginal augment (ADR 0029)
 const FEED_HASHTAGS    = ['nostr', 'asknostr', 'grownostr', 'bitcoin', 'btc', 'lightning', 'sats', 'lfo', 'LFO', 'lesfemmesorange'];
 
 // Distinct, valid 32-byte hex pubkeys / ids for fixtures.
@@ -58,157 +56,18 @@ async function stubMembership(page, ...verified) {
   }, { seed: SEED_PUBKEY, verified, mk: lfoTagSrc() });
 }
 
-// ── data-layer tests: getFeed() ──────────────────────────────────────────────
-test.describe('Community feed — data layer (getFeed)', () => {
-  // AC-3
-  test('getFeed queries nos.lol + primal for kind-1 notes restricted to verified members and the qualifying hashtags, merged by id', async ({ page }) => {
-    await page.goto('/');
-    expect(await page.evaluate(() => typeof window.getFeed), 'getFeed() must exist as a global').toBe('function');
-    await stubMembership(page, A, B);
-
-    const out = await page.evaluate(async ({ a, b }) => {
-      window.__calls = [];
-      // The feed uses queryRelayStatus → { events, ok }. Each relay returns an
-      // overlapping note (n1) plus one only it has, so the test proves both relays
-      // are queried AND results are deduped by id.
-      window.queryRelayStatus = async (url, filter) => {
-        window.__calls.push({ url, filter });
-        if (url.includes('primal')) {
-          return { ok: true, events: [
-            { id: 'n1', pubkey: a, kind: 1, created_at: 200, content: 'gm #nostr', tags: [['t','nostr']] },
-            { id: 'n3', pubkey: b, kind: 1, created_at: 150, content: 'primal-only #btc', tags: [['t','btc']] },
-          ] };
-        }
-        return { ok: true, events: [
-          { id: 'n1', pubkey: a, kind: 1, created_at: 200, content: 'gm #nostr', tags: [['t','nostr']] },
-          { id: 'n2', pubkey: b, kind: 1, created_at: 100, content: 'stacking #sats', tags: [['t','sats']] },
-        ] };
-      };
-      window.fetchMetadata = async () => new Map();
-      const feed = await window.getFeed();
-      return { calls: window.__calls, feed };
-    }, { a: A, b: B });
-
-    // Both feed relays must be queried (order-independent).
-    const urls = out.calls.map(c => c.url).sort();
-    expect(urls, 'feed content must come from nos.lol + primal').toEqual([FEED_RELAY_AUGMENT, FEED_RELAY].sort());
-
-    // Every relay gets the same filter: kind-1, verified members only, qualifying hashtags.
-    for (const c of out.calls) {
-      expect(c.filter.kinds, 'feed is kind-1 notes').toEqual([1]);
-      expect([...c.filter.authors].sort(), 'authors must be exactly the verified members (no seed, no non-members)')
-        .toEqual([A, B].sort());
-      expect([...c.filter['#t']].sort(), 'must filter on the qualifying hashtags')
-        .toEqual([...FEED_HASHTAGS].sort());
-    }
-
-    // Merge is deduped by id: n1 (on both) appears once → n1, n2, n3 = 3 notes.
-    expect(out.feed.notes.length, 'overlapping notes must be deduped by id across relays').toBe(3);
-    const shapeOk = out.feed.notes.every((n) =>
-      n.id && n.pubkey && typeof n.created_at === 'number' && typeof n.content === 'string'
-      && n.author && typeof n.author.displayName === 'string' && typeof n.author.npubShort === 'string');
-    expect(shapeOk, 'each note must match { id, pubkey, created_at, content, author:{displayName,npubShort} }').toBe(true);
-
-    // relayStatus reports each feed relay's outcome (drives the panel status dots).
-    expect(out.feed.relayStatus.map(r => r.url).sort(), 'relayStatus must cover both feed relays')
-      .toEqual([FEED_RELAY_AUGMENT, FEED_RELAY].sort());
-    expect(out.feed.relayStatus.every(r => r.ok === true), 'both relays reported ok in this fixture').toBe(true);
-  });
-
-  // AC-4
-  test('getFeed returns at most 100 notes, newest-first, when more qualify', async ({ page }) => {
-    await page.goto('/');
-    expect(await page.evaluate(() => typeof window.getFeed)).toBe('function');
-    await stubMembership(page, A);
-
-    const notes = await page.evaluate(async ({ a }) => {
-      window.queryRelayStatus = async () => {
-        // 150 notes by a single member, created_at 0..149, deliberately unsorted.
-        const arr = [];
-        for (let i = 0; i < 150; i++) arr.push({ id: 'e' + i, pubkey: a, kind: 1, created_at: i, content: 'n' + i, tags: [['t','nostr']] });
-        for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
-        return { ok: true, events: arr };
-      };
-      window.fetchMetadata = async () => new Map();
-      const feed = await window.getFeed();
-      return feed.notes.map((n) => n.created_at);
-    }, { a: A });
-
-    expect(notes.length, 'feed must cap at 100 notes').toBe(100);
-    const descending = notes.every((t, i) => i === 0 || notes[i - 1] >= t);
-    expect(descending, 'notes must be newest-first').toBe(true);
-    expect(notes[0], 'the newest note (created_at 149) must be first').toBe(149);
-    expect(Math.min(...notes), 'the kept 100 must be the newest (149..50)').toBe(50);
-  });
-
-  // AC-5 (data side: name resolution + fallback)
-  test('getFeed resolves the display name from metadata, falling back to a truncated npub', async ({ page }) => {
-    await page.goto('/');
-    expect(await page.evaluate(() => typeof window.getFeed)).toBe('function');
-    await stubMembership(page, A, B);
-
-    const byPubkey = await page.evaluate(async ({ a, b }) => {
-      window.queryRelayStatus = async () => ({ ok: true, events: [
-        { id: 'na', pubkey: a, kind: 1, created_at: 200, content: 'A #nostr', tags: [['t','nostr']] },
-        { id: 'nb', pubkey: b, kind: 1, created_at: 100, content: 'B #btc',   tags: [['t','btc']] },
-      ] });
-      window.fetchMetadata = async () => new Map([[a, { display_name: 'Alice' }]]); // B has none
-      const feed = await window.getFeed();
-      const m = {};
-      for (const n of feed.notes) m[n.pubkey] = n.author.displayName;
-      return m;
-    }, { a: A, b: B });
-
-    expect(byPubkey[A], 'author with metadata uses their display name').toBe('Alice');
-    expect(byPubkey[B], 'author without metadata falls back to a truncated npub').toMatch(/^npub1/);
-    expect(byPubkey[B]).toContain('…');
-  });
-
-  // Avatar (data side: picture resolved + sanitized)
-  test('getFeed includes a sanitized author.picture from metadata', async ({ page }) => {
-    await page.goto('/');
-    expect(await page.evaluate(() => typeof window.getFeed)).toBe('function');
-    await stubMembership(page, A, B);
-
-    const pics = await page.evaluate(async ({ a, b }) => {
-      window.queryRelayStatus = async () => ({ ok: true, events: [
-        { id: 'pa', pubkey: a, kind: 1, created_at: 200, content: 'a', tags: [['t','nostr']] },
-        { id: 'pb', pubkey: b, kind: 1, created_at: 100, content: 'b', tags: [['t','btc']] },
-      ] });
-      window.fetchMetadata = async () => new Map([
-        [a, { picture: 'https://example.com/a.png' }],
-        [b, { picture: 'javascript:alert(1)' }], // unsafe scheme
-      ]);
-      const feed = await window.getFeed();
-      const m = {};
-      for (const n of feed.notes) m[n.pubkey] = n.author.picture;
-      return m;
-    }, { a: A, b: B });
-
-    expect(pics[A], 'an https picture passes through').toBe('https://example.com/a.png');
-    expect(pics[B], 'a non-http(s) picture is dropped (sanitized to empty)').toBe('');
-  });
-
-  // AC-8 (data side: distinct-author count)
-  test('getFeed reports memberCount as the number of distinct authors represented', async ({ page }) => {
-    await page.goto('/');
-    expect(await page.evaluate(() => typeof window.getFeed)).toBe('function');
-    await stubMembership(page, A, B, C);
-
-    const memberCount = await page.evaluate(async ({ a, b, c }) => {
-      window.queryRelayStatus = async () => ({ ok: true, events: [
-        { id: 'x1', pubkey: a, kind: 1, created_at: 400, content: '#nostr', tags: [['t','nostr']] },
-        { id: 'x2', pubkey: a, kind: 1, created_at: 300, content: '#bitcoin', tags: [['t','bitcoin']] },
-        { id: 'x3', pubkey: b, kind: 1, created_at: 200, content: '#sats', tags: [['t','sats']] },
-        { id: 'x4', pubkey: c, kind: 1, created_at: 100, content: '#lightning', tags: [['t','lightning']] },
-      ] });
-      window.fetchMetadata = async () => new Map();
-      return (await window.getFeed()).memberCount;
-    }, { a: A, b: B, c: C });
-
-    expect(memberCount, '4 notes from 3 distinct authors → memberCount 3').toBe(3);
-  });
-});
+// ── data-layer tests removed 2026-06-21 (story #5, ADR 0033) ──────────────
+// 5 getFeed() data-layer tests lived here. They asserted the OLD *client-side* feed
+// pipeline (relay query → merge → slice 100 → metadata → author/memberCount) by stubbing
+// window.queryRelayStatus / getTagItems / fetchMetadata. ADR 0033 moved that pipeline
+// server-side to GET /api/feed, so getFeed() is now just `fetch('/api/feed')` and no
+// longer touches those seams — the tests became obsolete by design. Coverage relocated to:
+//   test/select-relevant.test.js  — newest-first ordering + slice to displayLimit
+//   test/feed-handler.test.js     — contract shape, displayName/npub fallback, memberCount
+//   test/classify-notes.test.js   — relevance scoring / cache reuse / fallback
+//   tests/feed-api.spec.js        — getFeed() sources /api/feed; AI key absent from client
+// Live relay-query + picture-sanitization behavior is intentionally NOT re-asserted in
+// npm test (relay I/O needs the network); see the test plan “Approach”.
 
 // ── render-layer tests: loadFeedPage() / makeFeedNote() ──────────────────────
 const NOTE = (over = {}) => ({

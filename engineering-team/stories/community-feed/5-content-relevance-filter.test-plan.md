@@ -143,3 +143,9 @@ assertions then run. Confirmed red on 2026-06-19 (`npm run test:unit`):
 Playwright (L5) collects cleanly (`npx playwright test feed-api --list` → 2 tests). The
 `getFeed() sources from /api/feed` test is red-by-design until the client boundary is migrated; the
 key-safety test is a guard expected to stay green.
+
+**Post-implementation note (2026-06-21):** moving the data layer to `/api/feed` obsoleted the 5
+client-side `getFeed` data-layer tests in `tests/community-feed.spec.js` (they stubbed
+`queryRelayStatus`/`getTagItems`/`fetchMetadata`, seams `getFeed` no longer calls). With the user's
+approval those 5 were **removed** (a documentation comment marks the spot); their coverage is now the
+`node --test` suite + `tests/feed-api.spec.js`. See the story's `## Deviations`.

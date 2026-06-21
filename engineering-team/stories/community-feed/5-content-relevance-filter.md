@@ -125,8 +125,29 @@ relevance definition in Decided constraints below.
 - **Cost** (resolved 2026-06-19): **not a concern**; no ceiling set.
 
 ## Linked artifacts
-- ADR: `engineering-team/decisions/0033-content-relevance-backend.md` (**Proposed** — gates Story 2 implementation)
-- Test plan: (filled in after Test Design phase)
+- ADR: `engineering-team/decisions/0033-content-relevance-backend.md` (**Accepted** — gates Story 2 implementation)
+- Test plan: `engineering-team/stories/community-feed/5-content-relevance-filter.test-plan.md`
 - Review: (filled in after Review phase)
 - Related: ADR 0029 (community-feed view / `GET /api/feed` boundary); Story 2 `2-curated-selection`
   (Step B ranking); memory `project-feed-curation-direction`.
+
+## Deviations
+Small judgment calls during implementation (harvested at book close):
+
+- **Shared module = `buildMemberSets` only, not `getTagItems`.** ADR 0033 said "extract
+  `getTagItems`/`buildMemberSets`." `getTagItems` is relay-I/O and differs by environment (browser
+  WebSocket vs. Node), so only the pure WoT closure `buildMemberSets(tagItems, seedPubkey)` was extracted
+  to `public/lib/membership.js` (UMD, shared by client + server). Each side supplies `tagItems` via its
+  own relay path — this still removes the duplication the ADR targeted (one closure, not two).
+- **Server relay fetch uses Node's global `WebSocket`, not `nostr-tools` SimplePool.** `api/_lib/relay.js`
+  mirrors the browser's `queryRelayStatus` over the global `WebSocket` (Node 18+), keeping the fetch shape
+  identical and the relay-status dots working; `nostr-tools` is still used server-side for `nip19` npub
+  encoding.
+- **`buildFeedPayload` returns `{ memberCount, notes, memberNames }`; the handler spreads in
+  `relayStatus`.** Keeps the full ADR 0029 payload (incl. #4 `memberNames` and the relay dots) so the
+  render layer is unchanged, while keeping `relayStatus` out of the pure (relay-agnostic) orchestrator.
+- **Removed 5 obsolete Story-1 `getFeed` data-layer tests** from `tests/community-feed.spec.js` (with the
+  user's approval, 2026-06-21). They asserted the *client-side* feed pipeline that ADR 0033 moved to
+  `/api/feed`; their coverage now lives in the `node --test` suite + `tests/feed-api.spec.js`. A
+  documentation comment was left in place of the block. Two behaviors (the live relay query and the
+  picture-sanitization regex) are not re-asserted in `npm test` by design (relay I/O needs the network).

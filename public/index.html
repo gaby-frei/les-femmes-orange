@@ -1481,6 +1481,9 @@
     window.LFOSigner = LFOSigner;
   </script>
 
+  <!-- Shared web-of-trust closure (ADR 0033) — same code the /api/feed function uses. -->
+  <script src="lib/membership.js"></script>
+
   <script>
     // ── Config ─────────────────────────────────────────────────────────────
     const LFO_TAG_EVENT_ID    = '4ddde08a7b1b3c2dffda5161ff5b0151554b9e86d94a059b1434aab95d546795';
@@ -1823,7 +1826,7 @@
         // Optimistically update the in-memory cache and re-derive member sets
         if (_tagItemsCache) _tagItemsCache.push(signedEvent);
 
-        const { verifiedMap } = buildMemberSets(_tagItemsCache || [signedEvent]);
+        const { verifiedMap } = buildMemberSets(_tagItemsCache || [signedEvent], SEED_PUBKEY);
 
         if (verifiedMap.has(targetHex)) {
           const pendingCard  = footerEl.closest('.member-card');
@@ -1865,33 +1868,9 @@
     }
 
     // ── Members page: build verified + pending sets ─────────────────────────
-    function buildMemberSets(tagItems) {
-      // verifiedMap: pubkey → taggerPubkey (null for seed)
-      const verifiedMap = new Map();
-      verifiedMap.set(SEED_PUBKEY, null);
-      let changed = true;
-      while (changed) {
-        changed = false;
-        for (const ev of tagItems) {
-          const pTag = ev.tags?.find(t => t[0] === 'p')?.[1];
-          if (pTag && verifiedMap.has(ev.pubkey) && !verifiedMap.has(pTag)) {
-            verifiedMap.set(pTag, ev.pubkey);
-            changed = true;
-          }
-        }
-      }
-
-      // pendingMap: pubkey → taggerPubkey  (tagged by non-verified member)
-      const pendingMap = new Map();
-      for (const ev of tagItems) {
-        const pTag = ev.tags?.find(t => t[0] === 'p')?.[1];
-        if (pTag && !verifiedMap.has(pTag) && !pendingMap.has(pTag)) {
-          pendingMap.set(pTag, ev.pubkey);
-        }
-      }
-
-      return { verifiedMap, pendingMap };
-    }
+    // buildMemberSets(tagItems, seedPubkey) is provided by the shared UMD module
+    // public/lib/membership.js (loaded above as window.buildMemberSets) — the same
+    // closure the /api/feed function uses (ADR 0033). Call sites pass SEED_PUBKEY.
 
     // ── Fetch kind-0 metadata for a list of pubkeys ─────────────────────────
     // Shared, session-lifetime metadata cache (community-feed #4): de-dupes kind-0
@@ -2024,7 +2003,7 @@
       pendingSec.style.display  = 'none';
 
       const tagItems = await getTagItems();
-      const { verifiedMap, pendingMap } = buildMemberSets(tagItems);
+      const { verifiedMap, pendingMap } = buildMemberSets(tagItems, SEED_PUBKEY);
 
       // Collect all pubkeys we need metadata for (members + their taggers)
       const verifiedPubkeys = [...verifiedMap.keys()].filter(pk => pk !== SEED_PUBKEY);
@@ -2062,66 +2041,14 @@
       if (pendingPubkeys.length > 0) pendingSec.style.display = '';
     }
 
-    // ── Community feed (Story 1, community-feed) ─────────────────────────────
-    // getFeed() is the data-layer boundary. Its return shape is identical to the
-    // planned GET /api/feed response (ADR 0029), so a future backend is a drop-in:
-    // PLANNED: replace this body with `return (await fetch('/api/feed')).json()`.
+    // ── Community feed (community-feed) ──────────────────────────────────────
+    // getFeed() is the data-layer boundary. The feed is now sourced server-side from
+    // GET /api/feed (ADR 0033 — content-relevance classification + curation run there;
+    // the AI key never reaches the browser). The response shape is the ADR 0029 contract
+    // ({ memberCount, notes, memberNames, relayStatus }), so the render layer is unchanged.
     async function getFeed() {
-      const tagItems = await getTagItems();
-      const { verifiedMap } = buildMemberSets(tagItems);
-      const memberPubkeys = [...verifiedMap.keys()].filter(pk => pk !== SEED_PUBKEY);
-
-      // Query every feed relay in parallel and merge (dedup by event id). Each
-      // relay has its own timeout; allSettled means a slow/failed augment (primal)
-      // degrades gracefully — the feed still renders from whatever nos.lol returns.
-      // relayStatus records, per relay, whether it responded (drives the panel dots).
-      const feedFilter = { kinds: [1], authors: memberPubkeys, '#t': FEED_HASHTAGS, limit: FEED_LIMIT };
-      const settled = await Promise.allSettled(
-        FEED_RELAYS.map(r => queryRelayStatus(r.url, feedFilter, r.timeout))
-      );
-      const seenIds = new Set();
-      const raw = [];
-      const relayStatus = FEED_RELAYS.map((r, i) => {
-        const s = settled[i];
-        const ok = s.status === 'fulfilled' && s.value.ok === true;
-        if (s.status === 'fulfilled') {
-          for (const ev of s.value.events) if (!seenIds.has(ev.id)) { seenIds.add(ev.id); raw.push(ev); }
-        }
-        return { url: r.url, ok };
-      });
-
-      // STORY 2: curated selection (representation floor + soft per-member cap + recency) replaces this slice.
-      const selected = raw.slice().sort((a, b) => b.created_at - a.created_at).slice(0, FEED_LIMIT);
-
-      const authors = [...new Set(selected.map(ev => ev.pubkey))];
-      // Fetch the whole member set (members ⊇ authors): author cards still resolve, and
-      // member names become available for @ mention resolution on a cold feed load (#4).
-      const metaMap = await fetchMetadata(memberPubkeys);
-
-      const notes = selected.map(ev => {
-        const m = metaMap.get(ev.pubkey) || {};
-        return {
-          id:         ev.id,
-          pubkey:     ev.pubkey,
-          created_at: ev.created_at,
-          content:    ev.content || '',
-          author: {
-            displayName: m.display_name || m.name || hexToNpubShort(ev.pubkey),
-            npubShort:   hexToNpubShort(ev.pubkey),
-            picture:     safePicUrl(m.picture),
-          },
-        };
-      });
-
-      // Member display names (members with a name only) → drives @ mention resolution (#4).
-      const memberNames = {};
-      for (const pk of memberPubkeys) {
-        const m = metaMap.get(pk);
-        const nm = m && (m.display_name || m.name);
-        if (nm) memberNames[pk] = nm;
-      }
-
-      return { memberCount: authors.length, notes, memberNames, relayStatus };
+      const res = await fetch('/api/feed');
+      return res.json();
     }
 
     // Informational side panels (read-only): which relay(s) the feed reads, and the
@@ -2313,7 +2240,7 @@
         heroCta.onclick = () => showView('members');
         showView('members');
       } else {
-        const { pendingMap } = buildMemberSets(_tagItemsCache || []);
+        const { pendingMap } = buildMemberSets(_tagItemsCache || [], SEED_PUBKEY);
         _alreadyPending = pendingMap.has(hexPubkey);
 
         const shortId = hexToNpubShort(hexPubkey);
