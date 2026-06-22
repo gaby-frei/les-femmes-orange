@@ -127,7 +127,7 @@ relevance definition in Decided constraints below.
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0033-content-relevance-backend.md` (**Accepted** — gates Story 2 implementation)
 - Test plan: `engineering-team/stories/community-feed/5-content-relevance-filter.test-plan.md`
-- Review: (filled in after Review phase)
+- Review: `engineering-team/reviews/community-feed/5-content-relevance-filter.md` (**CHANGES_REQUESTED** 2026-06-22 — bounded-concurrency classification missing per ADR)
 - Related: ADR 0029 (community-feed view / `GET /api/feed` boundary); Story 2 `2-curated-selection`
   (Step B ranking); memory `project-feed-curation-direction`.
 
