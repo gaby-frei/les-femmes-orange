@@ -160,6 +160,16 @@ Small judgment calls during implementation (harvested at book close):
   `/api/feed`; their coverage now lives in the `node --test` suite + `tests/feed-api.spec.js`. A
   documentation comment was left in place of the block. Two behaviors (the live relay query and the
   picture-sanitization regex) are not re-asserted in `npm test` by design (relay I/O needs the network).
+- **Missed deviation — caught in review, then fixed (2026-06-22).** Classification was first shipped
+  **sequential** (`for…of` with `await classifyOne` inside), but ADR 0033 requires **bounded-concurrency
+  parallel** classification and pinned its cold-start risk acceptance to it. This was an *undocumented*
+  ADR deviation: a cold cache at `CANDIDATE_LIMIT=500` would serialize ~500 Haiku calls and time out the
+  first feed request. It slipped because the unit tests inject a fake classifier (no latency), so
+  sequential and parallel pass identically, and preview only warmed the cache gradually at a low limit.
+  The Reviewer flagged it (review **CHANGES_REQUESTED**, 2026-06-22); fixed in `api/_lib/classify.js` —
+  `classifyNotes` now drains cache-misses with a `CONCURRENCY = 5` worker pool (identical cache/persist/
+  fallback semantics, recency makes return order irrelevant), plus a regression test asserting peak
+  in-flight calls are `> 1` and `≤ 5`.
 
 ## Architecture (as built)
 

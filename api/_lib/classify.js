@@ -9,22 +9,41 @@ const KEY_PREFIX = 'relevance:v1:'; // versioned: a prompt/model change re-score
 // Fallback sentinel: when the classifier is unavailable, every note clears any threshold,
 // i.e. the feed degrades to hashtag-only (no content filtering). NOT cached, so it retries.
 const PASS_THROUGH = { bitcoin: 1, nostr: 1, lfo: 1 };
+// Max model calls in flight at once (ADR 0033 cold-start mitigation). A cold cache can carry
+// up to CANDIDATE_LIMIT (~500) misses; classifying them one-at-a-time would serialize ~500
+// Haiku calls and time out the request. Bounded so we don't overwhelm the API / hit rate limits.
+const CONCURRENCY = 5;
 
-async function classifyNotes(notes, deps) {
+// Score one note: cache hit → reuse (skip model); miss → classifyOne once + persist;
+// error → pass-through fallback (deliberately NOT persisted, so it retries next time).
+async function scoreNote(note, deps) {
   const { kv, classifyOne } = deps || {};
+  const key = KEY_PREFIX + note.id;
+  const cached = kv ? await kv.get(key) : null;
+  if (cached) return cached;
+  try {
+    const scores = await classifyOne(note, deps);
+    if (kv) await kv.set(key, scores); // persist (write-once)
+    return scores;
+  } catch {
+    return { ...PASS_THROUGH }; // graceful fallback; not persisted
+  }
+}
+
+// KV-cached orchestration. Notes are independent, so we score them with bounded concurrency
+// (CONCURRENCY workers draining a shared cursor) rather than sequentially. Return order is
+// irrelevant — the feed sorts by recency downstream. Semantics are identical to one-at-a-time.
+async function classifyNotes(notes, deps) {
   const out = new Map();
-  for (const note of notes) {
-    const key = KEY_PREFIX + note.id;
-    const cached = kv ? await kv.get(key) : null;
-    if (cached) { out.set(note.id, cached); continue; } // cache hit → skip the model
-    try {
-      const scores = await classifyOne(note, deps);
-      if (kv) await kv.set(key, scores); // persist (write-once)
-      out.set(note.id, scores);
-    } catch {
-      out.set(note.id, { ...PASS_THROUGH }); // graceful fallback; not persisted
+  let cursor = 0;
+  async function worker() {
+    while (cursor < notes.length) {
+      const note = notes[cursor++]; // claim synchronously (single-threaded → no race)
+      out.set(note.id, await scoreNote(note, deps));
     }
   }
+  const workers = Array.from({ length: Math.min(CONCURRENCY, notes.length) }, worker);
+  await Promise.all(workers);
   return out;
 }
 

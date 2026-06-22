@@ -60,3 +60,19 @@ test('fallback: when classifyOne throws, the note gets a pass-through score and 
   assert.ok(Math.max(s.bitcoin, s.nostr, s.lfo) >= 1 - 1e-9, 'pass-through sentinel clears any threshold (hashtag-only fallback)');
   assert.equal(kv.sets.length, 0, 'a failed classification is not persisted, so it retries next time');
 });
+
+test('classifies cache-misses with bounded concurrency (parallel, capped at 5) — ADR 0033 cold-start mitigation', async () => {
+  const notes = Array.from({ length: 12 }, (_, i) => ({ id: 'c' + i, content: 'x', tags: [] }));
+  const kv = fakeKV();
+  let inFlight = 0, peak = 0;
+  const classifyOne = async () => {
+    inFlight++; peak = Math.max(peak, inFlight);
+    await new Promise((r) => setTimeout(r, 10)); // hold the slot so overlap is observable
+    inFlight--;
+    return { bitcoin: 0.9, nostr: 0, lfo: 0 };
+  };
+  const scores = await classifyNotes(notes, { kv, classifyOne });
+  assert.equal(scores.size, 12, 'every note is scored');
+  assert.ok(peak > 1, 'more than one classification runs at a time (not sequential)');
+  assert.ok(peak <= 5, 'in-flight calls never exceed the concurrency cap of 5');
+});
