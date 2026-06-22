@@ -1,8 +1,9 @@
 # Story 5: Content-relevance filter for the hashtag source (server-side, AI-assisted)
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-06-18
 **Approved:** 2026-06-19
+**Done:** 2026-06-22 (review PASS)
 **Type:** Feature
 **Epic:** `community-feed` · **Book:** `community-feed`
 
@@ -127,7 +128,7 @@ relevance definition in Decided constraints below.
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0033-content-relevance-backend.md` (**Accepted** — gates Story 2 implementation)
 - Test plan: `engineering-team/stories/community-feed/5-content-relevance-filter.test-plan.md`
-- Review: `engineering-team/reviews/community-feed/5-content-relevance-filter.md` (**CHANGES_REQUESTED** 2026-06-22 — bounded-concurrency classification missing per ADR)
+- Review: `engineering-team/reviews/community-feed/5-content-relevance-filter.md` (**PASS** 2026-06-22 — initial CHANGES_REQUESTED on sequential classification, fixed in `35f042a`)
 - Related: ADR 0029 (community-feed view / `GET /api/feed` boundary); Story 2 `2-curated-selection`
   (Step B ranking); memory `project-feed-curation-direction`.
 

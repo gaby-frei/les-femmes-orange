@@ -2,14 +2,18 @@
 
 **Reviewer:** Claude (acting as Reviewer)
 **Date:** 2026-06-22
-**Diff:** `git diff 950b37c..HEAD` (story #5 commits f9c0ab5, 7758b30, 3789dc9, fd5c791; ADR 6ec156d/adfd2b7; tests 7f848fe)
+**Diff:** `git diff 950b37c..HEAD` (story #5 commits f9c0ab5, 7758b30, 3789dc9, fd5c791; ADR 6ec156d/adfd2b7; tests 7f848fe; fix 35f042a)
+
+> **Re-review 2026-06-22:** the single blocking item (sequential classification) was fixed in
+> `35f042a` — `classifyNotes` now uses a `CONCURRENCY=5` worker pool with identical cache/persist/
+> fallback semantics, plus a regression test. Verdict updated **CHANGES_REQUESTED → PASS**.
 **Story:** `engineering-team/stories/community-feed/5-content-relevance-filter.md`
 **ADR:** `engineering-team/decisions/0033-content-relevance-backend.md`
 **Test plan:** `engineering-team/stories/community-feed/5-content-relevance-filter.test-plan.md`
 
 ## Quality gates (run by reviewer, not trusted)
 
-- [x] `npm test` (node --test + Playwright) — **PASS**: `tests 18 / pass 18 / fail 0`, then `44 passed`.
+- [x] `npm test` (node --test + Playwright) — **PASS**: `tests 19 / pass 19 / fail 0` (post-fix; +1 concurrency regression test), then `44 passed`.
 - [x] `npm run test:playwright` — covered by the above (44 passed).
 - [x] _Lint not configured — skipped._
 - [x] _Typecheck not configured — skipped._
@@ -41,7 +45,7 @@
   - payload carries `memberNames` + `relayStatus` (handler) to keep the render layer unchanged;
   - `FEED_CANDIDATE_LIMIT` env knob (default 500);
   - augment relay primal→damus (interim; epic-level open question owns the durable fix).
-- [ ] **BLOCKING — undocumented ADR deviation:** classification is **sequential**, not parallel. See Findings.
+- [x] **RESOLVED** (was blocking): classification is now **bounded-parallel** (`CONCURRENCY=5`), per ADR. See Findings.
 
 ## Concept-graph integrity
 - [x] No concepts touched; no firmware reinstall (ADR confirms). No `kind:pubkey:slug` handles introduced. Concept Graph API not required.
@@ -50,7 +54,7 @@
 - [x] No secrets, no debug logging, no commented-out code (the removed-tests block is a deliberate documentation comment).
 - [x] Error paths: classifier failure → `PASS_THROUGH` (not cached); handler wraps in try/catch → 500 with empty contract; `anthropic` null when key absent → classifyOne throws → fallback. All graceful.
 - [x] Security: AI key never reaches client (server-only; guarded by test); feed content is already-public relay data.
-- [ ] **Concurrency / cold-start:** the ADR's stated mitigation is missing — see Findings.
+- [x] **Concurrency / cold-start:** ADR mitigation now present — bounded-parallel classification (cap 5).
 
 ## House rules check
 - [x] Concept Graph API authority respected (n/a here).
@@ -58,19 +62,15 @@
 
 ## Findings
 
-### Blocking
-1. **`api/_lib/classify.js:15-26`** — `classifyNotes` classifies cache-misses **sequentially** (`for...of`
-   with `await classifyOne` inside), but **ADR 0033 explicitly requires parallel classification with a
-   concurrency cap** (ADR lines 71, 167-169) and makes its cold-start risk acceptance *contingent* on it:
-   *"the first load classifies up to `CANDIDATE_LIMIT` (~500) notes … bounded by the relay cap and
-   **parallelized**. Mitigate via the concurrency cap."* As built, a cold-cache load at the production
-   default (`CANDIDATE_LIMIT=500`) serializes up to 500 Haiku calls (~minutes) — well past any Vercel
-   function timeout — so the **first production feed load would time out**. Preview only validated a
-   small, gradually-warmed cache (`FEED_CANDIDATE_LIMIT` set low), so this path is untested in practice.
-   **Asked change:** classify cache-misses with **bounded concurrency** (a cap of ~5, per the ADR),
-   preserving order-independence and the existing cache/fallback semantics. Contained to
-   `api/_lib/classify.js`; existing `test/classify-notes.test.js` should still pass (consider adding a
-   cap assertion, optional).
+### Blocking — RESOLVED in `35f042a`
+1. ~~**`api/_lib/classify.js`** — `classifyNotes` classified cache-misses **sequentially**, but ADR 0033
+   requires parallel classification with a concurrency cap (lines 71, 167-169) and pinned its cold-start
+   risk acceptance to it; a cold cache at `CANDIDATE_LIMIT=500` would serialize ~500 Haiku calls and time
+   out the first request.~~ **Fixed:** `classifyNotes` now drains cache-misses with a `CONCURRENCY=5`
+   worker pool (`api/_lib/classify.js:15-48`) — a `scoreNote` helper keeps the cache/persist/fallback
+   semantics identical, return order is irrelevant (feed sorts by recency), and a new regression test
+   asserts peak in-flight is `>1` and `≤5`. Verified semantics-preserving and the empty-notes case (0
+   workers → empty map). Logged as a missed deviation in the story.
 
 ### Non-blocking
 1. **`api/_lib/relay.js:11-22`** — `queryRelayStatus` has no `ws.onclose` handler (the browser original
@@ -83,8 +83,13 @@
    filling the nos.lol write-gap all confirmed). Noted as an accepted coverage boundary, not a defect.
 
 ## Verdict
-**CHANGES_REQUESTED** — one blocking item: implement the ADR-mandated bounded-concurrency parallel
-classification in `api/_lib/classify.js` (cold-start timeout risk at the production `CANDIDATE_LIMIT`
-default). Everything else is solid: all acceptance criteria covered and green, ADR otherwise conformed
-to (deviations documented), no secrets/debug, clean fallback and security posture. Re-review should be
-quick once the classification loop is bounded-parallel.
+**PASS** (re-review 2026-06-22, after fix `35f042a`).
+
+The sole blocking item — sequential classification vs. the ADR-mandated bounded concurrency — is fixed:
+`classifyNotes` now uses a `CONCURRENCY=5` worker pool with identical cache/persist/fallback semantics
+and a regression test. Test gate green (19 unit + 44 Playwright). All acceptance criteria covered, ADR
+conformed (remaining deviations documented in the story), no secrets/debug, graceful fallback and
+sound security posture. The non-blocking notes (relay `onclose`, model alias, live handler outside
+`npm test`) stand as accepted follow-ups, none gating.
+
+Initial verdict (2026-06-22, commit fd5c791): **CHANGES_REQUESTED** — recorded above for the audit trail.
