@@ -1509,7 +1509,9 @@
       { url: 'wss://relay.damus.io',  timeout: 10000 },  // interim augment (replaced primal)
     ];
     // Relay #t filtering is case-sensitive, so case variants are listed explicitly.
-    const FEED_HASHTAGS = ['nostr', 'asknostr', 'grownostr', 'bitcoin', 'btc', 'lightning', 'sats', 'lfo', 'LFO', 'lesfemmesorange'];
+    // Display-only mirror of api/feed.js FEED_HASHTAGS (the real fetch is server-side).
+    // #grownostr dropped 2026-06-22 (generic lifestyle/reach tag, net noise) — keep in sync.
+    const FEED_HASHTAGS = ['nostr', 'asknostr', 'bitcoin', 'btc', 'lightning', 'sats', 'lfo', 'LFO', 'lesfemmesorange'];
     const FEED_LIMIT    = 100;
 
     // ── State ───────────────────────────────────────────────────────────────

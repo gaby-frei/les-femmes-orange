@@ -26,7 +26,7 @@ import { nip19 } from 'nostr-tools';
 
 const LFO_TAG_EVENT_ID = '4ddde08a7b1b3c2dffda5161ff5b0151554b9e86d94a059b1434aab95d546795';
 const SEED_PUBKEY      = 'e83fff7a10b30dc0c296c62b440aa9071c904d80b18420341b5425a81bd6856c';
-const FEED_HASHTAGS    = ['nostr', 'asknostr', 'grownostr', 'bitcoin', 'btc', 'lightning', 'sats', 'lfo', 'LFO', 'lesfemmesorange'];
+const FEED_HASHTAGS    = ['nostr', 'asknostr', 'bitcoin', 'btc', 'lightning', 'sats', 'lfo', 'LFO', 'lesfemmesorange'];
 
 // Distinct, valid 32-byte hex pubkeys / ids for fixtures.
 const A  = '11'.repeat(32);

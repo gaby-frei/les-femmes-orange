@@ -5,7 +5,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { classifyNotes } = require('../api/_lib/classify.js');
 
-const KEY = (id) => 'relevance:v1:' + id;
+const KEY = (id) => 'relevance:v2:' + id;
 
 function fakeKV(initial = {}) {
   const store = new Map(Object.entries(initial));
@@ -27,7 +27,7 @@ test('cache hit: an already-scored note is NOT re-classified', async () => {
   assert.deepEqual(scores.get('aaa'), { bitcoin: 0.9, nostr: 0, lfo: 0 });
 });
 
-test('cache miss: classifies exactly once and persists under relevance:v1:<id>', async () => {
+test('cache miss: classifies exactly once and persists under relevance:v2:<id>', async () => {
   const note = { id: 'bbb', content: 'lightning stuff', tags: [] };
   const kv = fakeKV();
   let calls = 0;

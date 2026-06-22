@@ -44,6 +44,24 @@ const GOLDEN = [
     label: 'lfo',
     scores: { bitcoin: 0.02, nostr: 0.10, lfo: 0.80 },
   },
+  // v2 regressions — Nostr-native lifestyle posts that use community hashtags as reach tags,
+  // not topic signals. The SUBJECT (tree / greeting / religion) is off-topic; the #asknostr /
+  // #nostr hashtags must NOT pull the nostr score over threshold. (Real false positives, 2026-06-22.)
+  {
+    note: { id: h(8), pubkey: h('g'), created_at: 1_730_000_800, content: 'Who can tell me what tree is this? #asknostr', tags: [['t', 'asknostr']] },
+    label: 'off-topic',
+    scores: { bitcoin: 0.00, nostr: 0.05, lfo: 0.00 },
+  },
+  {
+    note: { id: h('i'), pubkey: h('j'), created_at: 1_730_000_900, content: '#GM you wonderful #nostr people 🧡 enjoy this beautiful day', tags: [['t', 'nostr']] },
+    label: 'off-topic',
+    scores: { bitcoin: 0.00, nostr: 0.08, lfo: 0.00 },
+  },
+  {
+    note: { id: h('k'), pubkey: h('m'), created_at: 1_730_001_000, content: 'Listen #nostr, start a faith journey, may the grace of the Lord be with you.', tags: [['t', 'nostr']] },
+    label: 'off-topic',
+    scores: { bitcoin: 0.00, nostr: 0.05, lfo: 0.00 },
+  },
 ];
 
 // Map<id, {bitcoin,nostr,lfo}> — the seeded "AI already answered" scores for pipeline tests.

@@ -21,7 +21,10 @@ const FEED_RELAYS = [
   { url: 'wss://nos.lol', timeout: 12000 },
   { url: 'wss://relay.damus.io', timeout: 10000 },
 ];
-const FEED_HASHTAGS = ['nostr', 'asknostr', 'grownostr', 'bitcoin', 'btc', 'lightning', 'sats', 'lfo', 'LFO', 'lesfemmesorange'];
+// #grownostr dropped 2026-06-22: it was used as a generic lifestyle/reach tag (houses, horses,
+// embroidery, pets), not a topic signal — net noise. #asknostr stays (legit Nostr Q&A); the
+// classifier filters its off-topic broadcast uses. See classify.js v2 prompt.
+const FEED_HASHTAGS = ['nostr', 'asknostr', 'bitcoin', 'btc', 'lightning', 'sats', 'lfo', 'LFO', 'lesfemmesorange'];
 // Widened fetch (relay natural cap). Env-overridable so a preview deploy can pull a
 // small pool (e.g. FEED_CANDIDATE_LIMIT=100) to make KV writes easy to review by hand;
 // default stays ~500. Unset/invalid → 500.
