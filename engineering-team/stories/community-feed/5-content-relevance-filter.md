@@ -160,3 +160,61 @@ Small judgment calls during implementation (harvested at book close):
   `/api/feed`; their coverage now lives in the `node --test` suite + `tests/feed-api.spec.js`. A
   documentation comment was left in place of the block. Two behaviors (the live relay query and the
   picture-sanitization regex) are not re-asserted in `npm test` by design (relay I/O needs the network).
+
+## Architecture (as built)
+
+File tree (runtime app + tests; harness/reference dirs omitted):
+
+```
+les-femmes-orange/
+├── public/
+│   ├── index.html                ← browser app (sign-in, members, feed UI)
+│   └── lib/membership.js         ← SHARED UMD buildMemberSets() — used by browser AND server
+├── api/
+│   ├── feed.js                   ← GET /api/feed: handler() + buildFeedPayload()
+│   └── _lib/
+│       ├── relay.js              ← queryRelays / queryRelayStatus (Node WebSocket)
+│       ├── classify.js           ← classifyNotes (KV-cached) + classifyOne (Haiku)
+│       └── select.js             ← selectRelevant (threshold filter + recency slice)
+├── server.js                     ← local-dev static server (Vercel uses vercel.json)
+├── vercel.json · package.json · playwright.config.js
+├── test/                         ← node --test (unit, fakes injected)
+│   ├── select-relevant.test.js · classify-notes.test.js · feed-handler.test.js
+│   └── fixtures/golden-notes.js  ← labelled notes (seeded scores + eval set)
+├── tests/                        ← Playwright e2e
+│   ├── community-feed.spec.js · feed-api.spec.js · local-signer.spec.js
+└── eval/relevance.eval.js        ← opt-in real-Haiku judgment check (not in npm test)
+```
+
+Runtime data-flow (the feed — ADR 0033):
+
+```mermaid
+flowchart TD
+  subgraph Browser["Browser — public/index.html"]
+    IDX["index.html<br/>getFeed()"]
+    MEMJS["lib/membership.js<br/>buildMemberSets() (WoT closure)"]
+    IDX -. script src .-> MEMJS
+  end
+
+  subgraph Server["Vercel serverless — api/"]
+    FEED["feed.js<br/>handler() + buildFeedPayload()"]
+    SEL["_lib/select.js<br/>selectRelevant"]
+    CLS["_lib/classify.js<br/>classifyNotes / classifyOne"]
+    REL["_lib/relay.js<br/>queryRelays / queryRelayStatus"]
+    FEED --> SEL
+    FEED --> CLS
+    FEED --> REL
+    FEED -. require .-> MEMJS
+  end
+
+  IDX -->|"fetch GET /api/feed"| FEED
+
+  REL -->|"kind 9999/39999"| MREL[("MEMBERSHIP_RELAYS<br/>brainstorm + nos.lol")]
+  REL -->|"kind 1 + kind 0"| FREL[("FEED_RELAYS<br/>nos.lol + damus")]
+  CLS -->|"get/set relevance:v1:&lt;id&gt;"| KV[("Upstash Redis (KV)")]
+  CLS -->|"classifyOne — cache miss only"| HAIKU[("Claude Haiku")]
+
+  FEED ==>|"{ memberCount, notes, memberNames, relayStatus }"| IDX
+```
+
+Reading the graph: **`public/lib/membership.js` is the one node shared by browser and server** (the WoT closure), and **`api/feed.js` is the single hub** — every `_lib/*` module, the shared membership module, and all four external services (membership relays, feed relays, KV, Haiku) hang off it. The pure orchestrator `buildFeedPayload` is what the `node --test` suite drives with fakes; the live wiring in `handler()` is validated via preview / `vercel dev` / the opt-in eval.
