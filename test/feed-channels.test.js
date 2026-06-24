@@ -88,6 +88,25 @@ test('channelsAvailable is false when the classifier is unavailable', async () =
     'a degraded classifier must surface channelsAvailable=false so the UI disables the pills');
 });
 
+test('channelsAvailable is false when every note fell back to pass-through (classifier erroring with a key present)', async () => {
+  // classifierAvailable defaults to true (key present), but all scores are the {1,1,1} sentinel
+  // → classification degraded → the UI must still disable filtering (AC-9 / ADR 0034).
+  const out = await buildFeedPayload(depsFor([
+    { note: note('a', 1), score: { bitcoin: 1, nostr: 1, lfo: 1 } },
+    { note: note('b', 2), score: { bitcoin: 1, nostr: 1, lfo: 1 } },
+  ]));
+  assert.equal(out.channelsAvailable, false,
+    'all-pass-through scores mean the classifier degraded → channelsAvailable=false even with a key present');
+});
+
+test('a real score of exactly 1 on a single bucket is not mistaken for pass-through', async () => {
+  const out = await buildFeedPayload(depsFor([
+    { note: note('btc', 1), score: { bitcoin: 1, nostr: 0, lfo: 0 } },
+  ]));
+  assert.equal(out.channelsAvailable, true,
+    'only an all-three {1,1,1} score signals fallback; a genuine single-bucket 1.0 stays available');
+});
+
 test('the existing note/payload fields are unchanged (channels is additive)', async () => {
   const out = await buildFeedPayload(depsFor([
     { note: note('btc'), score: { bitcoin: 0.9, nostr: 0, lfo: 0 } },

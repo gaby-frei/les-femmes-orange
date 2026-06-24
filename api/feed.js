@@ -87,10 +87,17 @@ async function buildFeedPayload(deps) {
     if (nm) memberNames[pk] = nm;
   }
 
-  // channelsAvailable (ADR 0034): false when per-topic scores could not be produced
-  // (classifier/score-store unavailable). The UI disables the pills and shows everything
-  // rather than offering a filter it can't apply.
-  return { memberCount: authorPubkeys.length, notes, memberNames, channelsAvailable: classifierAvailable };
+  // channelsAvailable (ADR 0034): false when per-topic scores could not be produced, so the UI
+  // disables the pills and shows everything rather than offering a filter it can't apply. Two
+  // degradation signals: (1) the classifier was never available (e.g. no API key →
+  // classifierAvailable=false); (2) it was available but every score is the {1,1,1} PASS_THROUGH
+  // sentinel — i.e. classification errored at runtime and fell back for every note. Only an
+  // all-three 1.0 counts as the sentinel, so a genuine single-bucket 1.0 is not misread.
+  const isPassThrough = (s) => !!s && s.bitcoin === 1 && s.nostr === 1 && s.lfo === 1;
+  const allFellBack = selected.length > 0 && selected.every((ev) => isPassThrough(getScore(ev.id)));
+  const channelsAvailable = classifierAvailable && !allFellBack;
+
+  return { memberCount: authorPubkeys.length, notes, memberNames, channelsAvailable };
 }
 
 // ── HTTP handler (Vercel) — wires the real deps. Not exercised by npm test (no real
@@ -154,8 +161,9 @@ async function handler(req, res) {
       displayLimit: DISPLAY_LIMIT,
       candidateLimit: CANDIDATE_LIMIT,
       encodeNpubShort,
-      // No AI key → every note falls back to pass-through scores (all channels), so the
-      // per-note channels can't distinguish topics: tell the client to disable filtering.
+      // Signal (1) of channelsAvailable: no AI key → classifier never available. Signal (2),
+      // a key that's present but erroring at runtime, is detected in buildFeedPayload via the
+      // all-PASS_THROUGH check, so both degradation modes disable the client-side filter.
       classifierAvailable: anthropic != null,
     });
 
