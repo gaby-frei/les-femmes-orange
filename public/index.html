@@ -1517,6 +1517,7 @@
     // ── State ───────────────────────────────────────────────────────────────
     let currentPubkey     = null;
     let _tagItemsCache    = null;
+    let _memberSetsCache  = null;
     let _membersLoaded    = false;
     let _feedLoaded       = false;
     let _generatedHex     = null;
@@ -1636,22 +1637,24 @@
       return _tagItemsCache;
     }
 
+    // ── Member-set closure cache ────────────────────────────────────────────
+    // Runs the shared web-of-trust closure (buildMemberSets, public/lib/membership.js)
+    // ONCE per session over the cached tag items, then reuses the result everywhere a
+    // verified/pending lookup is needed (sign-in gate, members directory, pending check).
+    // Invalidated by setting _memberSetsCache = null after any optimistic mutation of
+    // _tagItemsCache (attest/apply) or on disconnect — see those sites.
+    async function getMemberSets() {
+      if (!_memberSetsCache) {
+        const tagItems = await getTagItems();
+        _memberSetsCache = buildMemberSets(tagItems, SEED_PUBKEY);
+      }
+      return _memberSetsCache;
+    }
+
     // ── Membership verification ─────────────────────────────────────────────
     async function checkMembership(hexPubkey) {
-      const tagItems = await getTagItems();
-      const verified = new Set([SEED_PUBKEY]);
-      let changed = true;
-      while (changed) {
-        changed = false;
-        for (const ev of tagItems) {
-          const pTag = ev.tags?.find(t => t[0] === 'p')?.[1];
-          if (pTag && verified.has(ev.pubkey) && !verified.has(pTag)) {
-            verified.add(pTag);
-            changed = true;
-          }
-        }
-      }
-      return verified.has(hexPubkey);
+      const { verifiedMap } = await getMemberSets();
+      return verifiedMap.has(hexPubkey);
     }
 
     // ── Display helpers ─────────────────────────────────────────────────────
@@ -1826,10 +1829,13 @@
           // Still add to local cache so the UI updates optimistically
         }
 
-        // Optimistically update the in-memory cache and re-derive member sets
-        if (_tagItemsCache) _tagItemsCache.push(signedEvent);
-
-        const { verifiedMap } = buildMemberSets(_tagItemsCache || [signedEvent], SEED_PUBKEY);
+        // Optimistically update the in-memory cache and re-derive member sets.
+        // Push into the shared tag-item array, invalidate the cached closure, and
+        // rebuild via getMemberSets so the new attestation is reflected everywhere.
+        const tagItems = await getTagItems();
+        tagItems.push(signedEvent);
+        _memberSetsCache = null;
+        const { verifiedMap } = await getMemberSets();
 
         if (verifiedMap.has(targetHex)) {
           const pendingCard  = footerEl.closest('.member-card');
@@ -2006,7 +2012,7 @@
       pendingSec.style.display  = 'none';
 
       const tagItems = await getTagItems();
-      const { verifiedMap, pendingMap } = buildMemberSets(tagItems, SEED_PUBKEY);
+      const { verifiedMap, pendingMap } = await getMemberSets();
 
       // Collect all pubkeys we need metadata for (members + their taggers)
       const verifiedPubkeys = [...verifiedMap.keys()].filter(pk => pk !== SEED_PUBKEY);
@@ -2243,7 +2249,7 @@
         heroCta.onclick = () => showView('members');
         showView('members');
       } else {
-        const { pendingMap } = buildMemberSets(_tagItemsCache || [], SEED_PUBKEY);
+        const { pendingMap } = await getMemberSets();
         _alreadyPending = pendingMap.has(hexPubkey);
 
         const shortId = hexToNpubShort(hexPubkey);
@@ -2574,6 +2580,7 @@
       ]);
 
       if (_tagItemsCache) _tagItemsCache.push(signedEvent);
+      _memberSetsCache = null;   // invalidate so the next read includes this application
       _alreadyPending = true;
 
       let npub = currentPubkey;
@@ -2629,6 +2636,7 @@
       _pendingSk        = null;
       currentPubkey     = null;
       _tagItemsCache    = null;
+      _memberSetsCache  = null;
       _membersLoaded    = false;
       _generatedHex     = null; _generatedNsec = null; _generatedNpub = null;
       _keyBackedUp      = false;
