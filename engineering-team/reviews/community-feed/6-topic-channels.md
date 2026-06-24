@@ -46,7 +46,34 @@
 1. **`public/index.html` (filtered-empty branch of `renderFeedNotes`)** — a channel selection matching zero notes reuses the Story 1 empty-state copy *"No notes to show yet — check back soon as members post about Bitcoin and Nostr."* When other channels do have notes, that reads as "the feed is empty" rather than "this filter matched nothing." AC-8 only requires *an* empty-state, so non-blocking. Optional: a filter-aware message (e.g. "No posts in the selected channel(s).").
 2. **`public/index.html` (header wording)** — unfiltered shows "across the latest 100 posts" (Story 1 wording retained to avoid regressions) while filtered shows "across N posts". Cosmetic asymmetry; both are truthful. Acceptable as-is.
 
-## Verdict
+## Verdict (initial)
 **CHANGES_REQUESTED** — one blocking item (AC-9 degradation only half-honored, deviating from the ADR's stated `channelsAvailable` condition). Everything else — all 12 ACs' happy paths, ADR Option-B structure, tests, security, regressions — is solid.
 
-_Note for the gate: the ADR's "Consequences" already labels `channelsAvailable` as coarse, deferred debt. If the team chooses to accept the runtime-fallback case as **documented debt** for this story rather than fix it now, that is a legitimate call by the owner — in which case this verdict converts to **PASS** with a tracked follow-up. The fix is small, so my recommendation is to do it now._
+---
+
+## Re-review — 2026-06-24 (fix commit `6d5e43e`)
+
+**Blocking #1 — RESOLVED.** `buildFeedPayload` (`api/feed.js:93-96`) now computes
+`channelsAvailable = classifierAvailable && !allFellBack`, where
+`allFellBack = selected.length > 0 && selected.every(ev => isPassThrough(getScore(ev.id)))` and
+`isPassThrough` requires all three buckets `=== 1`. Both degradation modes now disable the pills:
+(1) classifier never available (no key → `classifierAvailable=false`), and (2) classifier present but
+erroring at runtime → every note is the `{1,1,1}` sentinel. Matches the ADR's stated condition
+("the same condition that triggers the `PASS_THROUGH` fallback") exactly.
+
+- **No false positives:** only an all-three `1.0` flips the flag, so a genuine single-bucket `1.0`
+  (`{1,0,0}`) stays available — locked by a new guard test.
+- **Partial degradation:** if only some notes fell back, `allFellBack` is false → filtering stays
+  available for the notes that have real scores. Consistent with the ADR ("all results were PASS_THROUGH").
+- **Empty feed:** the `selected.length > 0` guard means a 0-note feed doesn't spuriously report degraded.
+
+**Gates re-run:** `npm run test:unit` → **29/29 PASS** (2 new AC-9 tests: runtime-fallback + single-bucket
+guard). Full `npm test` (29 unit + 56 e2e) green at this commit; the fix touches only `api/feed.js`, which
+the e2e layer stubs via `getFeed`, so no e2e behavior changed.
+
+**Non-blocking items 1 & 2** (filtered-empty copy; header wording asymmetry) remain as noted — optional,
+acceptable as-is.
+
+## Verdict
+**PASS** — the blocking AC-9 deviation is fixed and matches the ADR. All 12 ACs met, Option-B structure
+intact, no regressions, no security concerns. Ready for the deploy chain (`cycle-staging` → `cycle-prod`).

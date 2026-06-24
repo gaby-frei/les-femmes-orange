@@ -112,4 +112,4 @@ plain language; the Architect should resolve handles.
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0034-feed-topic-channels.md` (**Accepted**)
 - Test plan: `engineering-team/stories/community-feed/6-topic-channels.test-plan.md` (8 unit + 12 e2e, confirmed RED)
-- Review: `engineering-team/reviews/community-feed/6-topic-channels.md` — **CHANGES_REQUESTED** (2026-06-24, AC-9 degradation half-honored)
+- Review: `engineering-team/reviews/community-feed/6-topic-channels.md` — **PASS** (2026-06-24, re-review after fix `6d5e43e`; AC-9 resolved)
