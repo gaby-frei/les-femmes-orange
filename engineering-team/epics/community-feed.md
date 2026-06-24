@@ -37,8 +37,9 @@ we don't publish social content).
 - #3 — `3-inline-images` — Rich rendering: inline images (up to 2 side-by-side, "+N" overlay for extras), media URLs stripped from text. *(Done — review PASS)*
 - #4 — `4-mention-resolution` — Rich rendering: resolve @ mentions (members → @DisplayName, others → short @npub handle), backed by a shared member-metadata cache. *(Done — review PASS)*
 - #5 — `5-content-relevance-filter` — Step A pool refinement: server-side AI (Claude Haiku) judges whether a hashtagged note's *content* is actually about Bitcoin/Nostr/LFO and drops off-topic notes; stands up the app's first backend (`GET /api/feed`) + persisted relevance signal. *(Done — review PASS 2026-06-22)*
+- #6 — `6-topic-channels` — Topic channels (the v2 topic filter tabs): a filter banner of toggleable pills (Bitcoin / NOSTR / LFO Community) that filter the feed **client-side** over the fetched pool using #5's persisted per-topic scores (a note is in channel X iff its X score ≥ the #5 threshold; none selected = show everything); renames the side panel "Topics" → "Source Hashtags"; degrades to disabled pills when scores are unavailable (`channelsAvailable=false`). *(Done — review PASS 2026-06-24, ADR 0034)*
 
-**Execution order:** #1 (done) → #3 (done) → #4 (done) → **#5** → #2. #5 is sequenced before #2: its ADR decides whether curation runs server-side, which determines where #2's ranking is built (avoids building #2 twice). #2 stays in Draft until #5's ADR lands.
+**Execution order:** #1 (done) → #3 (done) → #4 (done) → #5 (done) → **#6 (done)** → #2. #5 was sequenced before #2: its ADR decides whether curation runs server-side, which determines where #2's ranking is built (avoids building #2 twice). #6 consumes #5's per-topic scores as a client-side lens. #2 stays in Draft, **blocked on Tapestry event-tag support**.
 
 ## Open questions (epic-level)
 - **Member coverage of the feed source** Initially, Primal was the augment relay
@@ -63,6 +64,23 @@ we don't publish social content).
   **Interim (Story #5):** `relay.damus.io` replaced `relay.primal.net` as the augment in `FEED_RELAYS`
   (backend + panel), since primal silently drops server-side REQs. This is a stopgap that restores the
   write-blocked test npubs; the routes above are the real resolution.
+
+## Forward-looking design notes
+- **Channel membership has two sourcing mechanisms, by provider.** Topic feed channels (#6, ADR 0034)
+  are a lens defined by each note's `channels` array. How that array is populated depends on where the
+  note came from:
+  - **Provider 1 (hashtag source) — by content score.** A Provider-1 note's channels are derived from
+    Haiku's per-topic relevance scores `{ bitcoin, nostr, lfo }` (a note is in channel X iff `score_X ≥`
+    the #5 threshold). This is the only mechanism today.
+  - **Provider 2 (event-tag source, Story #2 — blocked on Tapestry event-tags) — by event-tag.** Provider-2
+    notes will **not** be channel-categorized by Haiku scores. Instead, LFO will support a set of
+    **event-tags that correspond to feed channels**, and a note carrying a given event-tag is recognized as
+    belonging to the channel(s) that tag maps to. The mapping is **not necessarily 1:1** — one event-tag may
+    map to **one or several** channels (1:1 or 1:many).
+  - **Keep in mind as we build:** treat `channels` (ADR 0034) as the provider-agnostic seam — both
+    providers ultimately emit a per-note `channels` list, just computed differently (P1: score→channels;
+    P2: event-tag→channels via the tag↔channel map). When #2 lands, the channel set may also need to grow
+    beyond the current three (Bitcoin / NOSTR / LFO Community) to match the supported event-tags.
 
 ## Resolved
 - **Header** = title "What LFO members are saying…" + subtitle "X members contributing across the latest 100 posts" (member count; copy updated 2026-06-15).
