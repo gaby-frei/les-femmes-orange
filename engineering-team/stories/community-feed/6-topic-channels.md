@@ -111,5 +111,5 @@ plain language; the Architect should resolve handles.
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0034-feed-topic-channels.md` (**Accepted**)
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/community-feed/6-topic-channels.test-plan.md` (8 unit + 12 e2e, confirmed RED)
 - Review: (filled in after Review phase)
