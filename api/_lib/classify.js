@@ -60,7 +60,7 @@ const SYSTEM = [
   'nostr: the Nostr protocol and its ecosystem — clients, NIPs, relays, keys, npubs.',
   'lfo: the Les Femmes Orange community itself — its members, events, and community life.',
   'Judge TOPIC ONLY, never sophistication: a casual "going to a bitcoin meetup" post is as relevant as a deep technical thread. Off-topic posts (e.g. a pet photo) score low on all three.',
-  'Score the SUBJECT of the post, not its hashtags. IGNORE hashtags entirely when scoring: #nostr, #asknostr, #grownostr, #GM — and the fact that the post lives on Nostr — are NOT evidence of the nostr topic. A question merely broadcast via #asknostr is about its actual subject (e.g. trees, movies), not about Nostr.',
+  'Score the SUBJECT of the post, not its hashtags. IGNORE hashtags entirely when scoring: #nostr, #asknostr — and the fact that the post lives on Nostr — are NOT evidence of the nostr topic. A question merely broadcast via #asknostr is about its actual subject (e.g. trees, movies), not about Nostr.',
   'A topic must be what the post is ABOUT, not a passing mention or a form of address. Name-dropping "nostr people" or addressing "#nostr" does not make a post about Nostr.',
   'Bare greetings and low-content posts (e.g. "GM", "good morning #nostr people") score low on all three, even when they mention the community.',
   'Examples that score near zero on all three: "Who can tell me what tree is this? #asknostr" (about a tree); "GM #nostr people, enjoy this beautiful day" (a greeting); "Listen #nostr, start a faith journey, may the grace of the Lord Jesus Christ be with you" (about religion).',
