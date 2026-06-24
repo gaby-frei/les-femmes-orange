@@ -642,6 +642,18 @@
     .feed-header-title { font-size: 1.15rem; font-weight: 700; color: var(--dark); letter-spacing: -0.01em; }
     .feed-header-sub { margin-top: 0.25rem; font-size: 0.8rem; color: var(--grey-text); }
 
+    /* Topic channel pills (#6) */
+    .feed-channels { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.25rem; }
+    .feed-channel {
+      padding: 0.35rem 0.95rem; border-radius: 999px; cursor: pointer;
+      font-size: 0.82rem; font-weight: 600; line-height: 1.2;
+      background: transparent; color: var(--orange);
+      border: 1.5px solid var(--orange); transition: background 0.15s, color 0.15s;
+    }
+    .feed-channel:hover:not([disabled]) { background: var(--orange-light); }
+    .feed-channel[aria-pressed="true"] { background: var(--orange); color: var(--white); }
+    .feed-channel[disabled] { opacity: 0.4; cursor: not-allowed; }
+
     .feed-empty {
       display: flex; align-items: center; justify-content: center;
       padding: 4rem 1rem; text-align: center;
@@ -1372,6 +1384,14 @@
       <div class="feed-page">
         <div id="feed-header" class="feed-header" style="display:none"></div>
 
+        <!-- Topic channels (#6): toggle pills that filter the fetched feed client-side by each
+             note's `channels`. None selected = show everything. Disabled when channelsAvailable=false. -->
+        <div id="feed-channels" class="feed-channels" style="display:none">
+          <button type="button" class="feed-channel" data-channel="bitcoin" aria-pressed="false">Bitcoin</button>
+          <button type="button" class="feed-channel" data-channel="nostr" aria-pressed="false">NOSTR</button>
+          <button type="button" class="feed-channel" data-channel="lfo" aria-pressed="false">LFO Community</button>
+        </div>
+
         <div id="feed-loading" class="members-loading" style="display:none">
           <div class="spinner"></div>
           <p>Loading the community feed…</p>
@@ -1390,7 +1410,7 @@
           <ul class="feed-panel-list" id="feed-relays-list"></ul>
         </div>
         <div class="feed-panel" id="feed-hashtags-panel">
-          <h3 class="feed-panel-title">Topics <span class="feed-panel-note">(case sensitive)</span></h3>
+          <h3 class="feed-panel-title">Source Hashtags <span class="feed-panel-note">(case sensitive)</span></h3>
           <ul class="feed-panel-list" id="feed-hashtags-list"></ul>
         </div>
       </aside>
@@ -2088,22 +2108,95 @@
     }
 
     // Render layer — deliberately ignorant of where the data came from.
+    // Topic-channels state (#6): the last fetched feed and the set of selected channels.
+    // Filtering is a client-side lens over the already-fetched notes — no re-fetch on toggle.
+    let _feed = null;
+    const _selectedChannels = new Set();
+
+    // The notes to show: none selected = everything; otherwise the union of selected channels.
+    function feedVisibleNotes() {
+      if (!_feed || !_feed.notes) return [];
+      if (_selectedChannels.size === 0) return _feed.notes;
+      return _feed.notes.filter(n => (n.channels || []).some(c => _selectedChannels.has(c)));
+    }
+
+    // Show/disable the pills and wire toggles. Disabled when the server couldn't categorize
+    // notes (channelsAvailable === false) — we don't offer a filter that can't be applied.
+    function setupChannelBanner() {
+      const banner = document.getElementById('feed-channels');
+      const hasNotes = !!(_feed && _feed.notes && _feed.notes.length);
+      banner.style.display = hasNotes ? 'flex' : 'none';
+      const available = !_feed || _feed.channelsAvailable !== false;
+      for (const btn of banner.querySelectorAll('.feed-channel')) {
+        btn.setAttribute('aria-pressed', _selectedChannels.has(btn.dataset.channel) ? 'true' : 'false');
+        if (available) {
+          btn.removeAttribute('disabled');
+          btn.onclick = () => {
+            const ch = btn.dataset.channel;
+            if (_selectedChannels.has(ch)) _selectedChannels.delete(ch); else _selectedChannels.add(ch);
+            btn.setAttribute('aria-pressed', _selectedChannels.has(ch) ? 'true' : 'false');
+            renderFeedNotes();
+          };
+        } else {
+          btn.setAttribute('disabled', '');
+          btn.onclick = null;
+        }
+      }
+    }
+
+    // Paint the visible notes + header + empty-state from _feed and the current selection.
+    // Re-run on every pill toggle (no re-fetch). Header counts reflect what's displayed.
+    function renderFeedNotes() {
+      const emptyEl  = document.getElementById('feed-empty');
+      const headerEl = document.getElementById('feed-header');
+      const notesEl  = document.getElementById('feed-notes');
+
+      const visible = feedVisibleNotes();
+      notesEl.innerHTML = '';
+
+      if (!visible.length) {
+        headerEl.style.display = 'none';
+        emptyEl.style.display  = 'flex';
+        return;
+      }
+      emptyEl.style.display = 'none';
+      for (const note of visible) notesEl.appendChild(makeFeedNote(note, _feed.memberNames || {}));
+
+      // No filter: report the whole-pool member count over the latest-N cap (Story 1 wording).
+      // Filtered: recompute distinct authors + post count over the displayed subset so the
+      // header stays truthful as channels toggle (#6 AC).
+      let count, postLabel;
+      if (_selectedChannels.size === 0) {
+        count = _feed.memberCount;
+        postLabel = `the latest ${FEED_LIMIT} posts`;
+      } else {
+        count = new Set(visible.map(n => n.pubkey)).size;
+        postLabel = `${visible.length} post${visible.length === 1 ? '' : 's'}`;
+      }
+      headerEl.innerHTML =
+        `<div class="feed-header-title">What LFO members are saying…</div>` +
+        `<div class="feed-header-sub">${count} member${count === 1 ? '' : 's'} contributing across ${postLabel}</div>`;
+      headerEl.style.display = '';
+    }
+
     async function loadFeedPage() {
       const loadingEl = document.getElementById('feed-loading');
       const emptyEl   = document.getElementById('feed-empty');
       const headerEl  = document.getElementById('feed-header');
       const notesEl   = document.getElementById('feed-notes');
+      const bannerEl  = document.getElementById('feed-channels');
 
       renderFeedPanels();
+      _selectedChannels.clear(); // a fresh load starts unfiltered (all pills deselected)
 
       loadingEl.style.display = 'flex';
       emptyEl.style.display   = 'none';
       headerEl.style.display  = 'none';
+      bannerEl.style.display  = 'none';
       notesEl.innerHTML       = '';
 
-      let feed;
       try {
-        feed = await getFeed();
+        _feed = await getFeed();
       } catch (err) {
         loadingEl.style.display = 'none';
         emptyEl.textContent     = 'Could not load the feed right now. Please try again later.';
@@ -2112,24 +2205,16 @@
       }
 
       loadingEl.style.display = 'none';
-      updateRelayDots(feed.relayStatus);
-
-      if (!feed.notes.length) {
-        emptyEl.style.display = 'flex';
-        return;
-      }
-
-      for (const note of feed.notes) notesEl.appendChild(makeFeedNote(note, feed.memberNames || {}));
-      headerEl.innerHTML =
-        `<div class="feed-header-title">What LFO members are saying…</div>` +
-        `<div class="feed-header-sub">${feed.memberCount} member${feed.memberCount === 1 ? '' : 's'} contributing across the latest ${FEED_LIMIT} posts</div>`;
-      headerEl.style.display = '';
+      updateRelayDots(_feed.relayStatus);
+      setupChannelBanner();
+      renderFeedNotes();
     }
 
     // Build a single non-interactive feed card. Clicking it opens the note in Primal.
     function makeFeedNote(note, memberNames = {}) {
       const card = document.createElement('div');
       card.className = 'feed-note';
+      card.dataset.noteId = note.id; // lets the channel filter target specific cards (#6)
       card.setAttribute('role', 'link');
       card.tabIndex = 0;
 

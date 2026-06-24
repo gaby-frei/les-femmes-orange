@@ -42,6 +42,7 @@ async function buildFeedPayload(deps) {
     computeMembers, fetchCandidates, classifyNotes: classify, fetchMetadata,
     threshold = THRESHOLD, displayLimit = DISPLAY_LIMIT, candidateLimit = CANDIDATE_LIMIT,
     encodeNpubShort = defaultNpubShort, sanitizePicture = defaultPic,
+    classifierAvailable = true,
   } = deps;
 
   const memberPubkeys = await computeMembers();
@@ -52,13 +53,23 @@ async function buildFeedPayload(deps) {
   const authorPubkeys = [...new Set(selected.map((e) => e.pubkey))];
   const metaMap = await fetchMetadata(memberPubkeys);
 
+  // Channel tagging (ADR 0034): tag each note with every topic channel whose per-topic
+  // score clears the SAME shared threshold used for selection. The pass-through fallback
+  // {1,1,1} therefore yields all three channels, so a filter never hides a degraded note.
+  const getScore = scores && typeof scores.get === 'function'
+    ? (id) => scores.get(id)
+    : (id) => (scores ? scores[id] : undefined);
+  const CHANNELS = ['bitcoin', 'nostr', 'lfo'];
+
   const notes = selected.map((ev) => {
     const m = metaMap.get(ev.pubkey) || {};
+    const s = getScore(ev.id) || {};
     return {
       id: ev.id,
       pubkey: ev.pubkey,
       created_at: ev.created_at,
       content: ev.content || '',
+      channels: CHANNELS.filter((c) => (s[c] || 0) >= threshold),
       author: {
         displayName: m.display_name || m.name || encodeNpubShort(ev.pubkey),
         npubShort: encodeNpubShort(ev.pubkey),
@@ -76,7 +87,10 @@ async function buildFeedPayload(deps) {
     if (nm) memberNames[pk] = nm;
   }
 
-  return { memberCount: authorPubkeys.length, notes, memberNames };
+  // channelsAvailable (ADR 0034): false when per-topic scores could not be produced
+  // (classifier/score-store unavailable). The UI disables the pills and shows everything
+  // rather than offering a filter it can't apply.
+  return { memberCount: authorPubkeys.length, notes, memberNames, channelsAvailable: classifierAvailable };
 }
 
 // ── HTTP handler (Vercel) — wires the real deps. Not exercised by npm test (no real
@@ -140,6 +154,9 @@ async function handler(req, res) {
       displayLimit: DISPLAY_LIMIT,
       candidateLimit: CANDIDATE_LIMIT,
       encodeNpubShort,
+      // No AI key → every note falls back to pass-through scores (all channels), so the
+      // per-note channels can't distinguish topics: tell the client to disable filtering.
+      classifierAvailable: anthropic != null,
     });
 
     res.setHeader('Cache-Control', 'no-store');
