@@ -46,6 +46,10 @@ Testable from the outside. Each criterion gets at least one test.
   can see at a glance which channels are active.
 - [ ] Given the feed is filtered by channel and the result is **empty** (no notes match the selected
   channels), then an **empty-state message** is shown (not a blank screen).
+- [ ] Given the per-topic scores are **unavailable** (the classifier/score store could not be read, so
+  notes can't be reliably assigned to channels), when the feed renders, then **all notes are shown** (the
+  full unified feed) and the channel pills are rendered **disabled / non-interactive** — the feed never
+  offers a filter it cannot apply. (Zero selected continues to mean show everything.)
 - [ ] Given channels are toggled, then the existing feed behavior is otherwise **unchanged** —
   newest-first ordering, the ~100 cap, card layout, open-in-Primal, and read-only posture all hold over
   whatever subset is displayed.
@@ -100,10 +104,12 @@ plain language; the Architect should resolve handles.
     `max(scores) ≥ T` inclusion rule — no regression.
 - **Multi-select:** **union (OR)** across selected channels, de-duplicated.
 - **Source:** Provider 1 (hashtag source) only.
+- **Scores unavailable → disable filtering:** if per-topic scores can't be read, show **all** notes and
+  render the pills **disabled** (don't offer a filter that can't be applied).
 - **Panel rename:** Story 1's right-side hashtag panel is retitled **"Topics" → "Source Hashtags"** so
   "topics" refers only to the new channel pills.
 
 ## Linked artifacts
-- ADR: (filled in after Architecture phase)
+- ADR: `engineering-team/decisions/0034-feed-topic-channels.md` (**Accepted**)
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
