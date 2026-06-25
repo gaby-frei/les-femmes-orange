@@ -675,12 +675,20 @@
       position: absolute; bottom: 0.7rem; right: 0.8rem;
       width: 28px; height: 28px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      background: var(--orange); color: var(--white);
-      border: none; cursor: pointer; line-height: 1; padding: 0;
-      font-size: 1.15rem; font-weight: 600;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.18); transition: background 0.15s;
+      background: transparent; color: var(--orange);
+      border: 1.5px dashed var(--orange); cursor: pointer; line-height: 1; padding: 0;
+      font-size: 1.05rem; font-weight: 600; transition: background 0.15s;
     }
-    .feed-note-tag-btn:hover { background: var(--orange-dark); }
+    .feed-note-tag-btn:hover { background: var(--orange-light); }
+    /* Hover tooltip (#1): a small label above the button. */
+    .feed-note-tag-btn::after {
+      content: 'click to tag';
+      position: absolute; top: calc(100% + 2px); left: 50%; transform: translateX(-50%);
+      white-space: nowrap; color: var(--grey-text);
+      font-size: 0.7rem; font-weight: 500;
+      opacity: 0; pointer-events: none; transition: opacity 0.12s;
+    }
+    .feed-note-tag-btn:hover::after { opacity: 1; }
 
     .tag-modal {
       position: fixed; inset: 0; z-index: 1000;
