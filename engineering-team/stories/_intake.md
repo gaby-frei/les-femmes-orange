@@ -118,3 +118,27 @@ dependency.)
 crux. Possible later split (stand-up-backend vs. classifier) if it grows.
 **Drafted as:** `community-feed #5` — `5-content-relevance-filter` (Draft, 2026-06-18).
 **Phase path confirmed with user:** drafted as a story at user's direction; not yet planned/architected.
+
+---
+
+## 2026-06-25 — Note-tagging demo UI (event-tags on kind-1 notes)
+
+**Raw request (user's words):**
+> We do not yet have tapestry/nostr support for nostr-event-tags (ie tags applied to notes). I am
+> waiting for a member of my team to implement this. I would, however, like to go ahead and create a
+> very primitive UI that demos what kind-1 note tagging will look like. […] A circular plus button on
+> the bottom right of each note in the feed; clicking it opens a pop-up "Add a tag" menu (modeled on
+> tags.brainstorm.world's npub-tagging modal) with title "Add a tag" and two toggle options "Search
+> existing" and "Apply new"; in this demo both views display "No support for event tags yet. Check back
+> later." The UI/UX will be revised and wired to the nostr event logic later.
+
+**Structure decision (confirmed with user):** new **epic** `note-tagging` in a new **book** `note-tagging`
+— distinct from `community-feed` (read-only display) because tagging is a **write/interaction** capability.
+Branching: stacked `feat/note-tagging` off the `feat/community-feed` tip (the demo attaches to feed cards,
+which exist only on that branch; rebase onto main once community-feed lands).
+
+**Classification:** Feature → all phases (Standard). This first story is a **non-functional demo** (no
+event-tag creation/signing/publishing/querying — those wait on the teammate's protocol work).
+**Book:** new, no PRD → acceptance frame at `engineering-team/audits/note-tagging/book.md`.
+**Epic:** `note-tagging` (new). Story: #1 `note-tag-demo`.
+**Phase path confirmed with user:** entered Planning via `/plan-feature`.
