@@ -74,4 +74,4 @@ plain language; the Architect should resolve handles when the protocol lands.
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0035-note-tagging-demo-ui.md` (**Accepted**)
 - Test plan: `engineering-team/stories/note-tagging/1-note-tag-demo.test-plan.md` (8 e2e; 7 RED + AC-8 gating guard green)
-- Review: (filled in after Review phase)
+- Review: `engineering-team/reviews/note-tagging/1-note-tag-demo.md` — **PASS** (2026-06-25)
