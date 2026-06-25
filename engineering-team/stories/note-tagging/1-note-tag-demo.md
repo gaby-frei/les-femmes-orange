@@ -72,6 +72,6 @@ plain language; the Architect should resolve handles when the protocol lands.
   toggles + message is not required for the demo).
 
 ## Linked artifacts
-- ADR: (filled in after Architecture phase)
+- ADR: `engineering-team/decisions/0035-note-tagging-demo-ui.md` (**Accepted**)
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
