@@ -69,6 +69,12 @@ content-type probe — so part of this story **may** live in the existing `GET /
 rather than purely in `public/index.html`. The Architect decides where detection runs.
 
 ## Out of scope
+- **Extension-less media that carries NO `imeta` tag.** v1 resolves an extension-less Blossom URL's
+  type **only** from the note's NIP-92 `imeta` metadata (the preferred, zero-network authoritative
+  source; ADR 0035). An extension-less upload whose author emitted **no** `imeta` tag cannot be
+  classified in v1 and **degrades to a shortened display-only link**. Embedding those (e.g. via a
+  server-side content-type `HEAD` probe — the second authoritative source) is **deferred to a
+  follow-up story**; ADR 0035 leaves the seam (`api/_lib/media.js`) for it.
 - **Multiple inline players in one card.** v1 embeds **the first** recognized video; any additional
   videos degrade to shortened display-only links. A video gallery/carousel is deferred.
 - **Fullscreen / lightbox** beyond the native video-control fullscreen button.
@@ -126,6 +132,6 @@ Architect's to decide; this note records the options and their tradeoffs.
   build); may extend the Story 5 `GET /api/feed` backend if extension-less detection needs it.
 
 ## Linked artifacts
-- ADR: (filled in after Architecture phase)
+- ADR: `engineering-team/decisions/0035-feed-inline-videos.md` — **Accepted** (2026-06-29)
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
