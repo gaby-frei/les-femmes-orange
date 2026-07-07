@@ -693,6 +693,12 @@
       position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
       background: rgba(0, 0, 0, 0.55); color: #fff; font-weight: 700; font-size: 1.4rem;
     }
+    .feed-note-video { margin-top: 0.7rem; }
+    .feed-note-video video {
+      width: 100%; max-height: 26rem; border-radius: 8px; display: block;
+      background: #000; border: 1px solid var(--grey-mid);
+    }
+    .feed-note-video-fallback { display: block; margin-top: 0.7rem; color: #777; font-size: 0.85rem; }
     .feed-note-open { margin-top: 0.6rem; font-size: 0.72rem; font-weight: 600; color: var(--orange); }
 
     /* ── MEMBER CARD ──────────────────────────────────────── */
@@ -1718,24 +1724,37 @@
       return bare.length > 30 ? bare.slice(0, 30) + '…' : bare;
     }
 
-    // Split note content into displayable text + image URLs. Pure (no DOM). Image URLs are
-    // pulled out (sanitized, deduped); other URLs are shortened in place so they don't clutter.
-    function parseNoteContent(content) {
+    // Split note content into displayable text + image URLs + video URLs. Pure (no DOM).
+    // Media URLs are pulled out (sanitized, deduped) and stripped from the text; other URLs are
+    // shortened in place so they don't clutter. `media` (Story 7, ADR 0035) is the server's
+    // imeta-resolved [{ url, kind }] list — it classifies extension-less Blossom URLs that
+    // extension matching can't. Only the FIRST video is embedded; extra videos stay as shortened
+    // links (one-player cap). Classification priority per URL: imeta media → extension → shorten.
+    function parseNoteContent(content, media = []) {
       const images = [];
+      const videos = [];
       const seen = new Set();
       const isImage = u => /\.(?:jpg|jpeg|png|gif|webp|avif)(?:\?[^\s<>"']*)?$/i.test(u);
+      const isVideo = u => /\.(?:mp4|webm|mov|m4v)(?:\?[^\s<>"']*)?$/i.test(u);
+      const kindOf = new Map((Array.isArray(media) ? media : []).map(m => [m.url, m.kind]));
 
       let text = String(content || '').replace(/(https?:\/\/[^\s<>"']+)/gi, (url) => {
         const safe = safePicUrl(url);
-        if (safe && isImage(url)) {
+        if (!safe) return shortenUrl(url);           // non-http(s) → inert shortened text
+        const kind = kindOf.get(url) || (isImage(url) ? 'image' : isVideo(url) ? 'video' : '');
+        if (kind === 'image') {
           if (!seen.has(safe)) { seen.add(safe); images.push(safe); }
-          return '';                       // strip image URLs from the text
+          return '';                                 // strip image URLs from the text
         }
-        return shortenUrl(url);            // shorten any other link
+        if (kind === 'video' && (videos.length === 0 || seen.has(safe))) {
+          if (!seen.has(safe)) { seen.add(safe); videos.push(safe); }
+          return '';                                 // strip the (first) video URL from the text
+        }
+        return shortenUrl(url);                      // any other link (incl. 2nd+ video) → shorten
       });
 
       text = text.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
-      return { text, images };
+      return { text, images, videos };
     }
 
     // Resolve Nostr @ mentions in text (community-feed #4). `names` = { pubkeyHex: displayName }
@@ -2218,7 +2237,7 @@
       card.setAttribute('role', 'link');
       card.tabIndex = 0;
 
-      const { text, images } = parseNoteContent(note.content || '');
+      const { text, images, videos } = parseNoteContent(note.content || '', note.media);
       const displayText = resolveMentions(text, memberNames);
       const when     = formatTimeAgo(note.created_at);
       const whenAbs  = new Date(note.created_at * 1000).toLocaleString();
@@ -2263,6 +2282,36 @@
           media.appendChild(tile);
         }
         card.querySelector('.feed-note-open').before(media);
+      }
+
+      // Inline video (community-feed #7, ADR 0035): embed the first video as a click-to-play,
+      // muted, native-controls player. Built via DOM from a safePicUrl-sanitized http(s) src.
+      // The player swallows its own clicks so play/pause never triggers the card's open-in-Primal
+      // handler; the rest of the card still opens Primal. preload="none" so off-screen feed videos
+      // don't fetch. On load error, degrade to a shortened display-only link — never a broken box.
+      if (videos.length) {
+        const src = safePicUrl(videos[0]);
+        if (src) {
+          const wrap = document.createElement('div');
+          wrap.className = 'feed-note-video';
+          const video = document.createElement('video');
+          video.src = src;
+          video.controls = true;
+          video.muted = true;
+          video.playsInline = true;
+          video.preload = 'none';
+          const swallow = e => e.stopPropagation();
+          video.addEventListener('click', swallow);
+          video.addEventListener('keydown', swallow);
+          video.onerror = () => {
+            const link = document.createElement('span');
+            link.className = 'feed-note-video-fallback';
+            link.textContent = shortenUrl(videos[0]);
+            wrap.replaceWith(link);
+          };
+          wrap.appendChild(video);
+          card.querySelector('.feed-note-open').before(wrap);
+        }
       }
 
       // Inject avatar image safely (mirrors makeMemberCard): drop on error, never a broken image.

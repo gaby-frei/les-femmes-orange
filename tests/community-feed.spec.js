@@ -506,3 +506,218 @@ test.describe('Community feed — gating & nav', () => {
     await expect(page.locator('#nav-feed-li'), 'a non-member must not see the Feed nav').toBeHidden();
   });
 });
+
+// ── inline videos & extension-less Blossom media (Story 7, ADR 0035) ──────────
+// Written BEFORE implementation — RED until parseNoteContent gains a `media` arg and a
+// `videos` output, and makeFeedNote renders a click-to-play <video>. Contract the
+// implementation must satisfy:
+//   - parseNoteContent(content, media=[]) → { text, images, videos }
+//   - video player: .feed-note-video > <video controls muted playsinline preload="none">
+//     (preload="none" so off-screen feed videos don't fetch; no poster required by the story)
+//   - player swallows its own clicks (stopPropagation) so play/pause never opens Primal
+//   - a video that fails to load is replaced by a shortened display-only link (no broken box)
+const VWEBM   = 'https://vid.test/clip.webm';
+const VWEBM2  = 'https://vid.test/second.webm';
+const BLO_VID = 'https://blossom.test/1afa0e58be2c0ffeecafef00dba5eba11deadbeef';
+const BLO_IMG = 'https://blossom.test/b00b1e5deadbeefcafef00d00112233445566';
+
+test.describe('Community feed — video parsing helper (Story 7)', () => {
+  test('parseNoteContent accepts a media arg and returns a videos array', async ({ page }) => {
+    await page.goto('/');
+    expect(await page.evaluate(() => typeof window.parseNoteContent), 'parseNoteContent must be a global').toBe('function');
+    // Called with ONE arg (back-compat): still yields a videos array and the old images behavior.
+    const r = await page.evaluate(() => window.parseNoteContent('plain https://img.test/a.jpg'));
+    expect(Array.isArray(r.videos), 'videos is always an array, even with no media arg').toBe(true);
+    expect(r.videos.length).toBe(0);
+    expect(r.images.length, 'extension images still detected').toBe(1);
+  });
+
+  test('an extension video URL (.mp4/.webm/.mov/.m4v) goes into videos and is stripped from text', async ({ page }) => {
+    await page.goto('/');
+    const r = await page.evaluate(() => window.parseNoteContent('hi https://v.test/a.mp4 bye'));
+    expect(r.videos, 'the .mp4 URL is collected as a video').toContain('https://v.test/a.mp4');
+    expect(r.text, 'the video URL is removed from the displayed text').not.toContain('v.test/a.mp4');
+  });
+
+  test('an extension-less Blossom URL is classified by the imeta media arg (video → videos)', async ({ page }) => {
+    await page.goto('/');
+    const r = await page.evaluate((u) => window.parseNoteContent(`clip ${u} end`, [{ url: u, kind: 'video' }]), BLO_VID);
+    expect(r.videos, 'imeta video resolves an extension-less URL into videos').toContain(BLO_VID);
+    expect(r.text, 'the Blossom video URL is stripped from text').not.toContain('blossom.test');
+  });
+
+  test('an extension-less Blossom URL classified as image goes into images (reuses the grid)', async ({ page }) => {
+    await page.goto('/');
+    const r = await page.evaluate((u) => window.parseNoteContent(`pic ${u} end`, [{ url: u, kind: 'image' }]), BLO_IMG);
+    expect(r.images, 'imeta image resolves an extension-less URL into images').toContain(BLO_IMG);
+    expect(r.videos.length, 'it is not a video').toBe(0);
+    expect(r.text, 'the Blossom photo URL is stripped from text').not.toContain('blossom.test');
+  });
+
+  test('only the first video is embedded; a second video URL stays as shortened text (one-player cap)', async ({ page }) => {
+    await page.goto('/');
+    const r = await page.evaluate(() => window.parseNoteContent('a https://v.test/1.mp4 b https://v.test/2.webm c'));
+    expect(r.videos.length, 'only the first video is embedded').toBe(1);
+    expect(r.videos[0]).toBe('https://v.test/1.mp4');
+    expect(r.text, 'the extra video URL remains in the text (shortened, display-only)').toContain('v.test/2.webm');
+  });
+
+  test('a duplicated video URL is embedded once', async ({ page }) => {
+    await page.goto('/');
+    const r = await page.evaluate(() => window.parseNoteContent('https://v.test/a.mp4 https://v.test/a.mp4'));
+    expect(r.videos.length, 'deduped to a single video').toBe(1);
+  });
+
+  test('an unsafe "video" URL (javascript:/data:) is never classified as media — inert text', async ({ page }) => {
+    await page.goto('/');
+    const r = await page.evaluate(() =>
+      window.parseNoteContent('javascript:alert(1)//x.mp4 and data:video/mp4;base64,AAAA'));
+    expect(r.videos.length, 'no javascript:/data: video').toBe(0);
+    expect(r.images.length, 'no javascript:/data: image').toBe(0);
+    expect(r.text, 'the unsafe token stays as inert text').toContain('javascript:alert(1)');
+  });
+});
+
+test.describe('Community feed — inline video rendering (Story 7)', () => {
+  test.beforeEach(async ({ page }) => {
+    // Image hosts serve valid bytes so <img> survives onload. Video bytes are never needed
+    // (preload="none" → no fetch); any stray video request is aborted so a wrong preload
+    // contract fails loudly instead of hanging the network.
+    await page.route(/img\.test|blossom\.test/, r => r.fulfill({ status: 200, contentType: 'image/png', body: ONE_PX_PNG }));
+    await page.route(/vid\.test/, r => r.abort());
+  });
+
+  // AC1
+  test('an extension video URL renders an inline <video>, with the URL removed from the text', async ({ page }) => {
+    await openFeedWith(page, { memberCount: 1, notes: [ NOTE({ content: `watch ${VWEBM} now` }) ] });
+    const card = page.locator('#feed-notes .feed-note').first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.locator('.feed-note-video video'), 'a player renders').toHaveCount(1);
+    await expect(card.locator('.feed-note-video video')).toHaveAttribute('src', /vid\.test\/clip\.webm/);
+    await expect(card.locator('.feed-note-excerpt'), 'the raw video URL is removed from text').not.toContainText('clip.webm');
+  });
+
+  // AC2 (the screenshot case)
+  test('an extension-less Blossom video embeds when imeta declares it a video', async ({ page }) => {
+    await openFeedWith(page, { memberCount: 1, notes: [ NOTE({ content: `clip ${BLO_VID} end`, media: [{ url: BLO_VID, kind: 'video' }] }) ] });
+    const card = page.locator('#feed-notes .feed-note').first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.locator('.feed-note-video video'), 'the Blossom video embeds, not a text link').toHaveCount(1);
+    await expect(card.locator('.feed-note-video video')).toHaveAttribute('src', new RegExp('1afa0e58be2'));
+    await expect(card.locator('.feed-note-excerpt')).not.toContainText('blossom.test');
+  });
+
+  // AC2 (extension-less Blossom photo broadens Story 3's grid)
+  test('an extension-less Blossom photo embeds into the image grid when imeta declares it an image', async ({ page }) => {
+    await openFeedWith(page, { memberCount: 1, notes: [ NOTE({ content: `pic ${BLO_IMG} end`, media: [{ url: BLO_IMG, kind: 'image' }] }) ] });
+    const card = page.locator('#feed-notes .feed-note').first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.locator('.feed-note-media img'), 'the photo renders in the grid').toHaveCount(1);
+    await expect(card.locator('.feed-note-video'), 'a photo is not a video player').toHaveCount(0);
+    await expect(card.locator('.feed-note-excerpt')).not.toContainText('blossom.test');
+  });
+
+  // AC3
+  test('the player is muted, has controls, does not autoplay, lazy-loads, and swallows its own clicks', async ({ page }) => {
+    await openFeedWith(page, { memberCount: 1, notes: [ NOTE({ content: `watch ${VWEBM}` }) ] });
+    const card = page.locator('#feed-notes .feed-note').first();
+    await expect(card.locator('.feed-note-video video')).toHaveCount(1, { timeout: 10_000 });
+
+    const state = await page.evaluate(() => {
+      const v = document.querySelector('.feed-note-video video');
+      return { muted: v.muted, autoplay: v.autoplay, paused: v.paused, controls: v.controls, preload: v.preload };
+    });
+    expect(state.muted, 'muted by default').toBe(true);
+    expect(state.autoplay, 'does not autoplay').toBe(false);
+    expect(state.paused, 'starts paused').toBe(true);
+    expect(state.controls, 'native controls present').toBe(true);
+    expect(state.preload, 'lazy-loads (no metadata fetch off-screen)').toBe('none');
+
+    // Clicking the player must NOT open Primal.
+    let popup = null;
+    page.once('popup', p => { popup = p; });
+    await card.locator('.feed-note-video video').click({ position: { x: 5, y: 5 } });
+    await page.waitForTimeout(400);
+    expect(popup, 'a click on the video must not open Primal').toBeNull();
+  });
+
+  // AC4
+  test('clicking the card outside the player still opens the note in Primal', async ({ page }) => {
+    await openFeedWith(page, { memberCount: 1, notes: [ NOTE({ id: ID, content: `watch ${VWEBM}` }) ] });
+    const card = page.locator('#feed-notes .feed-note').first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    const expected = nip19.noteEncode(ID);
+    const [popup] = await Promise.all([
+      page.waitForEvent('popup'),
+      card.locator('.feed-note-name').click(),
+    ]);
+    expect(popup.url(), 'clicking the card body opens the note in Primal').toContain('primal.net/e/' + expected);
+  });
+
+  // AC5
+  test('a note with both an image and a video renders both, and neither URL remains in the text', async ({ page }) => {
+    await openFeedWith(page, { memberCount: 1, notes: [ NOTE({ content: `a ${IMG(1)} and ${VWEBM} z` }) ] });
+    const card = page.locator('#feed-notes .feed-note').first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.locator('.feed-note-media img'), 'image renders').toHaveCount(1);
+    await expect(card.locator('.feed-note-video video'), 'video renders').toHaveCount(1);
+    const excerpt = card.locator('.feed-note-excerpt');
+    await expect(excerpt).not.toContainText('img.test/1.jpg');
+    await expect(excerpt).not.toContainText('clip.webm');
+  });
+
+  // AC7 (a) — deterministic: extension-less with NO imeta cannot be classified → shortened link
+  test('an extension-less link with no imeta degrades to a shortened display-only link (no player)', async ({ page }) => {
+    await openFeedWith(page, { memberCount: 1, notes: [ NOTE({ content: `mystery ${BLO_VID} end`, media: [] }) ] });
+    const card = page.locator('#feed-notes .feed-note').first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.locator('.feed-note-video'), 'no player for an unclassifiable link').toHaveCount(0);
+    await expect(card.locator('.feed-note-media'), 'and no image grid').toHaveCount(0);
+    const excerpt = card.locator('.feed-note-excerpt');
+    await expect(excerpt, 'host stays visible, shortened').toContainText('blossom.test');
+    await expect(excerpt).toContainText('…');
+    await expect(card.locator('a'), 'shortened link is display-only, not an anchor').toHaveCount(0);
+  });
+
+  // AC7 (b) — runtime: a video that fails to load is replaced by a shortened link, not a broken box
+  test('a video that fails to load is replaced by a shortened display-only link', async ({ page }) => {
+    await openFeedWith(page, { memberCount: 1, notes: [ NOTE({ content: `watch ${VWEBM}` }) ] });
+    const card = page.locator('#feed-notes .feed-note').first();
+    await expect(card.locator('.feed-note-video video')).toHaveCount(1, { timeout: 10_000 });
+    // Force a load (preload="none" defers it) against the aborted host → triggers the error path.
+    await page.evaluate(() => { const v = document.querySelector('.feed-note-video video'); return v && v.play().catch(() => {}); });
+    await expect(card.locator('.feed-note-video video'), 'the broken player is removed').toHaveCount(0);
+    await expect(card, 'replaced by a shortened link').toContainText('vid.test');
+  });
+
+  // AC8 (security)
+  test('an unsafe "video" URL injects no player and runs no script', async ({ page }) => {
+    let dialogFired = false;
+    page.on('dialog', d => { dialogFired = true; d.dismiss(); });
+    const hostile = 'pre javascript:alert(1)//evil.mp4 mid data:video/mp4;base64,AAAA end';
+    await openFeedWith(page, { memberCount: 1, notes: [ NOTE({ content: hostile, media: [] }) ] });
+    const card = page.locator('#feed-notes .feed-note').first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.locator('.feed-note-video'), 'no player from a non-http(s) video token').toHaveCount(0);
+    await expect(card.locator('.feed-note-excerpt')).toContainText('javascript:alert(1)');
+    await page.waitForTimeout(300);
+    expect(dialogFired, 'no script runs from note content').toBe(false);
+  });
+
+  // AC9 (regression)
+  test('a note with no video renders no player', async ({ page }) => {
+    await openFeedWith(page, { memberCount: 1, notes: [ NOTE({ content: 'just a plain note' }) ] });
+    const card = page.locator('#feed-notes .feed-note').first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.locator('.feed-note-video'), 'no player when there is no video').toHaveCount(0);
+  });
+
+  // Out-of-scope cap (render side): two videos → one player; the extra is a shortened link
+  test('only the first of two video URLs is embedded; the extra is a shortened link', async ({ page }) => {
+    await openFeedWith(page, { memberCount: 1, notes: [ NOTE({ content: `one ${VWEBM} two ${VWEBM2}` }) ] });
+    const card = page.locator('#feed-notes .feed-note').first();
+    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card.locator('.feed-note-video video'), 'exactly one inline player').toHaveCount(1);
+    await expect(card.locator('.feed-note-excerpt'), 'the second video stays as text').toContainText('second.webm');
+  });
+});

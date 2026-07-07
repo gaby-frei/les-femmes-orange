@@ -8,6 +8,7 @@
 // with fakes). `handler(req,res)` wires the REAL deps from env and is what Vercel runs.
 const { selectRelevant } = require('./_lib/select.js');
 const { classifyNotes, classifyOne } = require('./_lib/classify.js');
+const { extractImetaMedia } = require('./_lib/media.js');
 
 // ── Config (mirrors public/index.html; see ADR 0029/0032/0033) ──────────────
 const LFO_TAG_EVENT_ID = '4ddde08a7b1b3c2dffda5161ff5b0151554b9e86d94a059b1434aab95d546795';
@@ -69,6 +70,9 @@ async function buildFeedPayload(deps) {
       pubkey: ev.pubkey,
       created_at: ev.created_at,
       content: ev.content || '',
+      // imeta-resolved media (Story 7, ADR 0035): lets the client embed extension-less
+      // Blossom URLs it can't classify from the URL alone. [] when the note has no imeta.
+      media: extractImetaMedia(ev.tags),
       channels: CHANNELS.filter((c) => (s[c] || 0) >= threshold),
       author: {
         displayName: m.display_name || m.name || encodeNpubShort(ev.pubkey),

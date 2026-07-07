@@ -69,3 +69,31 @@ test('memberCount counts distinct authors among the returned notes', async () =>
   const distinct = new Set(out.notes.map((n) => n.pubkey)).size;
   assert.equal(out.memberCount, distinct);
 });
+
+// Story 7 (ADR 0035): each note's imeta attachments are resolved to a sanitized media
+// list on the payload, so the client can embed extension-less Blossom media it could not
+// classify from the URL alone. A note with no imeta gets an empty media array.
+test('attaches an imeta-derived media list to each note (Story 7)', async () => {
+  const BLO = 'https://blossom.primal.net/1afa0e58be2c0ffeecafef00dba5eba11deadbeef0123456789abcdef01234567';
+  const withVideo = {
+    id: 'v1', pubkey: 'aa'.repeat(32), created_at: 2_000_000_001,
+    content: `clip ${BLO}`,
+    tags: [['t', 'nostr'], ['imeta', `url ${BLO}`, 'm video/mp4']],
+  };
+  const plain = {
+    id: 'p1', pubkey: 'bb'.repeat(32), created_at: 2_000_000_000,
+    content: 'no media here', tags: [['t', 'bitcoin']],
+  };
+  const out = await buildFeedPayload(deps({
+    fetchCandidates: async () => [withVideo, plain],
+    classifyNotes: async () => new Map([
+      ['v1', { bitcoin: 0, nostr: 0.9, lfo: 0 }],
+      ['p1', { bitcoin: 0.9, nostr: 0, lfo: 0 }],
+    ]),
+  }));
+  const v = out.notes.find((n) => n.id === 'v1');
+  const p = out.notes.find((n) => n.id === 'p1');
+  assert.ok(v && Array.isArray(v.media), 'note carries a media array');
+  assert.deepEqual(v.media, [{ url: BLO, kind: 'video' }], 'imeta video resolved onto the note');
+  assert.deepEqual(p.media, [], 'a note with no imeta gets an empty media list');
+});

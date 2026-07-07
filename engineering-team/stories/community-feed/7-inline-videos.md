@@ -133,5 +133,6 @@ Architect's to decide; this note records the options and their tradeoffs.
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0035-feed-inline-videos.md` — **Accepted** (2026-06-29)
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/community-feed/7-inline-videos.test-plan.md` (2026-06-29) — tests RED pre-implementation
+- Tests: `test/extract-imeta-media.test.js`, `test/feed-handler.test.js` (Story 7 case), `tests/community-feed.spec.js` (Story 7 describe blocks)
 - Review: (filled in after Review phase)
