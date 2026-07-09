@@ -27,20 +27,27 @@ we don't publish social content).
 
 > **Note — stories are not executed in authoring order.** Story numbers reflect the order stories were
 > *written*, not the order they're *built*. Execution follows logical dependencies (see "Execution
-> order" below). In particular, **#2 (`2-curated-selection`) has been deliberately left in the queue**,
-> awaiting stories that logically come first — namely #5 (`5-content-relevance-filter`), whose ADR
-> decides whether curation runs server-side and therefore where #2's ranking is built. #2 stays in
-> Draft until those land.
+> order" below). **#2 (`2-curated-selection`) was long blocked on Tapestry event-tag support. That
+> block cleared 2026-07-09** — the protocol shipped and is live with real LFO data. #2 was then
+> **split**: the read path became **#8 (`8-event-tag-source`)**, a pilot proving we can source
+> event-tagged notes; #2 retains the policy decisions (tag scope, channel assignment, ranking, caps),
+> which are deferred by the PO. #2 is now blocked on **product decisions**, not on Tapestry.
 
 - #1 — `1-feed-view` — Gated Feed view: fetch & display qualifying member notes (newest-first, cap 100), cards, open-in-Primal, loading/empty states. *(Done — review PASS)*
-- #2 — `2-curated-selection` — Endorsement-ranked curation over a multi-source candidate pool: widen the `getFeed()` seam into 3 layers (sources → merge → selection); primary relevance signal = count of distinct verified-member LFO `nostr-event-tag` attestations on a note; hashtag source (Provider 1) backfills for freshness; event-tag source (Provider 2) stubbed until the protocol lands. *(Draft — 2026-06-18)* -- WAITING FOR TAPESTRY SUPPORT FOR EVENT TAGS 
+- #2 — `2-curated-selection` — Curation policy over the merged candidate pool: endorsement-aware ranking (distinct verified-member taggers × recency), tag scope beyond the pilot tag, the tag↔channel map, and the fate of the representation floor / per-member cap now that Provider-2 notes may be authored by non-members. Consumes the seam and Provider 2 that #8 lands. *(Draft — revised 2026-07-09)* — **BLOCKED ON PRODUCT DECISIONS (9 open questions), not on Tapestry**
 - #3 — `3-inline-images` — Rich rendering: inline images (up to 2 side-by-side, "+N" overlay for extras), media URLs stripped from text. *(Done — review PASS)*
 - #4 — `4-mention-resolution` — Rich rendering: resolve @ mentions (members → @DisplayName, others → short @npub handle), backed by a shared member-metadata cache. *(Done — review PASS)*
 - #5 — `5-content-relevance-filter` — Step A pool refinement: server-side AI (Claude Haiku) judges whether a hashtagged note's *content* is actually about Bitcoin/Nostr/LFO and drops off-topic notes; stands up the app's first backend (`GET /api/feed`) + persisted relevance signal. *(Done — review PASS 2026-06-22)*
 - #6 — `6-topic-channels` — Topic channels (the v2 topic filter tabs): a filter banner of toggleable pills (Bitcoin / NOSTR / LFO Community) that filter the feed **client-side** over the fetched pool using #5's persisted per-topic scores (a note is in channel X iff its X score ≥ the #5 threshold; none selected = show everything); renames the side panel "Topics" → "Source Hashtags"; degrades to disabled pills when scores are unavailable (`channelsAvailable=false`). *(Done — review PASS 2026-06-24, ADR 0034)*
 - #7 — `7-inline-videos` — Rich rendering: inline **videos** + extension-less **Blossom media**. Extension-based video URLs (`.mp4/.webm/.mov/.m4v`) **and** extension-less Blossom videos (`blossom.primal.net/<hash>`) embed as a click-to-play, muted, native-controls inline player (player clicks don't open Primal, the rest of the card still does); extension-less Blossom **photos** also embed, reusing #3's image grid. Type of an extension-less URL is resolved via NIP-92 `imeta` metadata (preferred) or a content-type probe (fallback); unconfirmable candidates degrade to a shortened display-only link. Sibling of #3 (images) / #4 (mentions). *(Done — review PASS 2026-07-07, ADR 0035)*
+- #8 — `8-event-tag-source` — **Provider 2, read-only pilot.** Source kind-1 notes carrying the `lfo-community` event-tag from `wss://tags.brainstorm.world/relay`: resolve the tagging-header indirection, keep only `apply` assertions whose **tagger** is a verified member (the note's author need not be), assign the existing `lfo` channel, and merge with Provider 1 **by recency** (dedupe by event id, cap 100). Introduces the sources → merge → selection seam with per-note provenance. Provider-2 notes **bypass #5's relevance classifier**. Degrades to zero notes if the tagging relay or TA-pubkey endpoint is unreachable. *(Draft — 2026-07-09)*
 
-**Execution order:** #1 (done) → #3 (done) → #4 (done) → #5 (done) → #6 (done) → **#7 (done)** → #2. #7 (videos) extends the #3 rich-rendering seam and is independent of the #2 event-tag work; it can build now. #5 was sequenced before #2: its ADR decides whether curation runs server-side, which determines where #2's ranking is built (avoids building #2 twice). #6 consumes #5's per-topic scores as a client-side lens. #2 stays in Draft, **blocked on Tapestry event-tag support**.
+**Execution order:** #1 (done) → #3 (done) → #4 (done) → #5 (done) → #6 (done) → #7 (done) → **#8** → #2.
+#5 was sequenced before the event-tag work: its ADR moved the feed data layer server-side (ADR 0033),
+which is where #8's Provider 2 now lives. #8 lands the **mechanism** (sourcing + the three-layer seam)
+against one pilot tag with recency ordering; #2 then lands the **policy** (endorsement ranking, tag
+scope, tag↔channel map, floor/cap) over the seam #8 built — so #2 changes only the selection layer.
+#2 stays in Draft pending PO answers to its 9 open questions.
 
 ## Open questions (epic-level)
 - **Member coverage of the feed source** Initially, Primal was the augment relay
@@ -73,11 +80,16 @@ we don't publish social content).
   - **Provider 1 (hashtag source) — by content score.** A Provider-1 note's channels are derived from
     Haiku's per-topic relevance scores `{ bitcoin, nostr, lfo }` (a note is in channel X iff `score_X ≥`
     the #5 threshold). This is the only mechanism today.
-  - **Provider 2 (event-tag source, Story #2 — blocked on Tapestry event-tags) — by event-tag.** Provider-2
-    notes will **not** be channel-categorized by Haiku scores. Instead, LFO will support a set of
-    **event-tags that correspond to feed channels**, and a note carrying a given event-tag is recognized as
-    belonging to the channel(s) that tag maps to. The mapping is **not necessarily 1:1** — one event-tag may
-    map to **one or several** channels (1:1 or 1:many).
+  - **Provider 2 (event-tag source; #8 pilots it, #2 generalizes it) — by event-tag.** Provider-2 notes are
+    **not** channel-categorized by Haiku scores, and are **not subject to #5's relevance filter at all** — a
+    member's tag *is* the relevance judgment. Instead, LFO supports a set of **event-tags that correspond to
+    feed channels**, and a note carrying a given event-tag belongs to the channel(s) that tag maps to. The
+    mapping is **not necessarily 1:1** — one event-tag may map to **one or several** channels. **#8 hardcodes
+    the single pilot mapping `lfo-community → lfo`**; the general map is #2's to design.
+  - **Provider 2 gates on the tagger, not the author.** A note admitted by an event-tag need **not** be
+    authored by a verified member — only **tagged** by one. This breaks the author-axis assumption behind
+    the representation floor and the per-member cap, and it means `memberCount` ("X members contributing")
+    can be inflated by non-member authors. Both are open questions on #2.
   - **Keep in mind as we build:** treat `channels` (ADR 0034) as the provider-agnostic seam — both
     providers ultimately emit a per-note `channels` list, just computed differently (P1: score→channels;
     P2: event-tag→channels via the tag↔channel map). When #2 lands, the channel set may also need to grow
