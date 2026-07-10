@@ -95,8 +95,8 @@ member**. Keep targets with ≥ 1 application. **Output: a list of event ids.**
 Two gates carry the weight, and neither can be done by a relay filter: **polarity** is a multi-letter
 tag and therefore not relay-indexable (NIP-01), and **membership** cannot be expressed as a filter at
 all because publishing is permissionless — anyone may publish an assertion pointing at our header. The
-legitimacy gate is near-redundant given step 1 already filtered headers by honored authority; it earns
-its keep only if the Architect pins the header coordinate and skips step 1.
+legitimacy gate is near-redundant, because step 1 already filtered headers by honored authority — keep
+it anyway: it is what makes the resolver safe for any caller that supplies headers by another path.
 
 > **No dedupe is required.** The assertion `d` tag is deterministic
 > (`event-tag-<slug>-<target8>-<asserter8>`) and kind 39999 is parameterized-replaceable, so
@@ -163,6 +163,10 @@ injected fakes, per the `buildFeedPayload(deps)` pattern.
   surfacing is a stretch goal, not a gate.
 - [ ] Given a note carrying an event-tag **other than** `lfo-community` (e.g. `stoicism`, `travel`), then
   Provider 2 does **not** admit it. Tag scope for this story is exactly one tag.
+- [ ] Given **two** legitimate tagging headers for `lfo-community` authored by **different** pubkeys, and
+  a member assertion referencing the **second** header, when the feed is built, then that note **is
+  admitted** — headers are discovered at read time and assertions are unioned across all of them. No
+  header coordinate is pinned as a constant.
 
 **Relevance & channels**
 - [ ] Given a Provider-2 note whose content is **off-topic for Bitcoin/Nostr** (e.g. a garden photo),
@@ -253,6 +257,15 @@ Two sub-decisions ride on this:
 ## Decided constraints (for the Architect)
 - **Resolve the TA pubkey at runtime** (`/api/assistant/pubkey`). Never hardcode it. Cache it per
   process; degrade Provider 2 to `[]` if it can't be fetched.
+- **Discover the tagging header(s) at read time — do NOT pin a header coordinate.** (PO decision,
+  2026-07-09; the integration guide's §5-A path.) Step 1 runs every read via
+  `filterTaggingHeadersForTag`, and step 2 unions assertions across **all** discovered headers for the
+  tag. Rationale: publishing is permissionless, so any member may mint a second `lfo-community` tagging
+  header (e.g. via a different client); a pinned coordinate would render their taggings **silently
+  invisible**, violating Tapestry's decentralized-first invariant. Pinning would have allowed steps 1
+  and 2 to collapse into a single multi-filter REQ (3 round trips → 2); **that saving is explicitly
+  declined.** Consequently step 3's legitimacy gate is near-redundant — keep it regardless, as the guard
+  that makes the header input trustworthy for any future caller.
 - **Filter taggers client-side** against our own member set. Do **not** depend on Brainstorm's POV.
 - **Provider 2 bypasses the #5 relevance classifier entirely.** A member's tag is the relevance judgment.
 - Provider-2 notes get `channels: ['lfo']` in this story. No new pill; no new channel.
@@ -275,11 +288,6 @@ Two sub-decisions ride on this:
   Open question 9 revisits it once endorsement lands.
 - **Caching** (Architect): Provider 1's Haiku scores are KV-cached. Should tagging assertions be cached
   too, or is a per-request relay query acceptable at 10-notes scale? Note it will not stay at 10.
-- **Header discovery** (Architect): anyone may author a tagging header for a tag, so a tag may have
-  **several** headers. Do we query assertions across all discovered headers for `lfo-community` (step 1),
-  or pin the one observed header (`39999:6db8a13f…:tagging:lfo-community-tagging`) and skip step 1?
-  Pinning is simpler and matches today's data; discovering is correct if a second member ever mints a
-  header. Note that pinning also makes step 3's legitimacy gate load-bearing rather than redundant.
 - **Surfacing unverifiable candidates** (Architect): `groupTaggingsByTarget` drops them silently. The
   spec SHOULDs that readers distinguish unverifiable from illegitimate. Options: accept the silent drop
   (v1); resolve headers ourselves before calling the SDK; or upstream a patch to Tapestry. Not a gate on
