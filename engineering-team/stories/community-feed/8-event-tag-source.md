@@ -203,6 +203,9 @@ injected fakes, per the `buildFeedPayload(deps)` pattern.
   **provenance** (`{ event, vias:[…] }`) recording why the note qualified.
 - [ ] Given the feed response, then its shape is **unchanged**: `memberCount`, `notes`, `memberNames`,
   `channelsAvailable`, `relayStatus`.
+- [ ] Given a Provider-2 note authored by a **non-member**, then `memberCount` **counts that author**,
+  exactly as it counts any other distinct author of a displayed note. The count is **not** filtered to
+  members in this story — an implementer must not "correct" it. (Deliberate; see Decided constraints.)
 
 **Degradation**
 - [ ] Given the tagging relay is **unreachable or times out**, when the feed is built, then Provider 2
@@ -300,18 +303,25 @@ Two sub-decisions ride on this:
 - **Merge by event id, order by `created_at` desc**, cap at the existing `DISPLAY_LIMIT` (100).
 - Each provider returns candidates carrying **provenance** so #2 can rank on it later without reworking
   the seam.
+- **Do not cache tagging data** in this story. (PO decision, 2026-07-09.) Headers and assertions are
+  fetched from the relay **per request**, unlike Provider 1's KV-cached Haiku scores. At today's volume
+  (1 header, 10 assertions) the two extra round-trips are acceptable, and a cache would add an
+  invalidation surface — a tagger can flip apply→dispute at any moment, and a stale cache would keep a
+  retracted note in the feed. Revisit when assertion volume grows; the seam is the provider function.
+- **Leave `memberCount` and its copy unchanged.** (PO decision, 2026-07-09.) The subtitle keeps counting
+  **distinct authors of displayed notes** — the Story-1 behavior — and the "X members contributing" copy
+  stands. Known and accepted: a Provider-2 note authored by a **non-member** now counts toward that
+  total, so the number can overstate member participation. Do **not** add a member filter to the count in
+  this story. Story #2's Open question 9 revisits the semantics once endorsement lands.
 - **Never fail the request** because Provider 2 failed. It is additive; its absence is the status quo.
 - Builds inside `buildFeedPayload(deps)` with providers injected, so both sources are unit-tested with
   fakes (no live relays in CI) — the existing `api/feed.js` pattern.
 - Keep the feed payload shape unchanged (ADR 0029 contract, extended by ADR 0034's `channelsAvailable`).
 
 ## Open questions
-- **`memberCount` semantics** (PO): the subtitle counts distinct authors of displayed notes. Provider 2
-  can now admit a **non-member** author, who would inflate "X members contributing." *PO recommendation:*
-  count distinct **member** authors only, leaving the copy honest. Confirm before implementing; #2's
-  Open question 9 revisits it once endorsement lands.
-- **Caching** (Architect): Provider 1's Haiku scores are KV-cached. Should tagging assertions be cached
-  too, or is a per-request relay query acceptable at 10-notes scale? Note it will not stay at 10.
+**None blocking.** All planning-phase questions were resolved 2026-07-09 (see Decided constraints).
+The Architect still owns one implementation choice, recorded in "Note for the Architect": whether note
+bodies (step 4) are fetched from the tagging relay alone or also from the Provider-1 relays.
 
 ## Linked artifacts
 - ADR: (filled in after Architecture phase — **not yet started**)
