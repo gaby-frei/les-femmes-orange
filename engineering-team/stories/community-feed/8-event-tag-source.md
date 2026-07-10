@@ -31,8 +31,7 @@ Tagging is **indirect**. A *tagging assertion* (kind 39999) names its **target n
 reaches its **tag** through a `z` tag pointing at a per-tag **tagging header** — which in turn points at
 the **tag-element** via an `a` tag. To find every note carrying `lfo-community`, you resolve the tag's
 header(s), query assertions by `#z` over them, keep the ones whose asserter is an LFO member and whose
-polarity is `apply`, and then fetch those note ids as kind-1 events. The SDK's
-`filterTaggingHeadersForTag`, `filterTaggingsUsingTag`, and `classifyEventTaggings` do exactly this.
+polarity is `apply`, and then fetch those note ids as kind-1 events.
 
 ### Why we filter membership ourselves
 `tags.brainstorm.world` offers server-side POV trust filtering, but the LFO POV is **not provisioned**
@@ -41,6 +40,84 @@ un-provisioned POV **silently counts everyone** — it does not fail, it just st
 it would quietly admit non-member taggings. So we apply the member filter ourselves against the member
 set the app already computes. We are the arbiter; nothing on Brainstorm's side must be correctly
 provisioned for our feed to be correct.
+
+## The read flow (normative for this story)
+Six steps. **All tagging data comes from the Brainstorm relay** (`wss://tags.brainstorm.world/relay`) —
+assertions and headers are published there and propagate nowhere else. Only step 4 (note bodies) may
+need other relays.
+
+**0 — Get the TA pubkey.**
+`GET https://tags.brainstorm.world/api/assistant/pubkey` → `a68dbf56…`. Resolve at runtime, cache per
+process, never hardcode. Every concept handle below is composed from it. If this fails, Provider 2
+returns `[]`.
+
+**1 — Find the relevant tagging header** for the `lfo-community` tag, via its stable a-coordinate
+`39999:6db8a13f…:lfo-community`. Build with `filterTaggingHeadersForTag({ tagAuthorPubkey, slug, taPubkey })`:
+
+```js
+{ kinds: [39999],
+  '#a': ['39999:6db8a13f…:lfo-community'],                  // the header points at the tag-element
+  '#z': ['39998:a68dbf56…:tagging-with-specific-tag'] }     // …and is itself a tagging header
+```
+
+Precisely: the header→tag pointer is an **`a`** tag (which we match on), and the `#z` clause narrows the
+result to events that are members of the honored `tagging-with-specific-tag` list. The `z` pointer is
+what makes it a *header*; the `a` pointer is what makes it *this tag's* header. Today this returns one
+header: `39999:6db8a13f…:tagging:lfo-community-tagging`.
+
+**2 — Find the assertions (taggings) that reference that header.** For each header author from step 1,
+`filterTaggingsUsingTag({ headerAuthorPubkey, slug })`:
+
+```js
+{ kinds: [39999], '#z': ['39999:6db8a13f…:tagging:lfo-community-tagging'] }
+```
+
+Note the parameter is the **header's** author, not the tag's — they coincide today but need not.
+Returns raw **candidates** (10 today), each carrying an `e` tag naming a kind-1 note.
+
+**3 — Resolve and filter.** Pass candidates + headers to **`groupTaggingsByTarget`** (not
+`classifyEventTaggings` — that one groups by *tag* for a single target, i.e. the reverse direction):
+
+```js
+groupTaggingsByTarget({
+  candidates, headers,
+  honoredAuthorities: [taPubkey],                 // see Open questions
+  isAsserterTrusted: (pk) => memberSet.has(pk),   // OUR membership filter
+  tag: { authorPubkey: '6db8a13f…', slug: 'lfo-community' },
+})
+```
+
+It gates each candidate on: descriptor `z` present → header resolvable → header joins an honored
+authority → header names *this* tag → **polarity** buckets to apply (`≥ 0.5`; an **absent** `polarity`
+tag means apply) or dispute (`≤ −0.5`; the open interval is neutral and dropped) → **asserter is a
+member**. Keep targets with ≥ 1 application. **Output: a list of event ids.**
+
+Two gates carry the weight, and neither can be done by a relay filter: **polarity** is a multi-letter
+tag and therefore not relay-indexable (NIP-01), and **membership** cannot be expressed as a filter at
+all because publishing is permissionless — anyone may publish an assertion pointing at our header. The
+legitimacy gate is near-redundant given step 1 already filtered headers by honored authority; it earns
+its keep only if the Architect pins the header coordinate and skips step 1.
+
+> **No dedupe is required.** The assertion `d` tag is deterministic
+> (`event-tag-<slug>-<target8>-<asserter8>`) and kind 39999 is parameterized-replaceable, so
+> `(tag, target, asserter)` addresses exactly one event; a flip from apply to dispute *replaces* the
+> prior assertion. Since assertions live on a single relay, strfry enforces latest-wins and we only ever
+> see the survivor. Therefore `applications.length` **is** the distinct-tagger count, and no member can
+> appear in both `applications` and `disputes`. The SDK's "caller dedupes upstream" note
+> (`classify.js`) is a warning for consumers scanning **across relays**; it does not apply to us. Do not
+> reintroduce a `(pubkey, d)` latest-wins pass unless the tagging read is ever widened beyond one relay.
+
+**4 — Fetch the notes by id.** `{ kinds: [1], ids: [...] }`. The tagged notes resolve on the tagging
+relay; whether we also query the Provider-1 relays is an Architect decision (see Open questions). Note
+bodies are kind-1 — non-replaceable, deduped by event id — so reading them from several relays raises
+none of step 3's concerns.
+
+**5 — Merge and integrate into the feed.** Wrap each note as a Provider-2 candidate carrying
+**provenance** (`{ event, vias: [{ provider: 'event-tag', tag: 'lfo-community', applications: n }] }`),
+union with Provider 1's pool **by event id**, assign `channels: ['lfo']`, sort the merged pool by
+`created_at` descending, cap at `DISPLAY_LIMIT` (100). Provider-2 notes **skip the Haiku classifier**.
+
+Cost: three relay round-trips (headers → assertions → notes) plus one HTTP call for the TA pubkey.
 
 ## Pilot parameters (fixed for this story)
 
@@ -77,8 +154,13 @@ injected fakes, per the `buildFeedPayload(deps)` pattern.
   `tagging-with-specific-tag` list under an **honored authority**, then the assertion is **illegitimate**
   and does not admit the note.
 - [ ] Given a tagging assertion whose descriptor header **cannot be resolved** from the data we have,
-  then it is **unverifiable** — distinct from illegitimate — and does not admit the note, but the
-  distinction is **surfaced in logs**, not silently collapsed (spec: "cannot determine is not not-a-tagging").
+  then it is **unverifiable** — distinct from illegitimate — and does not admit the note.
+  *Caveat, for the Architect:* `groupTaggingsByTarget` **silently skips** unverifiable candidates
+  (`classify.js:175`), where the reverse-direction `classifyEventTaggings` collects them into an
+  `unverifiable[]` array. The spec asks readers to SHOULD-surface the distinction ("cannot determine is
+  not not-a-tagging"). Surfacing it therefore requires resolving headers ourselves or extending the SDK
+  — see Open questions. This story requires only that such candidates **do not admit the note**;
+  surfacing is a stretch goal, not a gate.
 - [ ] Given a note carrying an event-tag **other than** `lfo-community` (e.g. `stoicism`, `travel`), then
   Provider 2 does **not** admit it. Tag scope for this story is exactly one tag.
 
@@ -145,11 +227,13 @@ the live deployment on 2026-07-09.
 ## Note for the Architect — the two read paths
 The integration guide (§5) offers two ways to read tagged notes. They are **not** equivalent for us:
 
-- **Option A — raw relay + SDK (guide's recommendation).** Subscribe to `wss://tags.brainstorm.world/relay`
-  with `filterTaggingHeadersForTag` + `filterTaggingsUsingTag`, then run `classifyEventTaggings` with a
-  trust predicate of "asserter ∈ LFO member set," then fetch the target kind-1 notes by id. No cap, no
-  CORS, we own the trust decision. Costs: we vendor the SDK (or reimplement its filters) and issue
-  several relay round-trips.
+- **Option A — raw relay + SDK (guide's recommendation; the flow specified above).** Subscribe to
+  `wss://tags.brainstorm.world/relay` with `filterTaggingHeadersForTag` + `filterTaggingsUsingTag`, then
+  run **`groupTaggingsByTarget`** with a trust predicate of "asserter ∈ LFO member set," then fetch the
+  target kind-1 notes by id. No cap, no CORS, we own the trust decision. Costs: we vendor the SDK (or
+  reimplement its filters) and issue several relay round-trips.
+  *(The guide names `classifyEventTaggings`; that is the by-target reverse view. The by-tag forward view
+  we need is `groupTaggingsByTarget`, added in Tapestry's event-tagging ADR 0008.)*
 - **Option B — `GET /api/event-tags/for-tag`.** One call returns resolved, enriched notes. But it is
   **POV-filtered** (and that POV is un-provisioned → counts everyone), **capped at 50** most-recent notes
   per tag with no pagination, and same-origin (fine from our server, not from a browser). We would still
@@ -192,9 +276,14 @@ Two sub-decisions ride on this:
 - **Caching** (Architect): Provider 1's Haiku scores are KV-cached. Should tagging assertions be cached
   too, or is a per-request relay query acceptable at 10-notes scale? Note it will not stay at 10.
 - **Header discovery** (Architect): anyone may author a tagging header for a tag, so a tag may have
-  **several** headers. Do we query assertions across all discovered headers for `lfo-community`, or pin
-  the one observed header (`39999:6db8a13f…:tagging:lfo-community-tagging`)? Pinning is simpler and
-  matches today's data; discovering is correct if a second member ever mints a header.
+  **several** headers. Do we query assertions across all discovered headers for `lfo-community` (step 1),
+  or pin the one observed header (`39999:6db8a13f…:tagging:lfo-community-tagging`) and skip step 1?
+  Pinning is simpler and matches today's data; discovering is correct if a second member ever mints a
+  header. Note that pinning also makes step 3's legitimacy gate load-bearing rather than redundant.
+- **Surfacing unverifiable candidates** (Architect): `groupTaggingsByTarget` drops them silently. The
+  spec SHOULDs that readers distinguish unverifiable from illegitimate. Options: accept the silent drop
+  (v1); resolve headers ourselves before calling the SDK; or upstream a patch to Tapestry. Not a gate on
+  this story — decide and record.
 
 ## Linked artifacts
 - ADR: (filled in after Architecture phase — **not yet started**)
