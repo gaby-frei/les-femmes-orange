@@ -98,6 +98,25 @@ all because publishing is permissionless — anyone may publish an assertion poi
 legitimacy gate is near-redundant, because step 1 already filtered headers by honored authority — keep
 it anyway: it is what makes the resolver safe for any caller that supplies headers by another path.
 
+> **Unverifiable and illegitimate assertions are never sourced in the first place.** The spec's read
+> model distinguishes *unverifiable* (the assertion's descriptor header can't be resolved) from
+> *illegitimate* (it resolves, but joins no honored authority). **Neither branch is reachable in this
+> flow.** Step 1 fetches only headers already filtered by honored authority, so an un-honored header's
+> assertions are never legitimate-checked; step 2 queries assertions **by** those headers' coordinates,
+> so every candidate returned points at a header we already hold. `groupTaggingsByTarget` therefore
+> never lands in either branch, and the fact that it drops unverifiable candidates silently
+> (`classify.js:175`, where `classifyEventTaggings` would collect them) costs us nothing. Those branches
+> matter for the **reverse** read — "what tags does this note carry?", scanned by target and thus
+> namespace-agnostic — which this story does not perform.
+>
+> One residual edge: the resolver selects a candidate's header with `.find()` — the **first** `z`
+> matching the descriptor pattern (`classify.js:73`, `:172`). A conforming assertion carries exactly one
+> descriptor `z` (its `d` tag derives from a single slug), but nothing at the relay enforces that. A
+> nonconforming assertion bearing two descriptor `z` tags would match our step-2 filter on ours, yet
+> `.find()` could select the other tag's header — which we never fetched — silently dropping a note that
+> validly carries `lfo-community`, decided by nothing but tag order. Not expected against today's
+> publishers; noted so it is recognized if a note mysteriously fails to surface.
+
 > **No dedupe is required.** The assertion `d` tag is deterministic
 > (`event-tag-<slug>-<target8>-<asserter8>`) and kind 39999 is parameterized-replaceable, so
 > `(tag, target, asserter)` addresses exactly one event; a flip from apply to dispute *replaces* the
@@ -150,17 +169,10 @@ injected fakes, per the `buildFeedPayload(deps)` pattern.
 - [ ] Given a tagging assertion with **dispute** polarity (`≤ −0.5`), when the feed is built, then it
   does **not** admit the note. An **absent** `polarity` tag means apply. Values in the open interval
   `(−0.5, 0.5)` are **reserved** and counted as neither.
-- [ ] Given a tagging assertion whose descriptor `z` resolves to a header that is **not** a member of a
-  `tagging-with-specific-tag` list under an **honored authority**, then the assertion is **illegitimate**
-  and does not admit the note.
-- [ ] Given a tagging assertion whose descriptor header **cannot be resolved** from the data we have,
-  then it is **unverifiable** — distinct from illegitimate — and does not admit the note.
-  *Caveat, for the Architect:* `groupTaggingsByTarget` **silently skips** unverifiable candidates
-  (`classify.js:175`), where the reverse-direction `classifyEventTaggings` collects them into an
-  `unverifiable[]` array. The spec asks readers to SHOULD-surface the distinction ("cannot determine is
-  not not-a-tagging"). Surfacing it therefore requires resolving headers ourselves or extending the SDK
-  — see Open questions. This story requires only that such candidates **do not admit the note**;
-  surfacing is a stretch goal, not a gate.
+- [ ] Given a tagging assertion whose descriptor `z` names a header **outside** the set discovered in
+  step 1 — whether because it joins no **honored authority** or because it cannot be resolved at all —
+  then it does **not** admit the note. (Both cases are excluded at *sourcing* time, not by the resolver;
+  see the read-flow note.)
 - [ ] Given a note carrying an event-tag **other than** `lfo-community` (e.g. `stoicism`, `travel`), then
   Provider 2 does **not** admit it. Tag scope for this story is exactly one tag.
 - [ ] Given **two** legitimate tagging headers for `lfo-community` authored by **different** pubkeys, and
@@ -288,10 +300,6 @@ Two sub-decisions ride on this:
   Open question 9 revisits it once endorsement lands.
 - **Caching** (Architect): Provider 1's Haiku scores are KV-cached. Should tagging assertions be cached
   too, or is a per-request relay query acceptable at 10-notes scale? Note it will not stay at 10.
-- **Surfacing unverifiable candidates** (Architect): `groupTaggingsByTarget` drops them silently. The
-  spec SHOULDs that readers distinguish unverifiable from illegitimate. Options: accept the silent drop
-  (v1); resolve headers ourselves before calling the SDK; or upstream a patch to Tapestry. Not a gate on
-  this story — decide and record.
 
 ## Linked artifacts
 - ADR: (filled in after Architecture phase — **not yet started**)
