@@ -324,7 +324,7 @@ The Architect still owns one implementation choice, recorded in "Note for the Ar
 bodies (step 4) are fetched from the tagging relay alone or also from the Provider-1 relays.
 
 ## Linked artifacts
-- ADR: (filled in after Architecture phase — **not yet started**)
+- ADR: `engineering-team/decisions/0036-feed-event-tag-source.md` (Accepted 2026-07-09)
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
 - **Story #2** — `2-curated-selection.md` (the policy story this unblocks)
