@@ -81,8 +81,8 @@ Returns raw **candidates** (10 today), each carrying an `e` tag naming a kind-1 
 ```js
 groupTaggingsByTarget({
   candidates, headers,
-  honoredAuthorities: [taPubkey],                 // see Open questions
-  isAsserterTrusted: (pk) => memberSet.has(pk),   // OUR membership filter
+  honoredAuthorities: [taPubkey],                 // TA only — decided; NOT the legacy 82b75e47… literal
+  isAsserterTrusted: (pk) => memberSet.has(pk),   // OUR membership filter — the only trust gate
   tag: { authorPubkey: '6db8a13f…', slug: 'lfo-community' },
 })
 ```
@@ -127,7 +127,8 @@ it anyway: it is what makes the resolver safe for any caller that supplies heade
 > reintroduce a `(pubkey, d)` latest-wins pass unless the tagging read is ever widened beyond one relay.
 
 **4 — Fetch the notes by id.** `{ kinds: [1], ids: [...] }`. The tagged notes resolve on the tagging
-relay; whether we also query the Provider-1 relays is an Architect decision (see Open questions). Note
+relay; whether we also query the Provider-1 relays is an Architect decision (see "Note for the
+Architect"). Note
 bodies are kind-1 — non-replaceable, deduped by event id — so reading them from several relays raises
 none of step 3's concerns.
 
@@ -148,6 +149,7 @@ Cost: three relay round-trips (headers → assertions → notes) plus one HTTP c
 | Channel | the **existing** `lfo` channel ("LFO Community") — no new pill |
 | Ordering | **recency**, interleaved with Provider-1 notes |
 | TA pubkey | resolved at runtime from `GET https://tags.brainstorm.world/api/assistant/pubkey` |
+| Honored authority | **the runtime TA, and only it** — not Tapestry's legacy `82b75e47…` literal |
 | Tagging relay | `wss://tags.brainstorm.world/relay` |
 
 ## User-facing description
@@ -219,7 +221,8 @@ the live deployment on 2026-07-09.
   reads return nothing.
 - **`tagging-with-specific-tag`** — `39998:<TA>:tagging-with-specific-tag`. The list whose members are
   per-tag tagging headers. Membership in it under an **honored authority** is what makes an assertion
-  legitimate. The honored set is a **reader parameter** — see Open questions.
+  legitimate. The honored set is a **reader parameter**; we honor **exactly the runtime TA** — see
+  Decided constraints.
 - **Tag-element** — `39999:<tagAuthor>:<slug>`; the tag itself. Ours: `lfo-community`.
 - **Verified LFO member set** — the existing membership closure (`public/lib/membership.js`,
   `buildMemberSets`). Reused unchanged as Provider 2's **tagger** filter.
@@ -269,6 +272,19 @@ Two sub-decisions ride on this:
 ## Decided constraints (for the Architect)
 - **Resolve the TA pubkey at runtime** (`/api/assistant/pubkey`). Never hardcode it. Cache it per
   process; degrade Provider 2 to `[]` if it can't be fetched.
+- **Honor exactly one legitimacy authority for event-tags: the runtime-resolved TA.** (PO decision,
+  2026-07-09.) `honoredAuthorities = [taPubkey]`, where `taPubkey` comes from step 0. The TA is the
+  source of truth for event-tagging on this deployment. Two consequences to hold in mind:
+  - **This is not a trust gate.** Joining a namespace is permissionless — anyone erects a header in any
+    namespace by emitting the `z` string. The **only** thing keeping a stranger's tagging out of the feed
+    is step 3's asserter-membership filter. Honoring fewer authorities cannot make us safer; it can only
+    make legitimate taggings **invisible**. Weigh it as a visibility decision.
+  - **Asymmetry with membership, on purpose.** Our *membership* query honors Tapestry's legacy literal
+    `82b75e47…` (their ADR 0015 named exception, which pins the `tag` / `nostr-user-tag` / `tag-pinning`
+    concepts to preserve historical activity). **Event-tags do not inherit that exception.** Live, the
+    `lfo-community` header federates into *both* namespaces, so honoring the TA alone loses nothing
+    today. The exposure is a future publisher who joins **only** the legacy namespace: their taggings
+    would be silently invisible to us. Accepted.
 - **Discover the tagging header(s) at read time — do NOT pin a header coordinate.** (PO decision,
   2026-07-09; the integration guide's §5-A path.) Step 1 runs every read via
   `filterTaggingHeadersForTag`, and step 2 unions assertions across **all** discovered headers for the
@@ -290,10 +306,6 @@ Two sub-decisions ride on this:
 - Keep the feed payload shape unchanged (ADR 0029 contract, extended by ADR 0034's `channelsAvailable`).
 
 ## Open questions
-- **Honored legitimacy authorities** (Architect + PO): the spec makes this a **reader parameter**. Live,
-  `/api/tags/index` reports two authorities: `82b75e47…` (the `nostr-user-tag` namespace we already
-  trust for membership) and `a68dbf56…` (the TA). Do we honor both, or only the TA? Hardcoding a single
-  authority is explicitly warned against by the spec — but so is honoring an unbounded set.
 - **`memberCount` semantics** (PO): the subtitle counts distinct authors of displayed notes. Provider 2
   can now admit a **non-member** author, who would inflate "X members contributing." *PO recommendation:*
   count distinct **member** authors only, leaving the copy honest. Confirm before implementing; #2's
