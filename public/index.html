@@ -700,6 +700,22 @@
     }
     .feed-note-video-fallback { display: block; margin-top: 0.7rem; color: #777; font-size: 0.85rem; }
     .feed-note-open { margin-top: 0.6rem; font-size: 0.72rem; font-weight: 600; color: var(--orange); }
+    /* Tag pill (#8): read-only event-tag indicator beneath the note. Follows the
+       site pill idiom (cf. .feed-channel) — the pattern mirrors Brainstorm, not its colors. */
+    .feed-note-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-top: 0.7rem; }
+    .feed-note-tag-pill {
+      font: inherit; font-size: 0.72rem; font-weight: 600; color: var(--orange);
+      background: transparent; border: 1px solid var(--orange); border-radius: 999px;
+      padding: 0.25rem 0.7rem; cursor: pointer; line-height: 1;
+    }
+    .feed-note-tag-pill:hover { background: rgba(232, 93, 4, 0.08); }
+    .feed-note-tag-pill[aria-expanded="true"] { background: var(--orange); color: #fff; }
+    .feed-note-tag-pill[aria-disabled="true"] { cursor: default; opacity: 0.75; }
+    .feed-note-tag-pill[aria-disabled="true"]:hover { background: transparent; }
+    .feed-note-tag-desc {
+      flex-basis: 100%; font-size: 0.8rem; line-height: 1.5; color: var(--grey-text);
+      background: var(--grey-light); border-radius: 8px; padding: 0.5rem 0.7rem;
+    }
 
     /* ── MEMBER CARD ──────────────────────────────────────── */
 
@@ -2312,6 +2328,46 @@
           wrap.appendChild(video);
           card.querySelector('.feed-note-open').before(wrap);
         }
+      }
+
+      // Tag pill (community-feed #8, ADR 0036 amendment): a toggleable read-only pill per
+      // event-tag on the note, revealing the tag's description. DOM-built with textContent —
+      // name/description are relay-sourced strings and must never enter innerHTML. The row
+      // swallows click/keydown (like the video player) so pill interaction never triggers
+      // the card's open-in-Primal handler. Empty description → inert pill (no panel).
+      if (Array.isArray(note.taggedWith) && note.taggedWith.length) {
+        const row = document.createElement('div');
+        row.className = 'feed-note-tags';
+        const swallowTag = e => e.stopPropagation();
+        row.addEventListener('click', swallowTag);
+        row.addEventListener('keydown', swallowTag);
+        for (const t of note.taggedWith) {
+          if (!t || typeof t.name !== 'string' || !t.name) continue;
+          const pill = document.createElement('button');
+          pill.type = 'button';
+          pill.className = 'feed-note-tag-pill';
+          pill.textContent = t.name;
+          const desc = typeof t.description === 'string' ? t.description.trim() : '';
+          if (!desc) {
+            pill.setAttribute('aria-disabled', 'true');
+            row.appendChild(pill);
+            continue;
+          }
+          pill.setAttribute('aria-expanded', 'false');
+          pill.setAttribute('aria-label', 'Tag: ' + t.name + '. Toggle description');
+          const panel = document.createElement('div');
+          panel.className = 'feed-note-tag-desc';
+          panel.textContent = desc;
+          panel.style.display = 'none';
+          pill.addEventListener('click', () => {
+            const isOpen = panel.style.display !== 'none';
+            panel.style.display = isOpen ? 'none' : '';
+            pill.setAttribute('aria-expanded', String(!isOpen));
+          });
+          row.appendChild(pill);
+          row.appendChild(panel);
+        }
+        if (row.querySelector('.feed-note-tag-pill')) card.querySelector('.feed-note-open').before(row);
       }
 
       // Inject avatar image safely (mirrors makeMemberCard): drop on error, never a broken image.

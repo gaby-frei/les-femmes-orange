@@ -9,6 +9,7 @@
 const { selectRelevant } = require('./_lib/select.js');
 const { classifyNotes, classifyOne } = require('./_lib/classify.js');
 const { extractImetaMedia } = require('./_lib/media.js');
+const { mergeCandidatePools } = require('./_lib/merge.js');
 
 // ── Config (mirrors public/index.html; see ADR 0029/0032/0033) ──────────────
 const LFO_TAG_EVENT_ID = '4ddde08a7b1b3c2dffda5161ff5b0151554b9e86d94a059b1434aab95d546795';
@@ -33,26 +34,51 @@ const CANDIDATE_LIMIT = Number(process.env.FEED_CANDIDATE_LIMIT) || 500;
 const DISPLAY_LIMIT = 100; // post-filter display size
 const THRESHOLD = 0.3; // conservative / lean-inclusive; tunable
 
+// Provider 2 — the event-tag source (Story 8, ADR 0036). The pilot tag is pinned by
+// a-coordinate (it IS the tag's identity); the TA pubkey is NEVER pinned — resolved
+// at runtime from TA_PUBKEY_URL and cached per process (api/_lib/ta.js).
+const TAGGING_RELAY = 'wss://tags.brainstorm.world/relay';
+const TA_PUBKEY_URL = 'https://tags.brainstorm.world/api/assistant/pubkey';
+const EVENT_TAG = {
+  authorPubkey: '6db8a13f0183828c44dc778af7e2689a810fc24317585f497ddad049b4dd2597',
+  slug: 'lfo-community',
+  channel: 'lfo',
+};
+
 function defaultNpubShort(hex) { const s = String(hex); return 'npub1' + s.slice(0, 6) + '…' + s.slice(-4); }
 function defaultPic(url) { return (typeof url === 'string' && /^https?:\/\//.test(url)) ? url : ''; }
 
 // Pure orchestrator. deps: { computeMembers, fetchCandidates, classifyNotes, fetchMetadata,
-// threshold, displayLimit, candidateLimit, encodeNpubShort?, sanitizePicture? }.
+// fetchTaggedCandidates?, threshold, displayLimit, candidateLimit, encodeNpubShort?,
+// sanitizePicture? }. Provider 2 (fetchTaggedCandidates) is additive: absent, rejecting,
+// or malformed → the status-quo Provider-1 feed (never fail the request; ADR 0036).
 async function buildFeedPayload(deps) {
   const {
     computeMembers, fetchCandidates, classifyNotes: classify, fetchMetadata,
+    fetchTaggedCandidates: fetchTagged = async () => ({ candidates: [] }),
     threshold = THRESHOLD, displayLimit = DISPLAY_LIMIT, candidateLimit = CANDIDATE_LIMIT,
     encodeNpubShort = defaultNpubShort, sanitizePicture = defaultPic,
     classifierAvailable = true,
   } = deps;
 
   const memberPubkeys = await computeMembers();
-  const candidates = await fetchCandidates(memberPubkeys, candidateLimit);
-  const scores = await classify(candidates);
-  const selected = selectRelevant(candidates, scores, { threshold, displayLimit });
+  const memberSet = new Set(memberPubkeys);
 
-  const authorPubkeys = [...new Set(selected.map((e) => e.pubkey))];
-  const metaMap = await fetchMetadata(memberPubkeys);
+  // Both providers run in parallel; Provider 2 never sees the classifier and its
+  // failure is caught here (defense in depth on top of tagged.js's own never-throw).
+  const [{ candidates, scores }, p2Pool] = await Promise.all([
+    (async () => {
+      const c = await fetchCandidates(memberPubkeys, candidateLimit);
+      return { candidates: c, scores: await classify(c) };
+    })(),
+    (async () => {
+      try {
+        const r = await fetchTagged(memberSet);
+        return r && Array.isArray(r.candidates) ? r.candidates : [];
+      } catch { return []; }
+    })(),
+  ]);
+  const selected = selectRelevant(candidates, scores, { threshold, displayLimit });
 
   // Channel tagging (ADR 0034): tag each note with every topic channel whose per-topic
   // score clears the SAME shared threshold used for selection. The pass-through fallback
@@ -62,9 +88,22 @@ async function buildFeedPayload(deps) {
     : (id) => (scores ? scores[id] : undefined);
   const CHANNELS = ['bitcoin', 'nostr', 'lfo'];
 
-  const notes = selected.map((ev) => {
-    const m = metaMap.get(ev.pubkey) || {};
+  // Provider seam (ADR 0036): each provider yields { event, channels, vias } candidates;
+  // the merge dedupes by id (channels unioned, provenance kept) and orders by recency.
+  const p1Pool = selected.map((ev) => {
     const s = getScore(ev.id) || {};
+    return { event: ev, channels: CHANNELS.filter((c) => (s[c] || 0) >= threshold), vias: [{ provider: 'hashtag' }] };
+  });
+  const merged = mergeCandidatePools([p1Pool, p2Pool], { displayLimit });
+
+  const authorPubkeys = [...new Set(merged.map((c) => c.event.pubkey))];
+  // Members ∪ displayed authors: a Provider-2 note by a non-member still renders
+  // with a name/avatar when its kind-0 is reachable (falls back to npub-short).
+  const metaMap = await fetchMetadata([...new Set([...memberPubkeys, ...authorPubkeys])]);
+
+  const notes = merged.map((c) => {
+    const ev = c.event;
+    const m = metaMap.get(ev.pubkey) || {};
     return {
       id: ev.id,
       pubkey: ev.pubkey,
@@ -73,7 +112,10 @@ async function buildFeedPayload(deps) {
       // imeta-resolved media (Story 7, ADR 0035): lets the client embed extension-less
       // Blossom URLs it can't classify from the URL alone. [] when the note has no imeta.
       media: extractImetaMedia(ev.tags),
-      channels: CHANNELS.filter((c) => (s[c] || 0) >= threshold),
+      channels: c.channels,
+      // Tag pill (Story 8 UI amendment): display metadata for the event-tags this note
+      // carries. Additive; absent on notes with none, so pre-#8 clients are unaffected.
+      ...(c.taggedWith && c.taggedWith.length ? { taggedWith: c.taggedWith } : {}),
       author: {
         displayName: m.display_name || m.name || encodeNpubShort(ev.pubkey),
         npubShort: encodeNpubShort(ev.pubkey),
@@ -111,6 +153,8 @@ async function handler(req, res) {
     const { nip19 } = await import('nostr-tools'); // ESM — dynamic import from CJS
     const { queryRelays, queryRelayStatus } = require('./_lib/relay.js');
     const { buildMemberSets } = require('../public/lib/membership.js');
+    const { fetchTaggedCandidates } = require('./_lib/tagged.js');
+    const { getTaPubkey } = require('./_lib/ta.js');
     const { Redis } = require('@upstash/redis');
     const Anthropic = require('@anthropic-ai/sdk');
 
@@ -156,11 +200,31 @@ async function handler(req, res) {
       return map;
     };
 
+    // Provider 2 (Story 8, ADR 0036): per-request tagging read, no cache. relayOk is
+    // captured so relayStatus reports the tagging relay (a Provider-2 outage is
+    // visible, not silent) — ok:false covers TA-fetch failure, relay failure, timeout.
+    let taggingRelayOk = false;
+    const fetchTagged = async (memberSet) => {
+      const r = await fetchTaggedCandidates({
+        getTaPubkey: () => getTaPubkey({ url: TA_PUBKEY_URL }),
+        queryRelayStatus,
+        memberSet,
+        tag: EVENT_TAG,
+        taggingRelay: TAGGING_RELAY,
+        // Note-body sources (ADR 0036 Decision 3, revised 2026-07-11): the tagging relay
+        // holds tagging events, not note bodies — bodies live on the feed relays.
+        noteRelays: FEED_RELAYS.map((r) => r.url),
+      });
+      taggingRelayOk = r.relayOk === true;
+      return r;
+    };
+
     const payload = await buildFeedPayload({
       computeMembers,
       fetchCandidates,
       classifyNotes: (notes) => classifyNotes(notes, { kv, classifyOne, anthropic }),
       fetchMetadata,
+      fetchTaggedCandidates: fetchTagged,
       threshold: THRESHOLD,
       displayLimit: DISPLAY_LIMIT,
       candidateLimit: CANDIDATE_LIMIT,
@@ -172,7 +236,7 @@ async function handler(req, res) {
     });
 
     res.setHeader('Cache-Control', 'no-store');
-    res.status(200).json({ ...payload, relayStatus });
+    res.status(200).json({ ...payload, relayStatus: [...relayStatus, { url: TAGGING_RELAY, ok: taggingRelayOk }] });
   } catch (err) {
     res.status(500).json({ memberCount: 0, notes: [], memberNames: {}, relayStatus: [], error: String(err && err.message || err) });
   }

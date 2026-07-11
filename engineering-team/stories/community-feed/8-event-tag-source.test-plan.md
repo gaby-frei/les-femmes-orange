@@ -47,7 +47,11 @@ D = Degradation, in story order.
 - [x] Apply + dispute by different members → still admitted (story's ≥1-application rule) — `fetch-tagged`.
 - [x] Two member applications on one note → one candidate, `vias[0].applications === 2` — `fetch-tagged` (provenance seam Story #2 ranks on).
 - [x] Assertion targeting an addressable event (`a`-tag target) → ignored (story scope is kind-1) — `fetch-tagged`.
-- [x] Tagged id whose kind-1 body doesn't resolve on the tagging relay → dropped silently (ADR Decision 3) — `fetch-tagged`.
+- [x] Tagged id whose kind-1 body resolves on **no** relay → dropped silently (ADR Decision 3) — `fetch-tagged`.
+- [x] **Decision 3 revision (2026-07-11):** a body living only on an external note relay is still
+  sourced (bodies requested from tagging relay ∪ every configured note relay); a dead external
+  relay doesn't fail the fetch when another resolves the body — `fetch-tagged` + `fakeRelaysByUrl`
+  fixture (per-URL stores, mirroring the live reality that bodies live off the tagging relay).
 - [x] Empty pools → `[]`; equal `created_at` → deterministic order regardless of pool order — `merge-pools`.
 - [x] TA cache: success cached per process (1 fetch / 2 calls); failure NOT cached (retry succeeds); malformed/non-hex/HTTP-error/throwing fetch → `null`, never rejects — `ta-pubkey`.
 - [x] `memberNames` stays members-only (non-member P2 author excluded) — `feed-event-tag`.
@@ -85,6 +89,12 @@ header: `.feed-note-tags` row, `.feed-note-tag-pill` button with `aria-expanded`
 `.feed-note-tag-desc` panel.)
 
 ## Verification
+
+**Post-implementation (2026-07-11):** full suite green — 85 unit (+2 Decision-3-revision tests),
+80 Playwright. Live smoke against production relays: all 10 `lfo-community` notes sourced with
+correct provenance and `taggedWith` metadata (5 member authors, matching the story's background).
+
+Pre-implementation RED baselines:
 
 The new tests fail with the current code. Re-confirmed 2026-07-11 after the UI amendment (base
 commit `dabc608`):

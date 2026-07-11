@@ -100,10 +100,24 @@ function deadRelay() {
   return { queryRelayStatus, calls };
 }
 
+// URL-aware fake: each relay URL has its own event store (Decision 3 revision —
+// note bodies live on DIFFERENT relays than the tagging events). A URL absent
+// from the map behaves as a dead relay.
+function fakeRelaysByUrl(byUrl) {
+  const calls = [];
+  async function queryRelayStatus(url, filter) {
+    calls.push({ url, filter });
+    const store = byUrl[url];
+    if (!store) return { events: [], ok: false };
+    return { events: store.filter((e) => matches(e, filter)), ok: true };
+  }
+  return { queryRelayStatus, calls };
+}
+
 module.exports = {
   TA, OTHER_TA, TAG_AUTHOR, MEMBER_1, MEMBER_2, NON_MEMBER, MEMBERS,
   TAG, TAGGING_RELAY, TAG_NAME, TAG_DESC,
   tagCoord, headerCoord,
   mkHeader, mkAssertion, mkNote, mkTagElement,
-  fakeRelay, deadRelay,
+  fakeRelay, deadRelay, fakeRelaysByUrl,
 };

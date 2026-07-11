@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
 const {
   TA, OTHER_TA, TAG_AUTHOR, MEMBER_1, MEMBER_2, NON_MEMBER, MEMBERS,
   TAG, TAGGING_RELAY, TAG_NAME, TAG_DESC,
-  headerCoord, mkHeader, mkAssertion, mkNote, mkTagElement, fakeRelay, deadRelay,
+  headerCoord, mkHeader, mkAssertion, mkNote, mkTagElement, fakeRelay, deadRelay, fakeRelaysByUrl,
 } = require('./fixtures/event-tagging.js');
 
 let mod = {};
@@ -167,7 +167,58 @@ test('an assertion targeting an addressable event (a-tag target) is ignored — 
   assert.deepEqual(out.candidates, [], 'addressable targets are out of scope');
 });
 
-test('a tagged id whose note body does not resolve on the tagging relay is dropped silently (ADR 0036 D3)', async () => {
+// ── Decision 3 revision (2026-07-11): note bodies from tagging relay ∪ noteRelays ──
+
+test('a note body that lives ONLY on an external note relay is still sourced (D3 revision)', async () => {
+  // Live-verified reality: the tagging relay holds the tagging events but NOT the
+  // kind-1 bodies — those live on the feed relays (nos.lol / damus).
+  const header = mkHeader();
+  const assertion = mkAssertion({ asserter: MEMBER_1, targetId: 'n14', polarity: 1 });
+  const note = mkNote({ id: 'n14' });
+  const relays = fakeRelaysByUrl({
+    [TAGGING_RELAY]: [header, assertion],          // tagging events only — no bodies
+    'wss://nos.example': [note],                   // the body lives here
+    'wss://damus.example': [],
+  });
+  const out = await fetchTaggedCandidates({
+    getTaPubkey: async () => TA,
+    queryRelayStatus: relays.queryRelayStatus,
+    memberSet: MEMBERS,
+    tag: TAG,
+    taggingRelay: TAGGING_RELAY,
+    noteRelays: ['wss://nos.example', 'wss://damus.example'],
+  });
+  assert.deepEqual(out.candidates.map((c) => c.event.id), ['n14'],
+    'the body resolves via the external note relay');
+  assert.equal(out.relayOk, true);
+  const noteQueries = relays.calls.filter((c) => c.filter.kinds && c.filter.kinds.includes(1));
+  assert.deepEqual(new Set(noteQueries.map((c) => c.url)),
+    new Set([TAGGING_RELAY, 'wss://nos.example', 'wss://damus.example']),
+    'bodies are requested from the tagging relay AND every configured note relay');
+});
+
+test('a dead external note relay does not fail the fetch when another relay resolves the body (D3 revision)', async () => {
+  const header = mkHeader();
+  const assertion = mkAssertion({ asserter: MEMBER_1, targetId: 'n15', polarity: 1 });
+  const note = mkNote({ id: 'n15' });
+  const relays = fakeRelaysByUrl({
+    [TAGGING_RELAY]: [header, assertion],
+    'wss://nos.example': [note],
+    // 'wss://damus.example' absent → behaves dead (ok:false)
+  });
+  const out = await fetchTaggedCandidates({
+    getTaPubkey: async () => TA,
+    queryRelayStatus: relays.queryRelayStatus,
+    memberSet: MEMBERS,
+    tag: TAG,
+    taggingRelay: TAGGING_RELAY,
+    noteRelays: ['wss://nos.example', 'wss://damus.example'],
+  });
+  assert.deepEqual(out.candidates.map((c) => c.event.id), ['n15'], 'any-relay-ok satisfies the fetch');
+  assert.equal(out.relayOk, true, 'a partial note-relay outage is not a pipeline failure');
+});
+
+test('a tagged id whose note body resolves on NO relay is dropped silently (ADR 0036 D3)', async () => {
   const header = mkHeader();
   const note = mkNote({ id: 'n12' });
   const found = mkAssertion({ asserter: MEMBER_1, targetId: 'n12', polarity: 1 });
