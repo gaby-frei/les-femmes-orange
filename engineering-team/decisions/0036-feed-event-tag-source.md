@@ -4,6 +4,49 @@
 **Date:** 2026-07-09
 **Story:** `engineering-team/stories/community-feed/8-event-tag-source.md`
 
+## Amendment (2026-07-11) — the tag pill UI
+
+The story was amended with a UI specification: Provider-2 notes render a toggleable pill beneath the
+note content showing the tag's display name, revealing its description on activation (mirroring the
+read-only half of Brainstorm's `NoteTags`/`TagChip` pattern; click-toggle instead of hover-popover).
+Three design deltas follow; everything else in this ADR stands.
+
+**A1 — The provider also fetches the tag-element (display metadata).** Name and description live in
+the tag-element's `content` JSON (`{ tag: { slug, name, description } }` — verified live 2026-07-11,
+event `22e3ead7…`). `fetchTaggedCandidates` fetches it with
+`{ kinds: [39999], authors: [tag.authorPubkey], '#d': [tag.slug] }` **in parallel with the step-1
+header query** — same round trip, still 3 total. If multiple events return, take the latest
+`created_at` (addressable kind; defensive). Failure/parse fallback: `{ name: tag.slug,
+description: '' }`. The tag-element query is **not** pipeline-critical: its failure degrades metadata
+only and does not affect `relayOk` (which reflects headers → assertions → notes).
+  - *Alternative rejected — hardcode the pilot copy:* the story forbids it; copy would drift from the
+    relay truth the moment the tag author edits the element.
+
+**B1 — `taggedWith` rides the candidate through the merge into the payload.** Each Provider-2
+candidate gains `taggedWith: [{ name, description }]` alongside `channels`/`vias`.
+`mergeCandidatePools` treats it like the other annotations: on dedupe, **union by `name`**
+(missing → `[]`). Note shaping copies a **non-empty** `taggedWith` onto the payload note; notes with
+none (Provider-1-only) get **no** `taggedWith` key — the story's "absent or empty" AC, resolved to
+*absent* for payload cleanliness. Additive contract extension, same precedent as `media`/`channels`.
+  - *Alternative rejected — expose `vias` to the client:* `vias` is server-internal ranking
+    provenance for Story #2; `taggedWith` is a display contract. Coupling the client to `vias` would
+    freeze its shape prematurely.
+
+**C1 — Client render in `makeFeedNote()` (`public/index.html`).** When `note.taggedWith?.length`,
+build a pill row via **DOM construction with `textContent`** — name and description are
+relay-sourced strings and must never enter `innerHTML`. Structure: `.feed-note-tags` row →
+per entry a `<button class="feed-note-tag-pill" aria-expanded="false">` + a hidden
+`.feed-note-tag-desc` panel. Activation (click, Enter/Space) toggles the panel and `aria-expanded`;
+the button and panel **swallow `click` and `keydown`** (`stopPropagation`, same isolation as the
+inline video player at `public/index.html:2303`) so the card's open-in-Primal handler
+(`public/index.html:2335`) never fires from pill interaction. Empty description → the pill renders
+inert: `aria-disabled="true"`, no panel, no `aria-expanded` toggling. Styling follows the existing
+pill idiom (`.feed-channel`, #6) and site palette — the *pattern* mirrors Brainstorm, not its colors.
+
+**Consequences (amendment):** no additional round trip; payload strictly additive (pre-#8 clients
+unaffected); a Playwright spec joins the test plan for the DOM behavior (pattern:
+`tests/feed-topic-channels.spec.js`). **Firmware reinstall: still no.**
+
 ## Context
 
 Story 8 adds a second feed source: kind-1 notes carrying an `lfo-community` event-tagging assertion

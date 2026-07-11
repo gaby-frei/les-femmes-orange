@@ -1,6 +1,6 @@
 # Story 8: Event-tag source (Provider 2) — reading `lfo-community` tagged notes
 
-**Status:** Draft
+**Status:** Draft — amended 2026-07-11 (added the tag-pill UI specification; PO)
 **Created:** 2026-07-09
 **Type:** Feature
 **Epic:** `community-feed` · **Book:** `community-feed`
@@ -52,7 +52,11 @@ process, never hardcode. Every concept handle below is composed from it. If this
 returns `[]`.
 
 **1 — Find the relevant tagging header** for the `lfo-community` tag, via its stable a-coordinate
-`39999:6db8a13f…:lfo-community`. Build with `filterTaggingHeadersForTag({ tagAuthorPubkey, slug, taPubkey })`:
+`39999:6db8a13f…:lfo-community`. Build with `filterTaggingHeadersForTag({ tagAuthorPubkey, slug, taPubkey })`.
+*Also in this round trip (UI amendment, 2026-07-11):* fetch the **tag-element** itself
+(`{ kinds:[39999], authors:['6db8a13f…'], '#d':['lfo-community'] }`) — its `content` JSON
+(`{ tag: { slug, name, description } }`) supplies the pill's **display name and description** (see UI
+specification). A parallel query in the same round trip, so round-trip depth is unchanged.
 
 ```js
 { kinds: [39999],
@@ -136,8 +140,13 @@ none of step 3's concerns.
 **provenance** (`{ event, vias: [{ provider: 'event-tag', tag: 'lfo-community', applications: n }] }`),
 union with Provider 1's pool **by event id**, assign `channels: ['lfo']`, sort the merged pool by
 `created_at` descending, cap at `DISPLAY_LIMIT` (100). Provider-2 notes **skip the Haiku classifier**.
+*(UI amendment)* Each Provider-2 note in the payload additionally carries
+`taggedWith: [{ name, description }]` — the display metadata from the step-1 tag-element fetch — which
+the client renders as the tag pill. Named `taggedWith` (not `tags`) to avoid colliding with the Nostr
+event-tags concept.
 
-Cost: three relay round-trips (headers → assertions → notes) plus one HTTP call for the TA pubkey.
+Cost: three relay round-trips (headers + tag-element → assertions → notes) plus one HTTP call for the
+TA pubkey.
 
 ## Pilot parameters (fixed for this story)
 
@@ -145,6 +154,8 @@ Cost: three relay round-trips (headers → assertions → notes) plus one HTTP c
 |---|---|
 | Pilot tag | `lfo-community` |
 | Tag a-coordinate | `39999:6db8a13f0183828c44dc778af7e2689a810fc24317585f497ddad049b4dd2597:lfo-community` |
+| Tag display name | **"LFO Community"** — read at runtime from the tag-element's `content` (verified live 2026-07-11, event `22e3ead7…`); falls back to the slug if the element can't be fetched |
+| Tag description | "This tag denotes content relevant to the Les Femmes Orange community itself — its members, initiatives, events, and community life." — same source, same runtime read; never hardcoded |
 | Observed tagging header | `39999:6db8a13f…:tagging:lfo-community-tagging` |
 | Channel | the **existing** `lfo` channel ("LFO Community") — no new pill |
 | Ordering | **recency**, interleaved with Provider-1 notes |
@@ -156,6 +167,43 @@ Cost: three relay round-trips (headers → assertions → notes) plus one HTTP c
 As a **signed-in verified member**, I want notes that another member has explicitly tagged as
 **LFO Community** to appear in my feed alongside the hashtag-sourced notes, ordered by recency, so that
 what the community has deliberately vouched for shows up — even when it isn't about Bitcoin or Nostr.
+
+And when a note is in my feed *because* it was tagged, I want to **see that**: a small pill beneath the
+note showing the tag's name ("LFO Community"), which I can toggle to read what the tag means — the same
+affordance Brainstorm's own note display uses.
+
+## UI specification — the tag pill (amendment, 2026-07-11)
+
+Brainstorm's note cards render event-tags as a row of pills beneath the note content (reference:
+`tapestry/ui/src/components/NoteTags.jsx` + `TagChip.jsx`, and the 2026-07-11 screenshot of a live
+note showing the green-outlined **"LFO Community"** pill). This story mirrors the *read-only* half of
+that pattern in the LFO feed card:
+
+- **Placement.** A pill row beneath the note content (after text/media, in the card's footer area),
+  exactly one pill in this story: the `lfo-community` tag's display name, **"LFO Community"**.
+- **Which notes.** Only notes admitted by Provider 2 (i.e., carrying `taggedWith`). Provider-1-only
+  notes render exactly as today — no pill row, no reserved space. A note sourced by both providers
+  shows the pill.
+- **Toggle behavior.** The pill is a **toggle**: activating it (click/tap, or Enter/Space when
+  focused) reveals the tag's **description** in a small panel adjacent to the pill; activating it
+  again hides the panel. This is deliberately a click-toggle, not Brainstorm's hover-popover — the
+  feed must work on touch devices, and our card has no other hover affordances.
+- **Card-link isolation.** The feed card is itself a link ("Open in Primal"). The pill and its
+  description panel must swallow their own clicks/keys — toggling a pill never opens Primal (same
+  isolation the inline video player already implements).
+- **Content source.** Name and description come from the **live tag-element event** fetched in step 1
+  — never hardcoded copy. Degradation: if the tag-element can't be fetched or parsed, the pill shows
+  the **slug** (`lfo-community`) and the toggle is inert (no empty panel). If the note is tagged, the
+  pill always renders — display-metadata failure never hides the pill or the note.
+- **Accessibility.** The pill is keyboard-focusable with `aria-expanded` reflecting the panel state
+  and an accessible name including the tag name.
+- **Styling.** Follow the site's existing pill idiom (the topic-channel pills, #6) and palette; the
+  *pattern* mirrors Brainstorm, not its exact colors. Exact visual treatment is the Implementer's,
+  within the site's look.
+
+**Explicitly not in this pill (read-only app, deferred with the write path):** the "+" add-tag
+affordance, Apply/Dispute actions, asserter avatar lists, dispute warning badges, links to a tag
+detail page, and hover-popover behavior. The pill communicates *what the tag is*, nothing more.
 
 ## Acceptance criteria
 Testable from the outside. Each criterion gets at least one test; live-relay behavior is exercised with
@@ -191,6 +239,19 @@ injected fakes, per the `buildFeedPayload(deps)` pattern.
   (deduped by event id) and its `channels` are the **union** of Provider 1's score-derived channels and
   Provider 2's `lfo`.
 
+**Tag pill (UI & payload — amendment 2026-07-11)**
+- [ ] Given a Provider-2 note in the payload, then it carries
+  `taggedWith: [{ name: 'LFO Community', description: '…' }]` sourced from the live tag-element;
+  a Provider-1-only note carries no `taggedWith` (absent or empty).
+- [ ] Given a Provider-2 note rendered in the feed, then a pill labeled **"LFO Community"** appears
+  beneath the note content; a Provider-1-only note renders **no** pill.
+- [ ] Given the pill is activated (click or Enter/Space), then the tag's description becomes visible;
+  activating it again hides it; `aria-expanded` tracks the state.
+- [ ] Given the pill or its description panel is clicked, then the card's open-in-Primal action is
+  **not** triggered.
+- [ ] Given the tag-element cannot be fetched or parsed, then the pill still renders showing the slug
+  (`lfo-community`) with the toggle inert, and the feed request still succeeds.
+
 **Merge & ordering**
 - [ ] Given candidate notes from both providers, when the feed is selected, then the merged pool is
   deduped by event id and ordered **strictly newest-first**, capped at the existing display limit (100).
@@ -201,8 +262,10 @@ injected fakes, per the `buildFeedPayload(deps)` pattern.
 - [ ] Given the source layer, when a provider is added or removed, then **neither** the merge nor the
   ordering logic changes — each provider is an independent function returning candidates annotated with
   **provenance** (`{ event, vias:[…] }`) recording why the note qualified.
-- [ ] Given the feed response, then its shape is **unchanged**: `memberCount`, `notes`, `memberNames`,
-  `channelsAvailable`, `relayStatus`.
+- [ ] Given the feed response, then its **top-level** shape is unchanged: `memberCount`, `notes`,
+  `memberNames`, `channelsAvailable`, `relayStatus`. Notes gain one **additive** optional field,
+  `taggedWith` (UI amendment) — mirroring how `media` (#7) and `channels` (#6) were added; nothing is
+  renamed or removed, so pre-#8 clients render unchanged.
 - [ ] Given a Provider-2 note authored by a **non-member**, then `memberCount` **counts that author**,
   exactly as it counts any other distinct author of a displayed note. The count is **not** filtered to
   members in this story — an implementer must not "correct" it. (Deliberate; see Decided constraints.)
@@ -234,7 +297,9 @@ the live deployment on 2026-07-09.
 ## Out of scope
 - **In-app tagging (the write path).** Creating tag-elements, tagging headers, or assertions from the LFO
   UI — including `applyEventTagging` and any signer wiring — is a **future story**. This story reads only,
-  consistent with the app's read-only posture.
+  consistent with the app's read-only posture. The pill's write-side affordances go with it: the "+"
+  add-tag button, Apply/Dispute actions, asserter lists, dispute badges, tag-detail links, and
+  hover-popover parity with Brainstorm's `TagChip`.
 - **Tag scope beyond `lfo-community`.** A curated tag DList (integration guide §7) is deferred to #2.
 - **Channel assignment policy.** The tag↔channel map (possibly 1:many) and any new channel pill are #2's.
   This story hardcodes `lfo-community → lfo`.
@@ -313,6 +378,15 @@ Two sub-decisions ride on this:
   stands. Known and accepted: a Provider-2 note authored by a **non-member** now counts toward that
   total, so the number can overstate member participation. Do **not** add a member filter to the count in
   this story. Story #2's Open question 9 revisits the semantics once endorsement lands.
+- **Tag display metadata is read at runtime from the tag-element event** (UI amendment, PO decision
+  2026-07-11), fetched in step 1's round trip. Fallbacks: name → slug; description → none (inert
+  toggle). Copy is never hardcoded; per the no-caching constraint above, it is fetched per request
+  like all other tagging data.
+- **The payload field is named `taggedWith`**, not `tags` — a Nostr payload field named `tags` invites
+  confusion with event tags. One entry per applied event-tag; in this story always the single
+  `lfo-community` entry.
+- **The pill is read-only.** No write affordances of any kind in this story (consistent with "In-app
+  tagging" being out of scope).
 - **Never fail the request** because Provider 2 failed. It is additive; its absence is the status quo.
 - Builds inside `buildFeedPayload(deps)` with providers injected, so both sources are unit-tested with
   fakes (no live relays in CI) — the existing `api/feed.js` pattern.
@@ -325,7 +399,7 @@ bodies (step 4) are fetched from the tagging relay alone or also from the Provid
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0036-feed-event-tag-source.md` (Accepted 2026-07-09)
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/community-feed/8-event-tag-source.test-plan.md` (2026-07-09)
 - Review: (filled in after Review phase)
 - **Story #2** — `2-curated-selection.md` (the policy story this unblocks)
 - Protocol: `tapestry/protocols/drafts/event-taggings.md`; family spec `tapestry/protocols/drafts/tags.md`
