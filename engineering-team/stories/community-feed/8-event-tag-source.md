@@ -130,9 +130,11 @@ it anyway: it is what makes the resolver safe for any caller that supplies heade
 > (`classify.js`) is a warning for consumers scanning **across relays**; it does not apply to us. Do not
 > reintroduce a `(pubkey, d)` latest-wins pass unless the tagging read is ever widened beyond one relay.
 
-**4 — Fetch the notes by id.** `{ kinds: [1], ids: [...] }`. The tagged notes resolve on the tagging
-relay; whether we also query the Provider-1 relays is an Architect decision (see "Note for the
-Architect"). Note
+**4 — Fetch the notes by id.** `{ kinds: [1], ids: [...] }` against the tagging relay ∪ **nos.lol +
+damus** (PO direction 2026-07-11). *Correction:* this story originally claimed the tagged notes
+resolve on the tagging relay — live verification during implementation showed the opposite (0/10
+there; 10/10 on each of nos.lol and damus). The tagging relay holds the tagging *events*, not the
+note *bodies*; Brainstorm's own display fetches bodies from external general-purpose relays too. Note
 bodies are kind-1 — non-replaceable, deduped by event id — so reading them from several relays raises
 none of step 3's concerns.
 
@@ -394,8 +396,8 @@ Two sub-decisions ride on this:
 
 ## Open questions
 **None blocking.** All planning-phase questions were resolved 2026-07-09 (see Decided constraints).
-The Architect still owns one implementation choice, recorded in "Note for the Architect": whether note
-bodies (step 4) are fetched from the tagging relay alone or also from the Provider-1 relays.
+The last open choice — where note bodies are fetched — was resolved 2026-07-11 by PO direction after
+live verification: tagging relay ∪ nos.lol + damus (ADR 0036, Decision 3 as revised).
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0036-feed-event-tag-source.md` (Accepted 2026-07-09)

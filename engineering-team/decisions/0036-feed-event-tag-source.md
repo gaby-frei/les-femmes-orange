@@ -136,22 +136,25 @@ matching, target extraction) and loses byte-for-byte diffability against the nor
 
 ### Decision 3 — where note bodies are fetched (the story's open choice)
 
-**Option A — tagging relay only (chosen — PO direction, 2026-07-09).**
-`queryRelayStatus(TAGGING_RELAY, { kinds:[1], ids })` — one socket, the relay we already hold open
-conceptually for steps 1–2.
-*Pros:* simplest; every tagged note verified to date resolves there; keeps Provider 2's failure
-domain to a single relay (one `relayStatus` entry tells the whole story).
-*Cons:* a future tagging whose note body never propagated to the tagging relay yields an id with no
-body — that note silently doesn't surface. Accepted for now; the *durable* fix is not a hardcoded
-relay union but **relay hints**: tagging assertions' `e`/`a` tags (and NIP-65 outbox data) can carry
-relay URLs naming where the target lives, and a future story should fetch note bodies from those
-hints. Deferred (see Out of scope).
+> **REVISED 2026-07-11 (PO direction): Option B is chosen — tagging relay ∪ nos.lol + damus.**
+> Option A's premise failed live verification during implementation: the tagging relay holds the
+> tagging *events* but **0 of the 10** tagged note *bodies*; nos.lol and damus each resolve **10 of
+> 10** (relay.primal.net: 0). Brainstorm's own backend never relied on its relay for bodies either —
+> its read path is local-strfry-first, then an external general-purpose relay union
+> (`tapestry/src/api/event-tags/index.js:363–390`; fallback set includes nos.lol + damus,
+> `relaySource.js:22`), plus NIP-01 `e`-tag relay hints. Today's LFO assertions carry **no** hints,
+> so hint-following would also return zero — the hardcoded interim is the only path that renders
+> anything. Relay hints remain the recorded durable upgrade (Out of scope).
 
-**Option B — tagging relay ∪ feed relays.** Union over `FEED_RELAYS` (nos.lol, damus) closes part of
-the propagation gap for free (kind-1 is non-replaceable, deduped by id, so a multi-relay read is
-safe). Rejected for now: it papers over the gap with a static relay list rather than following the
-events' own hints, and today it buys nothing (all tagged notes resolve on the tagging relay). If
-notes start going missing before hint-following lands, this is the cheap interim widening.
+**Option A — tagging relay only (original choice, superseded).**
+*Pros:* simplest; single failure domain. *Cons (fatal, observed):* zero tagged notes render — the
+tagged kind-1 bodies were never published to the tagging relay, and nothing guarantees they ever are.
+
+**Option B — tagging relay ∪ feed relays (chosen, revised).**
+`{ kinds:[1], ids }` in parallel against `TAGGING_RELAY`, `wss://nos.lol`, `wss://relay.damus.io`;
+dedupe by id (kind-1 is non-replaceable, so a multi-relay read raises none of step 3's single-relay
+concerns). The note fetch is satisfied if **any** relay responds; `relayOk` stays true as long as the
+pipeline delivered. Same parallel round-trip, no added latency envelope.
 
 ### Decision 4 — the provider/merge seam
 
@@ -172,10 +175,10 @@ if ranking policy wants a uniform shape.
 
 ## Decision
 
-**Option A on all four axes:** raw-relay read path with the SDK's `groupTaggingsByTarget`; the three
-read-side SDK files vendored verbatim into `api/_lib/event-tagging/`; note bodies fetched from the
-tagging relay only (relay-hint following deferred); a generic pure merge layer with Provider 1 kept
-inline.
+Raw-relay read path with the SDK's `groupTaggingsByTarget`; the three read-side SDK files vendored
+verbatim into `api/_lib/event-tagging/`; note bodies fetched from the tagging relay ∪ nos.lol +
+damus (Decision 3 as revised 2026-07-11; relay-hint following deferred); a generic pure merge layer
+with Provider 1 kept inline.
 
 ## Consequences
 
@@ -219,7 +222,8 @@ New files:
   64-hex. **Module-scope cache of the resolved value only on success** (per-process, per story);
   failures are not cached and return `null`. Export a `_reset()` for tests.
 - `api/_lib/tagged.js` — `fetchTaggedCandidates(deps)` where deps =
-  `{ getTaPubkey, queryRelayStatus, memberSet, tag, taggingRelay }`.
+  `{ getTaPubkey, queryRelayStatus, memberSet, tag, taggingRelay, noteRelays }` (`noteRelays` =
+  the external note-body sources, wired to nos.lol + damus per Decision 3 as revised).
   Returns `{ candidates, relayOk }`; **never throws** (any failure → `{ candidates: [], relayOk: false }`).
   Steps:
   1. `taPubkey = await getTaPubkey(...)`; null → degrade (AC: no hardcoded fallback).
@@ -233,8 +237,9 @@ New files:
      isAsserterTrusted: (pk) => memberSet.has(pk), tag })`. Keep `targets` with
      `applications.length >= 1` **and** `target.id` (kind-1 ids; addressable targets are out of story
      scope). Ignore the `mine` channel (no viewer server-side).
-  5. Notes: `queryRelayStatus(taggingRelay, { kinds: [1], ids }, timeout)` — tagging relay only
-     (Decision 3); `noteRelays` is not a dep. An id whose body doesn't resolve is dropped silently.
+  5. Notes: `{ kinds: [1], ids }` in parallel against `[taggingRelay, ...noteRelays]`, deduped by
+     id; satisfied if any relay responds (Decision 3 as revised 2026-07-11). An id whose body
+     resolves nowhere is dropped silently.
   6. Wrap: `{ event, channels: [tag.channel], vias: [{ provider: 'event-tag', tag: tag.slug,
      applications: t.applications.length }] }`.
 - `api/_lib/merge.js` — `mergeCandidatePools(pools, { displayLimit })`: flatten → dedupe by
