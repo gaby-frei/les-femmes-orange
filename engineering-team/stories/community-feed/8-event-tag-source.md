@@ -1,6 +1,6 @@
 # Story 8: Event-tag source (Provider 2) — reading `lfo-community` tagged notes
 
-**Status:** Draft — amended 2026-07-11 (added the tag-pill UI specification; PO)
+**Status:** Done — review PASS 2026-07-11 (amended 2026-07-11: tag-pill UI spec; Decision-3 note-fetch revision)
 **Created:** 2026-07-09
 **Type:** Feature
 **Epic:** `community-feed` · **Book:** `community-feed`
@@ -402,7 +402,7 @@ live verification: tagging relay ∪ nos.lol + damus (ADR 0036, Decision 3 as re
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0036-feed-event-tag-source.md` (Accepted 2026-07-09)
 - Test plan: `engineering-team/stories/community-feed/8-event-tag-source.test-plan.md` (2026-07-09)
-- Review: (filled in after Review phase)
+- Review: `engineering-team/reviews/community-feed/8-event-tag-source.md` (PASS 2026-07-11)
 - **Story #2** — `2-curated-selection.md` (the policy story this unblocks)
 - Protocol: `tapestry/protocols/drafts/event-taggings.md`; family spec `tapestry/protocols/drafts/tags.md`
 - SDK: `tapestry/src/lib/event-tagging/` (public repo `github.com/nous-clawds4/tapestry`, branch `feat/tags`)
