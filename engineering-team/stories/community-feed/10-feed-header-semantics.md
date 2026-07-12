@@ -80,7 +80,7 @@ with the stubbed-`getFeed` pattern.
 None — semantics fully decided 2026-07-12 (zero-state: always render; appliers only, deduped).
 
 ## Linked artifacts
-- ADR: (after Architecture)
+- ADR: `engineering-team/decisions/0038-feed-header-taggers.md` (Accepted 2026-07-12)
 - Test plan: (after Test Design)
 - Review: (after Review)
 - Superseded story #2 (`2-curated-selection.md`) — origin of Open question 9
