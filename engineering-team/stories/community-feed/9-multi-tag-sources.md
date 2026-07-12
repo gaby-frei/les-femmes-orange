@@ -146,7 +146,7 @@ criteria cover what is new — the config-driven fan-out, channel assignments, a
 degradation, story sequenced after #8 / before #2.
 
 ## Linked artifacts
-- ADR: (filled in after Architecture phase — **not yet started**)
+- ADR: `engineering-team/decisions/0037-multi-tag-sources.md` (Accepted 2026-07-11)
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
 - **Story #8** — `8-event-tag-source.md` (the mechanism this configures; Done, review PASS)
