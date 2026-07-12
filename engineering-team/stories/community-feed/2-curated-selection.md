@@ -1,6 +1,10 @@
 # Story 2: Curated selection — endorsement-ranked feed over a multi-source candidate pool
 
-**Status:** Draft
+**Status:** Superseded — decomposed into epic `curation-policy` (2026-07-12; PO decision)
+**See:** `engineering-team/epics/curation-policy.md` — its four candidate stories carry this story's
+scope and open questions o1–o8. **Exception:** Open question 9 (feed header semantics) stays in the
+`community-feed` epic as its own story. This file is retained unchanged below as the
+pre-decomposition record; do not plan work from it.
 **Created:** 2026-06-18
 **Revised:** 2026-07-09 — protocol unblocked; scope narrowed (see "What changed")
 **Type:** Feature
