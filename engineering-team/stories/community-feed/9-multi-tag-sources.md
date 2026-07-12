@@ -147,7 +147,7 @@ degradation, story sequenced after #8 / before #2.
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0037-multi-tag-sources.md` (Accepted 2026-07-11)
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/community-feed/9-multi-tag-sources.test-plan.md` (2026-07-11)
 - Review: (filled in after Review phase)
 - **Story #8** — `8-event-tag-source.md` (the mechanism this configures; Done, review PASS)
 - **Story #2** — `2-curated-selection.md` (the policy story that will consume the config socket)

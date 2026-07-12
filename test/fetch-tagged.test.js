@@ -17,6 +17,9 @@ try { mod = require('../api/_lib/tagged.js'); } catch {}
 const fetchTaggedCandidates = mod.fetchTaggedCandidates
   || (() => { throw new Error('api/_lib/tagged.js does not export fetchTaggedCandidates yet (Story 8 unimplemented)'); });
 
+// Story 9 (ADR 0037): the provider takes `tags` (an ARRAY of tag configs) instead of
+// #8's single `tag`. These #8-behavior tests run against a one-entry array — the gates
+// they pin are per-tag and must hold unchanged under the new signature.
 function deps(events, overrides = {}) {
   const relay = overrides.relay || fakeRelay(events);
   return {
@@ -25,7 +28,7 @@ function deps(events, overrides = {}) {
       getTaPubkey: async () => TA,
       queryRelayStatus: relay.queryRelayStatus,
       memberSet: MEMBERS,
-      tag: TAG,
+      tags: [TAG],
       taggingRelay: TAGGING_RELAY,
       ...overrides.args,
     },
@@ -184,7 +187,7 @@ test('a note body that lives ONLY on an external note relay is still sourced (D3
     getTaPubkey: async () => TA,
     queryRelayStatus: relays.queryRelayStatus,
     memberSet: MEMBERS,
-    tag: TAG,
+    tags: [TAG],
     taggingRelay: TAGGING_RELAY,
     noteRelays: ['wss://nos.example', 'wss://damus.example'],
   });
@@ -210,7 +213,7 @@ test('a dead external note relay does not fail the fetch when another relay reso
     getTaPubkey: async () => TA,
     queryRelayStatus: relays.queryRelayStatus,
     memberSet: MEMBERS,
-    tag: TAG,
+    tags: [TAG],
     taggingRelay: TAGGING_RELAY,
     noteRelays: ['wss://nos.example', 'wss://damus.example'],
   });

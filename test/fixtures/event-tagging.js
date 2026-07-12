@@ -14,7 +14,13 @@ const MEMBER_2 = '22'.repeat(32);
 const NON_MEMBER = '99'.repeat(32);
 const MEMBERS = new Set([MEMBER_1, MEMBER_2]);
 
-const TAG = { authorPubkey: TAG_AUTHOR, slug: 'lfo-community', channel: 'lfo' };
+// Story 9 (ADR 0037): tag config entries carry `channels` ARRAYS (the DList-projection
+// shape; 1:many-ready). TAG is the #8 pilot; TAGS is story 9's full four-tag set.
+const TAG = { authorPubkey: TAG_AUTHOR, slug: 'lfo-community', channels: ['lfo'] };
+const BITCOIN_TAG = { authorPubkey: TAG_AUTHOR, slug: 'bitcoin', channels: ['bitcoin'] };
+const NOSTR_TAG = { authorPubkey: TAG_AUTHOR, slug: 'nostr', channels: ['nostr'] };
+const ASK_TAG = { authorPubkey: TAG_AUTHOR, slug: 'ask-lfo', channels: ['ask-lfo'] };
+const TAGS = [TAG, BITCOIN_TAG, NOSTR_TAG, ASK_TAG];
 const TAGGING_RELAY = 'wss://tags.example/relay';
 
 const tagCoord = (author, slug) => `39999:${author}:${slug}`;
@@ -116,7 +122,7 @@ function fakeRelaysByUrl(byUrl) {
 
 module.exports = {
   TA, OTHER_TA, TAG_AUTHOR, MEMBER_1, MEMBER_2, NON_MEMBER, MEMBERS,
-  TAG, TAGGING_RELAY, TAG_NAME, TAG_DESC,
+  TAG, BITCOIN_TAG, NOSTR_TAG, ASK_TAG, TAGS, TAGGING_RELAY, TAG_NAME, TAG_DESC,
   tagCoord, headerCoord,
   mkHeader, mkAssertion, mkNote, mkTagElement,
   fakeRelay, deadRelay, fakeRelaysByUrl,

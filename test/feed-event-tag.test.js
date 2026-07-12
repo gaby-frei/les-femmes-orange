@@ -142,6 +142,34 @@ test('a Provider-2 note carries taggedWith in the payload; a Provider-1-only not
     'a hashtag-only note carries no taggedWith (absent or empty)');
 });
 
+// ── Story 9 (ADR 0037): the ask-lfo channel is exclusively Provider-2-sourced ──
+
+test('a Provider-1 note NEVER carries the ask-lfo channel — even on pass-through scores (Story 9 AC-4)', async () => {
+  const out = await buildFeedPayload(deps({
+    fetchTaggedCandidates: async () => ({ candidates: [], relayOk: true }),
+    classifyNotes: async (notes) => new Map(notes.map((n) => [n.id, { bitcoin: 1, nostr: 1, lfo: 1 }])),
+  }));
+  for (const n of out.notes) {
+    assert.ok(!n.channels.includes('ask-lfo'),
+      'the classifier topic set must not grow ask-lfo; only a member tag assigns it');
+  }
+});
+
+test('an ask-lfo tagged note also sourced by Provider 1 appears once with unioned channels (Story 9 AC-3)', async () => {
+  const askCand = {
+    event: P1_A, channels: ['ask-lfo'],
+    vias: [{ provider: 'event-tag', tag: 'ask-lfo', applications: 1 }],
+    taggedWith: [{ name: 'Ask LFO', description: 'Questions for the LFO community.' }],
+  };
+  const out = await buildFeedPayload(deps({
+    fetchTaggedCandidates: async () => ({ candidates: [askCand], relayOk: true }),
+  }));
+  const hits = out.notes.filter((n) => n.id === 'p1a');
+  assert.equal(hits.length, 1, 'deduped across providers');
+  assert.ok(hits[0].channels.includes('bitcoin'), 'keeps the score-derived channel');
+  assert.ok(hits[0].channels.includes('ask-lfo'), 'gains the tag-derived ask-lfo channel');
+});
+
 test('channelsAvailable stays a Provider-1-only classifier signal (ADR 0036 / 0034)', async () => {
   // Every P1 score is the {1,1,1} pass-through sentinel → classifier fell back →
   // channelsAvailable must be false EVEN THOUGH Provider-2 notes carry a real lfo channel.
