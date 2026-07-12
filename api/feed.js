@@ -122,6 +122,9 @@ async function buildFeedPayload(deps) {
       // Tag pill (Story 8 UI amendment): display metadata for the event-tags this note
       // carries. Additive; absent on notes with none, so pre-#8 clients are unaffected.
       ...(c.taggedWith && c.taggedWith.length ? { taggedWith: c.taggedWith } : {}),
+      // Applier pubkeys (Story 10, ADR 0038): feeds the header's live per-channel
+      // "active content taggers" count. Additive; absent on untagged notes.
+      ...(c.taggers && c.taggers.length ? { taggers: c.taggers } : {}),
       author: {
         displayName: m.display_name || m.name || encodeNpubShort(ev.pubkey),
         npubShort: encodeNpubShort(ev.pubkey),

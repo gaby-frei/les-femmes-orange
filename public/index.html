@@ -2205,17 +2205,22 @@
       // No filter: report the whole-pool member count over the latest-N cap (Story 1 wording).
       // Filtered: recompute distinct authors + post count over the displayed subset so the
       // header stays truthful as channels toggle (#6 AC).
-      let count, postLabel;
+      let contributorCount, postLabel;
       if (_selectedChannels.size === 0) {
-        count = _feed.memberCount;
+        contributorCount = _feed.memberCount;
         postLabel = `the latest ${FEED_LIMIT} posts`;
       } else {
-        count = new Set(visible.map(n => n.pubkey)).size;
+        contributorCount = new Set(visible.map(n => n.pubkey)).size;
         postLabel = `${visible.length} post${visible.length === 1 ? '' : 's'}`;
       }
+      // Active content taggers (Story 10, ADR 0038): distinct member pubkeys who APPLIED
+      // a tag to any currently-visible note (per-note `taggers` from the payload).
+      // Recomputed here on every pill toggle; always rendered, zero included.
+      const activeTaggerCount = new Set(visible.flatMap(n => n.taggers || [])).size;
       headerEl.innerHTML =
-        `<div class="feed-header-title">What LFO members are saying…</div>` +
-        `<div class="feed-header-sub">${count} member${count === 1 ? '' : 's'} contributing across ${postLabel}</div>`;
+        `<div class="feed-header-title">What LFO members are saying…</div>\n` +
+        `<div class="feed-header-sub">${contributorCount} member${contributorCount === 1 ? '' : 's'} contributing across ${postLabel}</div>\n` +
+        `<div class="feed-header-sub">${activeTaggerCount} active content tagger${activeTaggerCount === 1 ? '' : 's'}</div>`;
       headerEl.style.display = '';
     }
 

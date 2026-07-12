@@ -136,6 +136,9 @@ async function fetchTaggedCandidates(deps) {
           channels: [...tag.channels],
           vias: [{ provider: 'event-tag', tag: tag.slug, applications: t.applications.length }],
           taggedWith,
+          // Story 10 (ADR 0038): APPLIER identities for the header's active-tagger
+          // count — appliers only; the resolver keeps disputes in a separate bucket.
+          taggers: [...new Set(t.applications.map((a) => a.authorPubkey))],
         });
       }
     });

@@ -21,11 +21,13 @@ function mergeCandidatePools(pools, opts) {
           channels: [...new Set(c.channels || [])],
           vias: [...(c.vias || [])],
           taggedWith: dedupeByName([], c.taggedWith),
+          taggers: [...new Set(c.taggers || [])],
         });
       } else {
         for (const ch of c.channels || []) if (!prev.channels.includes(ch)) prev.channels.push(ch);
         prev.vias.push(...(c.vias || []));
         prev.taggedWith = dedupeByName(prev.taggedWith, c.taggedWith);
+        for (const pk of c.taggers || []) if (!prev.taggers.includes(pk)) prev.taggers.push(pk);
       }
     }
   }
