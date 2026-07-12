@@ -170,6 +170,30 @@ test('an assertion targeting an addressable event (a-tag target) is ignored — 
   assert.deepEqual(out.candidates, [], 'addressable targets are out of scope');
 });
 
+// ── Story 10 (ADR 0038): per-note applier identities ──
+
+test('candidates carry taggers — distinct APPLIER pubkeys; a disputer is never listed (Story 10)', async () => {
+  const header = mkHeader();
+  const note = mkNote({ id: 'n16' });
+  const a1 = mkAssertion({ asserter: MEMBER_1, targetId: 'n16', polarity: 1 });
+  const d1 = mkAssertion({ asserter: MEMBER_2, targetId: 'n16', polarity: -1 });
+  const { args } = deps([header, a1, d1, note]);
+  const out = await fetchTaggedCandidates(args);
+  assert.equal(out.candidates.length, 1);
+  assert.deepEqual(out.candidates[0].taggers, [MEMBER_1],
+    'appliers only — the disputing member does not appear');
+});
+
+test('two appliers on one note → both pubkeys in taggers (Story 10)', async () => {
+  const header = mkHeader();
+  const note = mkNote({ id: 'n17' });
+  const a1 = mkAssertion({ asserter: MEMBER_1, targetId: 'n17', polarity: 1 });
+  const a2 = mkAssertion({ asserter: MEMBER_2, targetId: 'n17', polarity: 1 });
+  const { args } = deps([header, a1, a2, note]);
+  const out = await fetchTaggedCandidates(args);
+  assert.deepEqual([...out.candidates[0].taggers].sort(), [MEMBER_1, MEMBER_2].sort());
+});
+
 // ── Decision 3 revision (2026-07-11): note bodies from tagging relay ∪ noteRelays ──
 
 test('a note body that lives ONLY on an external note relay is still sourced (D3 revision)', async () => {

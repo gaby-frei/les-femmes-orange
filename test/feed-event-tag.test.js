@@ -142,6 +142,21 @@ test('a Provider-2 note carries taggedWith in the payload; a Provider-1-only not
     'a hashtag-only note carries no taggedWith (absent or empty)');
 });
 
+// ── Story 10 (ADR 0038): per-note taggers reach the payload ──
+
+test('a Provider-2 note carries its applier pubkeys in the payload; a Provider-1-only note carries none (Story 10)', async () => {
+  const withTaggers = { ...p2cand(TAGGED_GARDEN), taggers: [MEMBER_1, MEMBER_2] };
+  const out = await buildFeedPayload(deps({
+    fetchTaggedCandidates: async () => ({ candidates: [withTaggers], relayOk: true }),
+  }));
+  const tagged = out.notes.find((n) => n.id === 'p2a');
+  const plain = out.notes.find((n) => n.id === 'p1a');
+  assert.deepEqual([...tagged.taggers].sort(), [MEMBER_1, MEMBER_2].sort(),
+    'applier identities reach the client for header counting');
+  assert.ok(!plain.taggers || plain.taggers.length === 0,
+    'a hashtag-only note exposes no taggers (absent or empty)');
+});
+
 // ── Story 9 (ADR 0037): the ask-lfo channel is exclusively Provider-2-sourced ──
 
 test('a Provider-1 note NEVER carries the ask-lfo channel — even on pass-through scores (Story 9 AC-4)', async () => {

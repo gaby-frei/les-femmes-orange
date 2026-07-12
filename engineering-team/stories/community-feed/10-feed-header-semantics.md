@@ -81,7 +81,7 @@ None — semantics fully decided 2026-07-12 (zero-state: always render; appliers
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0038-feed-header-taggers.md` (Accepted 2026-07-12)
-- Test plan: (after Test Design)
+- Test plan: `engineering-team/stories/community-feed/10-feed-header-semantics.test-plan.md` (2026-07-12)
 - Review: (after Review)
 - Superseded story #2 (`2-curated-selection.md`) — origin of Open question 9
 - ADR 0036/0037 — the provider pipeline whose applier data this story surfaces

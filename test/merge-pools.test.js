@@ -55,6 +55,16 @@ test('empty pools merge to an empty list', () => {
   assert.deepEqual(mergeCandidatePools([[], []], { displayLimit: 100 }), []);
 });
 
+test('dedupe unions taggers by pubkey — cross-tag appliers combine on one note (Story 10)', () => {
+  const alice = '11'.repeat(32), bob = '22'.repeat(32);
+  const viaBitcoin = { ...cand('x', 500, ['bitcoin']), taggers: [alice] };
+  const viaNostr = { ...cand('x', 500, ['nostr']), taggers: [bob, alice] };
+  const out = mergeCandidatePools([[viaBitcoin], [viaNostr]], {});
+  assert.equal(out.length, 1);
+  assert.deepEqual([...out[0].taggers].sort(), [alice, bob].sort(),
+    'union by pubkey, deduped — alice counted once despite applying two tags');
+});
+
 test('dedupe unions taggedWith by name — a both-provider note keeps its pill metadata (UI amendment)', () => {
   const fromHashtag = cand('x', 500, ['bitcoin'], [{ provider: 'hashtag' }]); // no taggedWith
   const fromTag = {
