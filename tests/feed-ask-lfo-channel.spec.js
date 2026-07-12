@@ -85,6 +85,15 @@ test.describe('Community feed — Ask LFO channel (Story 9)', () => {
     }
   });
 
+  test('the Feed Source Relays panel lists the tagging relay alongside the feed relays', async ({ page }) => {
+    await openFeedWith(page, pool());
+    const items = page.locator('#feed-relays-list li');
+    await expect(items, 'three relays listed: nos.lol, damus, tagging relay').toHaveCount(3, { timeout: 10_000 });
+    const tagging = items.filter({ hasText: 'tags.brainstorm.world' });
+    await expect(tagging, 'the tagging relay row renders').toHaveCount(1);
+    await expect(tagging.locator('.relay-dot'), 'with the same status-dot chrome').toHaveCount(1);
+  });
+
   test('a multi-tagged note renders one pill per tag, each toggling its own description independently', async ({ page }) => {
     await openFeedWith(page, pool());
     const notePills = cardById(page, 'multi1').locator('.feed-note-tag-pill');

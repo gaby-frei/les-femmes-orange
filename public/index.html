@@ -1412,6 +1412,7 @@
           <button type="button" class="feed-channel" data-channel="bitcoin" aria-pressed="false">Bitcoin</button>
           <button type="button" class="feed-channel" data-channel="nostr" aria-pressed="false">NOSTR</button>
           <button type="button" class="feed-channel" data-channel="lfo" aria-pressed="false">LFO Community</button>
+          <button type="button" class="feed-channel" data-channel="ask-lfo" aria-pressed="false">Ask LFO</button>
         </div>
 
         <div id="feed-loading" class="members-loading" style="display:none">
@@ -1549,6 +1550,10 @@
     const FEED_RELAYS   = [
       { url: 'wss://nos.lol',         timeout: 12000 },  // primary — complete
       { url: 'wss://relay.damus.io',  timeout: 10000 },  // interim augment (replaced primal)
+      // Tagging relay — Provider 2 (event-tags, #8/#9). Display-only here: the server
+      // reports its status in relayStatus (ok:false = TA fetch, relay, or timeout
+      // failure), and updateRelayDots matches it by host like any other entry.
+      { url: 'wss://tags.brainstorm.world/relay' },
     ];
     // Relay #t filtering is case-sensitive, so case variants are listed explicitly.
     // Display-only mirror of api/feed.js FEED_HASHTAGS (the real fetch is server-side).

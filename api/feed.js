@@ -34,16 +34,22 @@ const CANDIDATE_LIMIT = Number(process.env.FEED_CANDIDATE_LIMIT) || 500;
 const DISPLAY_LIMIT = 100; // post-filter display size
 const THRESHOLD = 0.3; // conservative / lean-inclusive; tunable
 
-// Provider 2 — the event-tag source (Story 8, ADR 0036). The pilot tag is pinned by
-// a-coordinate (it IS the tag's identity); the TA pubkey is NEVER pinned — resolved
-// at runtime from TA_PUBKEY_URL and cached per process (api/_lib/ta.js).
+// Provider 2 — the event-tag source (Story 8, ADR 0036; multi-tag Story 9, ADR 0037).
+// Tags are pinned by a-coordinate (that IS a tag's identity); the TA pubkey is NEVER
+// pinned — resolved at runtime from TA_PUBKEY_URL and cached per process (api/_lib/ta.js).
+// EVENT_TAGS is a static config deliberately shaped as the projection a curated
+// tag-DList read would produce (`channels` arrays: 1:many-ready) — story #2's swap
+// point. `ask-lfo` maps to a channel no other source populates: the classifier's
+// topic set (CHANNELS below) does not grow, so Provider 1 can never assign it.
 const TAGGING_RELAY = 'wss://tags.brainstorm.world/relay';
 const TA_PUBKEY_URL = 'https://tags.brainstorm.world/api/assistant/pubkey';
-const EVENT_TAG = {
-  authorPubkey: '6db8a13f0183828c44dc778af7e2689a810fc24317585f497ddad049b4dd2597',
-  slug: 'lfo-community',
-  channel: 'lfo',
-};
+const TAG_AUTHOR = '6db8a13f0183828c44dc778af7e2689a810fc24317585f497ddad049b4dd2597';
+const EVENT_TAGS = [
+  { authorPubkey: TAG_AUTHOR, slug: 'lfo-community', channels: ['lfo'] },
+  { authorPubkey: TAG_AUTHOR, slug: 'bitcoin', channels: ['bitcoin'] },
+  { authorPubkey: TAG_AUTHOR, slug: 'nostr', channels: ['nostr'] },
+  { authorPubkey: TAG_AUTHOR, slug: 'ask-lfo', channels: ['ask-lfo'] },
+];
 
 function defaultNpubShort(hex) { const s = String(hex); return 'npub1' + s.slice(0, 6) + '…' + s.slice(-4); }
 function defaultPic(url) { return (typeof url === 'string' && /^https?:\/\//.test(url)) ? url : ''; }
@@ -209,7 +215,7 @@ async function handler(req, res) {
         getTaPubkey: () => getTaPubkey({ url: TA_PUBKEY_URL }),
         queryRelayStatus,
         memberSet,
-        tag: EVENT_TAG,
+        tags: EVENT_TAGS,
         taggingRelay: TAGGING_RELAY,
         // Note-body sources (ADR 0036 Decision 3, revised 2026-07-11): the tagging relay
         // holds tagging events, not note bodies — bodies live on the feed relays.

@@ -32,6 +32,7 @@ is implemented. No #8 behavior is weakened: every #8 gate must hold under a one-
 | Pills: one per tag, independent toggles | `a multi-tagged note renders one pill per tag, each toggling its own description independently` (green guard — #8's renderer already supports this; story 9 pins it) | `tests/feed-ask-lfo-channel.spec.js` | e2e |
 | Contract: top-level unchanged, `ask-lfo` a legal channel value | covered by the AC-3/AC-4 feed-level tests + the untouched #8 contract tests | `test/feed-event-tag.test.js` | unit |
 | ADR 0037 wire contract (batched fan-out) | `wire contract: one headers REQ carrying every tag coordinate, one elements REQ, one assertions REQ, one bodies REQ (ADR 0037)` | `test/multi-tag.test.js` | unit |
+| Relay panel shows the tagging relay (in-phase addition, 2026-07-12) | `the Feed Source Relays panel lists the tagging relay alongside the feed relays` | `tests/feed-ask-lfo-channel.spec.js` | e2e |
 
 ## Edge cases
 
