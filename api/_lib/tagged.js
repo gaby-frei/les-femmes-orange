@@ -23,7 +23,7 @@
 // queries (headers → assertions → bodies); tag-element failures only degrade
 // display metadata to the per-tag slug fallback.
 
-const { conceptTaggingWithSpecificTag, tagElementAddr } = require('./event-tagging/handles.js');
+const { conceptTaggingWithSpecificTag, tagElementAddr, taggingHeaderAddr } = require('./event-tagging/handles.js');
 const { groupTaggingsByTarget } = require('./event-tagging/classify.js');
 
 function tagVal(ev, name) {
@@ -40,11 +40,26 @@ function tagMetaFrom(elements, slug) {
     try {
       const t = JSON.parse(best.content).tag;
       if (t && typeof t.name === 'string' && t.name) {
-        return [{ name: t.name, description: typeof t.description === 'string' ? t.description : '' }];
+        return { name: t.name, description: typeof t.description === 'string' ? t.description : '' };
       }
     } catch {}
   }
-  return [{ name: slug, description: '' }];
+  return { name: slug, description: '' };
+}
+
+// Write-arming (note-tagging #2, ADR 0040 D1): a tag is armed for APPLYING only when
+// one of its discovered headers has the SDK-derivable coordinate (d follows the
+// `tagging:<slug>-tagging` convention) — otherwise the client's builder would compose
+// an assertion pointing at a header that doesn't exist (a signed orphan). This gate
+// IS the story's "never mint" guard, enforced at arming time. Read-side counting is
+// deliberately looser: it honors whatever headers were discovered (the asymmetry).
+function armedHeaderFor(tag, headers) {
+  const conforming = (headers || []).filter(
+    (h) => tagVal(h, 'd') === `tagging:${tag.slug}-tagging`
+  );
+  if (!conforming.length) return null;
+  return conforming.find((h) => h.pubkey === tag.authorPubkey)
+    || conforming.slice().sort((a, b) => a.created_at - b.created_at)[0];
 }
 
 async function fetchTaggedCandidates(deps) {
@@ -83,8 +98,29 @@ async function fetchTaggedCandidates(deps) {
       tag.slug
     );
 
+    // Write-arming config (ADR 0040 D1): TA + the conforming-header tags. Computed on
+    // every successful step-1 — including the zero-header and zero-admissible paths —
+    // and NEVER on degradation paths (no TA / failed critical query → no writeConfig).
+    const writeConfig = {
+      taPubkey,
+      tags: tags.flatMap((tag) => {
+        const armed = armedHeaderFor(tag, headersByCoord.get(tagElementAddr(tag.authorPubkey, tag.slug)));
+        if (!armed) return [];
+        const meta = metaFor(tag);
+        return [{
+          authorPubkey: tag.authorPubkey,
+          slug: tag.slug,
+          name: meta.name,
+          description: meta.description,
+          channels: [...tag.channels],
+          headerAuthorPubkey: armed.pubkey,
+          headerCoord: taggingHeaderAddr(armed.pubkey, tag.slug),
+        }];
+      }),
+    };
+
     const allHeaders = [...headersByCoord.values()].flat();
-    if (!allHeaders.length) return { candidates: [], relayOk: true };
+    if (!allHeaders.length) return { candidates: [], relayOk: true, writeConfig };
 
     // Step 2 — ONE assertions REQ unioning every discovered header's real coordinate
     // (no pinning; robust even if a header's d strays from convention).
@@ -115,7 +151,7 @@ async function fetchTaggedCandidates(deps) {
     // non-replaceable). Satisfied if ANY relay responds; an id whose body resolves
     // nowhere is dropped silently.
     const ids = [...new Set(keptByTag.flat().map((t) => t.target.id))];
-    if (!ids.length) return { candidates: [], relayOk: true };
+    if (!ids.length) return { candidates: [], relayOk: true, writeConfig };
     const noteResults = await Promise.all(
       [...new Set([taggingRelay, ...noteRelays])].map((url) => queryRelayStatus(url, { kinds: [1], ids }))
     );
@@ -127,22 +163,24 @@ async function fetchTaggedCandidates(deps) {
     const candidates = [];
     tags.forEach((tag, i) => {
       if (!keptByTag[i].length) return;
-      const taggedWith = metaFor(tag);
+      const meta = metaFor(tag);
       for (const t of keptByTag[i]) {
         const event = noteById.get(t.target.id);
         if (!event) continue;
+        // APPLIER identities (Story 10 / note-tagging #2): appliers only — the
+        // resolver keeps disputes in a separate bucket. Note-level in `taggers`
+        // (header count), per-(tag,note) in the taggedWith entry (applied-state).
+        const appliers = [...new Set(t.applications.map((a) => a.authorPubkey))];
         candidates.push({
           event,
           channels: [...tag.channels],
           vias: [{ provider: 'event-tag', tag: tag.slug, applications: t.applications.length }],
-          taggedWith,
-          // Story 10 (ADR 0038): APPLIER identities for the header's active-tagger
-          // count — appliers only; the resolver keeps disputes in a separate bucket.
-          taggers: [...new Set(t.applications.map((a) => a.authorPubkey))],
+          taggedWith: [{ slug: tag.slug, name: meta.name, description: meta.description, appliers }],
+          taggers: appliers,
         });
       }
     });
-    return { candidates, relayOk: true };
+    return { candidates, relayOk: true, writeConfig };
   } catch {
     return { candidates: [], relayOk: false };
   }

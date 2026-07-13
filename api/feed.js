@@ -72,7 +72,7 @@ async function buildFeedPayload(deps) {
 
   // Both providers run in parallel; Provider 2 never sees the classifier and its
   // failure is caught here (defense in depth on top of tagged.js's own never-throw).
-  const [{ candidates, scores }, p2Pool] = await Promise.all([
+  const [{ candidates, scores }, p2] = await Promise.all([
     (async () => {
       const c = await fetchCandidates(memberPubkeys, candidateLimit);
       return { candidates: c, scores: await classify(c) };
@@ -80,10 +80,15 @@ async function buildFeedPayload(deps) {
     (async () => {
       try {
         const r = await fetchTagged(memberSet);
-        return r && Array.isArray(r.candidates) ? r.candidates : [];
-      } catch { return []; }
+        return {
+          pool: r && Array.isArray(r.candidates) ? r.candidates : [],
+          // Write-arming config (note-tagging #2, ADR 0040): absent on degradation.
+          writeConfig: r && r.writeConfig ? r.writeConfig : null,
+        };
+      } catch { return { pool: [], writeConfig: null }; }
     })(),
   ]);
+  const p2Pool = p2.pool;
   const selected = selectRelevant(candidates, scores, { threshold, displayLimit });
 
   // Channel tagging (ADR 0034): tag each note with every topic channel whose per-topic
@@ -152,7 +157,12 @@ async function buildFeedPayload(deps) {
   const allFellBack = selected.length > 0 && selected.every((ev) => isPassThrough(getScore(ev.id)));
   const channelsAvailable = classifierAvailable && !allFellBack;
 
-  return { memberCount: authorPubkeys.length, notes, memberNames, channelsAvailable };
+  return {
+    memberCount: authorPubkeys.length, notes, memberNames, channelsAvailable,
+    // Additive (note-tagging #2, ADR 0040): arms the client's "Add a tag" modal.
+    // Absent when Provider 2 degraded — the modal then shows its unavailable state.
+    ...(p2.writeConfig ? { tagging: p2.writeConfig } : {}),
+  };
 }
 
 // ── HTTP handler (Vercel) — wires the real deps. Not exercised by npm test (no real

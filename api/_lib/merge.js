@@ -37,10 +37,19 @@ function mergeCandidatePools(pools, opts) {
   return typeof displayLimit === 'number' ? merged.slice(0, displayLimit) : merged;
 }
 
+// taggedWith entry identity is the slug when present (note-tagging #2), else the
+// display name (#8's original shape). Same-key entries union their appliers.
 function dedupeByName(base, extra) {
-  const out = [...base];
+  const keyOf = (t) => (t && t.slug != null ? `s:${t.slug}` : `n:${t && t.name}`);
+  const out = base.map((t) => ({ ...t }));
   for (const t of extra || []) {
-    if (t && !out.some((x) => x.name === t.name)) out.push(t);
+    if (!t) continue;
+    const existing = out.find((x) => keyOf(x) === keyOf(t));
+    if (!existing) { out.push({ ...t }); continue; }
+    if (t.appliers || existing.appliers) {
+      const merged = [...new Set([...(existing.appliers || []), ...(t.appliers || [])])];
+      existing.appliers = merged;
+    }
   }
   return out;
 }
