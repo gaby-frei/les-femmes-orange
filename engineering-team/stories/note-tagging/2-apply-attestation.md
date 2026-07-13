@@ -160,7 +160,7 @@ assertions joining those concepts rather than only reading them.
 None blocking — UX decisions taken 2026-07-12 (optimistic pill + toast; applied-marked-retriable).
 
 ## Linked artifacts
-- ADR: (after Architecture)
+- ADR: `engineering-team/decisions/0040-apply-attestation.md` (Accepted 2026-07-13)
 - Test plan: (after Test Design)
 - Review: (after Review)
 - note-tagging #1 (`1-note-tag-demo.md`, ADR 0039) — the UI shell this story wires
