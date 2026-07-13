@@ -171,6 +171,10 @@ test.describe('Apply attestation — Search existing (note-tagging Story 2)', ()
     await expect(modal(page)).toBeHidden();
     await expect(card(page, NOTE_ID).locator('.feed-note-tag-pill'), 'the tag pill appears immediately')
       .toHaveText(/Ask LFO/);
+    // Amendment (2026-07-13): the optimistic entry counts its applier immediately.
+    await card(page, NOTE_ID).locator('.feed-note-tag-pill').click();
+    await expect(card(page, NOTE_ID).locator('.feed-note-tag-count'),
+      'the just-applied member is counted without a reload').toHaveText('Applied by 1 member');
   });
 
   test('extension mode: no in-app consent — selection goes straight to the signer', async ({ page }) => {

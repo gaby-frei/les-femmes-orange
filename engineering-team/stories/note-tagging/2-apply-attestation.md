@@ -112,6 +112,17 @@ Local-mode signing is silent (no extension popup), so an explicit consent step p
   modal views. This story supersedes that pin **for Search existing only**; it must remain true
   for **Apply new** and for every dismissal/cancel path.
 
+## Pill count line (amendment, 2026-07-13 — PO decisions)
+The tag pill's existing description panel additionally shows the **unique attestation count**:
+- Copy: **"Applied by N members"** ("Applied by 1 member" at one) — a subtle second line beneath
+  the description, sourced from the entry's `appliers` (distinct member appliers of that tag on
+  that note; already in the payload via this story's extension — no server change).
+- The **inert slug-fallback pill stays inert** (PO: keep the #8 pin) — no description → no panel →
+  no count line. The count renders only where a panel exists, and is omitted if `appliers` is
+  absent or empty (defensive).
+- Live by construction: the optimistic apply pushes the member into `appliers`, so a just-applied
+  tag's count increments immediately.
+
 ## Acceptance criteria
 - [ ] Given the modal's Search existing view, then it lists exactly the four supported tags with
   their live names and descriptions (slug fallback on metadata failure).
@@ -139,6 +150,11 @@ Local-mode signing is silent (no extension popup), so an explicit consent step p
 - [ ] Given the Apply new view, then it remains non-functional with updated placeholder copy, and
   no interaction with it (or any cancel/dismiss path) publishes anything.
 - [ ] Given a signed-out visitor or non-member, the affordance remains unreachable (gated feed).
+- [ ] Given a tag pill's description panel is toggled open, then beneath the description it shows
+  "Applied by N members" (singular at 1), N = that entry's distinct `appliers`; a panel whose entry
+  has no appliers shows no count line; the inert (no-description) pill behavior is unchanged.
+- [ ] Given the member just applied a tag optimistically, then that tag's panel count includes them
+  without a reload.
 
 ## Concepts touched
 Same concept set as community-feed #8/#9 (guide §2): the tag-elements

@@ -109,6 +109,13 @@ every apply, as a content swap inside the existing modal.
   `getFeed` for the e2e flows (both signer modes, consent panel, errors).
 - **Firmware reinstall required?** No — no concept definitions change.
 
+## Amendment (2026-07-13) — pill count line
+The story amendment adds "Applied by N members" inside the pill's existing description panel,
+computed from `taggedWith[i].appliers` — **display-only; zero server change** (the data is this
+ADR's D1 payload extension). Inert-pill fallback unchanged (PO). `makeFeedNote()`'s panel becomes
+two DOM children (description + count line, both `textContent`); count omitted when `appliers` is
+absent/empty. Optimistic applies increment it for free (D4 mutates `appliers`).
+
 ## Implementation notes
 
 - `api/_lib/tagged.js` — build `writeConfig` during the existing step-1 processing (headers +

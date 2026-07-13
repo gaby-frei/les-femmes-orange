@@ -798,6 +798,7 @@
       flex-basis: 100%; font-size: 0.8rem; line-height: 1.5; color: var(--grey-text);
       background: var(--grey-light); border-radius: 8px; padding: 0.5rem 0.7rem;
     }
+    .feed-note-tag-count { margin-top: 0.35rem; font-size: 0.72rem; font-weight: 700; color: var(--orange); }
 
     /* ── MEMBER CARD ──────────────────────────────────────── */
 
@@ -2479,7 +2480,20 @@
           pill.setAttribute('aria-label', 'Tag: ' + t.name + '. Toggle description');
           const panel = document.createElement('div');
           panel.className = 'feed-note-tag-desc';
-          panel.textContent = desc;
+          const descLine = document.createElement('div');
+          descLine.textContent = desc;
+          panel.appendChild(descLine);
+          // Unique-attestation count (note-tagging #2 amendment): distinct member
+          // appliers of THIS tag on THIS note. Omitted when appliers are absent
+          // (defensive vs pre-#2 payload shapes). Optimistic applies mutate the
+          // appliers array, so a just-applied tag counts its member immediately.
+          const applierCount = Array.isArray(t.appliers) ? new Set(t.appliers).size : 0;
+          if (applierCount > 0) {
+            const countLine = document.createElement('div');
+            countLine.className = 'feed-note-tag-count';
+            countLine.textContent = `Applied by ${applierCount} member${applierCount === 1 ? '' : 's'}`;
+            panel.appendChild(countLine);
+          }
           panel.style.display = 'none';
           pill.addEventListener('click', () => {
             const isOpen = panel.style.display !== 'none';

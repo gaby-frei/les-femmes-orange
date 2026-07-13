@@ -109,6 +109,37 @@ test.describe('Community feed — tag pill (Story 8 UI amendment)', () => {
     expect(await page.evaluate(() => window._opened.length), 'the card link still works').toBe(1);
   });
 
+  // note-tagging #2 amendment (2026-07-13): the panel also shows the unique-attestation count.
+  test('the description panel shows "Applied by N members" from the entry\'s appliers', async ({ page }) => {
+    const p = pool();
+    p.notes[0].taggedWith = [{ slug: 'lfo-community', name: 'LFO Community', description: DESC,
+      appliers: ['a1'.repeat(32), 'b2'.repeat(32)] }];
+    await openFeedWith(page, p);
+    const pill = pillOf(page, 'tagged1');
+    await expect(pill).toBeVisible({ timeout: 10_000 });
+    await pill.click();
+    const desc = descOf(page, 'tagged1');
+    await expect(desc).toContainText(/denotes content relevant/);
+    await expect(desc.locator('.feed-note-tag-count'), 'count line beneath the description')
+      .toHaveText('Applied by 2 members');
+  });
+
+  test('the count line is singular at one applier, and absent when the entry carries no appliers', async ({ page }) => {
+    const p = pool();
+    p.notes[0].taggedWith = [{ slug: 'lfo-community', name: 'LFO Community', description: DESC,
+      appliers: ['a1'.repeat(32)] }];
+    await openFeedWith(page, p);
+    await pillOf(page, 'tagged1').click();
+    await expect(descOf(page, 'tagged1').locator('.feed-note-tag-count')).toHaveText('Applied by 1 member');
+    // The pool's OTHER described entry (no appliers field — #8-era shape) shows no count line.
+    const p2 = pool();
+    await openFeedWith(page, p2);
+    await pillOf(page, 'tagged1').click();
+    await expect(descOf(page, 'tagged1')).toContainText(/denotes content relevant/);
+    await expect(descOf(page, 'tagged1').locator('.feed-note-tag-count'), 'defensive: no appliers → no line')
+      .toHaveCount(0);
+  });
+
   test('a slug-fallback entry (empty description) renders an inert pill', async ({ page }) => {
     await openFeedWith(page, pool());
     const pill = pillOf(page, 'fallback1');
