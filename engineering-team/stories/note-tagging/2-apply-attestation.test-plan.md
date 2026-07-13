@@ -27,6 +27,11 @@ unsigned event captured at the signer boundary.
 | Payload arming (`tagging` field; degradation → absent) | `writeConfig … surfaces as the additive top-level tagging field`; `no writeConfig … → no tagging field` (+ unit: degradation yields no writeConfig) | `test/feed-event-tag.test.js`, `test/write-config.test.js` | unit |
 | Applied-state data (per-tag appliers) | `taggedWith entries carry per-(tag,note) appliers…`; merge: `taggedWith entries keyed by slug union their appliers…`; shape updates to the #8/#9 `taggedWith` pins (now `{slug, name, description, appliers}`) | `test/write-config.test.js`, `test/merge-pools.test.js`, `test/fetch-tagged.test.js`, `test/multi-tag.test.js` | unit |
 
+**Amendment (2026-07-13) — pill count line:** +3 e2e tests. `tests/feed-tag-pill.spec.js`: panel
+shows "Applied by N members" from `appliers`, singular at 1, line absent when appliers absent
+(#8-era shape), inert-pill pin retained untouched; `tests/apply-attestation.spec.js`: the
+optimistic apply's count includes the member without a reload. Display-only — no unit changes.
+
 ## Supersession (per story + ADR)
 `tests/note-tagging.spec.js` AC-5 ("both views show the placeholder") is **narrowed**: unarmed
 Search existing shows the *unavailable* state; Apply new keeps a placeholder with the updated copy.
