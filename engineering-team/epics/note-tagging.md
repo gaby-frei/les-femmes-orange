@@ -33,7 +33,16 @@ teammate has **not yet implemented**. This epic therefore starts with a non-func
 as the protocol lands — signing, publishing, and querying event-tags are deferred until then.
 
 ## Stories
-- #1 — `1-note-tag-demo` — Primitive, non-functional demo: a plus button on each feed note opens an "Add a tag" popup with two toggle views ("Search existing" / "Apply new"), both showing "No support for event tags yet. Check back later." No event-tag creation/signing/publishing. *(Draft — 2026-06-25)*
+- #1 — `1-note-tag-demo` — Primitive, non-functional demo: a plus button on each feed note opens an "Add a tag" popup with two toggle views ("Search existing" / "Apply new"), both showing "No support for event tags yet. Check back later." No event-tag creation/signing/publishing. *(Done — review PASS 2026-06-26 on the note-tagging branch; ADR 0039, renumbered from 0035 at the 2026-07-12 merge)*
+- #2 — `2-apply-attestation` — **The write path, narrowly:** wire "Search existing" to a real apply — the four supported tags (`EVENT_TAGS`), member-signed (NIP-07 or local signer), one kind-39999 assertion published to the tagging relay per guide §2/§4. Assertion-only (**never mints** elements/headers); applied-state marking with idempotent re-apply; optimistic pill + toast; "Apply new" stays placeholder. Disputes, revocation, and authoring are future stories. Supersedes #1's "nothing is ever published" test pin for Search existing only. *(Draft — 2026-07-12)*
+
+**Execution order:** #1 (done) → **#2**.
+
+## Open questions — status sync (2026-07-12)
+Both epic-level questions below are now **resolved by shipped work**: the event format is normative
+(`tapestry/protocols/drafts/event-taggings.md`, consumed via the vendored SDK — see guide §2/§3 and
+ADRs 0036/0037), and the applicable tags + channel map are the four-tag `EVENT_TAGS` config
+(community-feed #9), with the general map owned by the `curation-policy` epic.
 
 ## Relationship to community-feed
 - `community-feed` = **read/display** notes (and *consume* event-tags later as a feed/channel signal).
