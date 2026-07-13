@@ -31,11 +31,11 @@ function eventId() { return (++seq).toString(16).padStart(64, '0'); }
 
 // Per-tag tagging header: d = tagging:<slug>-tagging, a → tag element, z → the
 // tagging-with-specific-tag concept under `ta` (honored only when ta === the runtime TA).
-function mkHeader({ author = TAG_AUTHOR, slug = TAG.slug, tagAuthor = TAG_AUTHOR, ta = TA, createdAt = 1_750_000_000 } = {}) {
+function mkHeader({ author = TAG_AUTHOR, slug = TAG.slug, tagAuthor = TAG_AUTHOR, ta = TA, createdAt = 1_750_000_000, dTag } = {}) {
   return {
     id: eventId(), kind: 39999, pubkey: author, created_at: createdAt, content: '',
     tags: [
-      ['d', `tagging:${slug}-tagging`],
+      ['d', dTag !== undefined ? dTag : `tagging:${slug}-tagging`], // dTag: nonconforming-header tests (ADR 0040 D1)
       ['a', tagCoord(tagAuthor, slug)],
       ['z', `39998:${ta}:tagging-with-specific-tag`],
     ],

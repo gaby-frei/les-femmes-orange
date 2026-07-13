@@ -262,8 +262,9 @@ test('candidates carry taggedWith from the live tag-element (UI amendment)', asy
   const { args } = deps([...events, mkTagElement()]);
   const out = await fetchTaggedCandidates(args);
   assert.equal(out.candidates.length, 1);
-  assert.deepEqual(out.candidates[0].taggedWith, [{ name: TAG_NAME, description: TAG_DESC }],
-    'name + description come from the tag-element content JSON');
+  assert.deepEqual(out.candidates[0].taggedWith,
+    [{ slug: 'lfo-community', name: TAG_NAME, description: TAG_DESC, appliers: [MEMBER_1] }],
+    'entry carries slug + name/description from the element + this note\'s appliers (ADR 0040)');
 });
 
 test('tag-element missing → taggedWith falls back to the slug with empty description, sourcing unaffected', async () => {
@@ -272,8 +273,9 @@ test('tag-element missing → taggedWith falls back to the slug with empty descr
   const out = await fetchTaggedCandidates(args);
   assert.equal(out.candidates.length, 1, 'metadata failure never drops the note');
   assert.equal(out.relayOk, true, 'metadata is not pipeline-critical');
-  assert.deepEqual(out.candidates[0].taggedWith, [{ name: 'lfo-community', description: '' }],
-    'fallback is the slug as name, no description');
+  assert.deepEqual(out.candidates[0].taggedWith,
+    [{ slug: 'lfo-community', name: 'lfo-community', description: '', appliers: [MEMBER_1] }],
+    'fallback is the slug as name, no description; appliers still carried');
 });
 
 test('tag-element with unparseable content → same slug fallback, no throw', async () => {
@@ -282,7 +284,8 @@ test('tag-element with unparseable content → same slug fallback, no throw', as
   const { args } = deps([...events, broken]);
   const out = await fetchTaggedCandidates(args);
   assert.equal(out.candidates.length, 1);
-  assert.deepEqual(out.candidates[0].taggedWith, [{ name: 'lfo-community', description: '' }]);
+  assert.deepEqual(out.candidates[0].taggedWith,
+    [{ slug: 'lfo-community', name: 'lfo-community', description: '', appliers: [MEMBER_1] }]);
 });
 
 test('two tag-element versions → the latest created_at wins', async () => {

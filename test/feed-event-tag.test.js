@@ -142,6 +142,27 @@ test('a Provider-2 note carries taggedWith in the payload; a Provider-1-only not
     'a hashtag-only note carries no taggedWith (absent or empty)');
 });
 
+// ── note-tagging #2 (ADR 0040): the write-arming config reaches the payload ──
+
+test('writeConfig from the provider surfaces as the additive top-level `tagging` field (ADR 0040)', async () => {
+  const writeConfig = {
+    taPubkey: 'ad'.repeat(32),
+    tags: [{ authorPubkey: '6d'.repeat(32), slug: 'lfo-community', name: 'LFO Community', description: 'd', headerAuthorPubkey: '6d'.repeat(32), headerCoord: `39999:${'6d'.repeat(32)}:tagging:lfo-community-tagging` }],
+  };
+  const out = await buildFeedPayload(deps({
+    fetchTaggedCandidates: async () => ({ candidates: [], relayOk: true, writeConfig }),
+  }));
+  assert.deepEqual(out.tagging, writeConfig, 'the modal arming data rides the payload');
+});
+
+test('no writeConfig (Provider-2 degradation) → no `tagging` field; the payload contract is otherwise intact', async () => {
+  const out = await buildFeedPayload(deps({
+    fetchTaggedCandidates: async () => ({ candidates: [], relayOk: false }),
+  }));
+  assert.ok(!('tagging' in out) || out.tagging == null, 'absent when the provider could not arm');
+  for (const k of ['memberCount', 'notes', 'memberNames', 'channelsAvailable']) assert.ok(k in out);
+});
+
 // ── Story 10 (ADR 0038): per-note taggers reach the payload ──
 
 test('a Provider-2 note carries its applier pubkeys in the payload; a Provider-1-only note carries none (Story 10)', async () => {

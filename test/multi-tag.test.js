@@ -116,8 +116,10 @@ test('per-tag metadata fallback: a missing bitcoin element degrades only bitcoin
   const out = await fetchTaggedCandidates(args);
   const btc = out.candidates.find((c) => c.event.id === 'nb2');
   const nos = out.candidates.find((c) => c.event.id === 'nn2');
-  assert.deepEqual(btc.taggedWith, [{ name: 'bitcoin', description: '' }], 'slug fallback, per tag');
-  assert.deepEqual(nos.taggedWith, [{ name: 'Nostr', description: 'Nostr content for LFO.' }],
+  assert.deepEqual(btc.taggedWith,
+    [{ slug: 'bitcoin', name: 'bitcoin', description: '', appliers: [MEMBER_1] }], 'slug fallback, per tag');
+  assert.deepEqual(nos.taggedWith,
+    [{ slug: 'nostr', name: 'Nostr', description: 'Nostr content for LFO.', appliers: [MEMBER_1] }],
     'the healthy tag keeps its real metadata');
 });
 

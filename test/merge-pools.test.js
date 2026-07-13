@@ -55,6 +55,20 @@ test('empty pools merge to an empty list', () => {
   assert.deepEqual(mergeCandidatePools([[], []], { displayLimit: 100 }), []);
 });
 
+test('taggedWith entries keyed by slug union their appliers on dedupe (note-tagging #2, ADR 0040)', () => {
+  const alice = '11'.repeat(32), bob = '22'.repeat(32);
+  const entryA = { slug: 'bitcoin', name: 'Bitcoin', description: 'd', appliers: [alice] };
+  const entryB = { slug: 'bitcoin', name: 'Bitcoin', description: 'd', appliers: [bob, alice] };
+  const out = mergeCandidatePools([
+    [{ ...cand('x', 500, ['bitcoin']), taggedWith: [entryA] }],
+    [{ ...cand('x', 500, ['bitcoin']), taggedWith: [entryB] }],
+  ], {});
+  assert.equal(out.length, 1);
+  assert.equal(out[0].taggedWith.length, 1, 'same slug → one entry');
+  assert.deepEqual([...out[0].taggedWith[0].appliers].sort(), [alice, bob].sort(),
+    'appliers union by pubkey across pools');
+});
+
 test('dedupe unions taggers by pubkey — cross-tag appliers combine on one note (Story 10)', () => {
   const alice = '11'.repeat(32), bob = '22'.repeat(32);
   const viaBitcoin = { ...cand('x', 500, ['bitcoin']), taggers: [alice] };

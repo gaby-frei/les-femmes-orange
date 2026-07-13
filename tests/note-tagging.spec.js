@@ -99,14 +99,16 @@ test.describe('Note tagging — demo UI (Story 1)', () => {
     await expect(tab(page, 'search'), 'the other tab deactivates').toHaveAttribute('aria-selected', 'false');
   });
 
-  // AC-5
-  test('both views show the "no support yet" message', async ({ page }) => {
+  // AC-5 — NARROWED by note-tagging Story 2 (2026-07-13): Search existing became functional
+  // (see tests/apply-attestation.spec.js). This spec's stub sends no `tagging` arming data, so
+  // Search existing shows the unavailable state; Apply new keeps a placeholder with updated copy.
+  test('without arming data Search existing is unavailable; Apply new keeps its placeholder', async ({ page }) => {
     await openFeedWith(page, [NOTE('a'.repeat(64), A)]);
     await tagBtn(page).click();
     const message = page.locator('#tag-modal-message');
-    await expect(message, 'message shown under the default (Search existing) view').toHaveText(MSG);
+    await expect(message, 'unarmed Search existing degrades honestly').toContainText(/unavailable/i);
     await tab(page, 'apply').click();
-    await expect(message, 'same message under the Apply new view').toHaveText(MSG);
+    await expect(message, 'Apply new: authoring is still unsupported').toContainText(/authoring new tags isn.t supported yet/i);
   });
 
   // AC-6
