@@ -1,6 +1,6 @@
 # Story 2: Apply a tagging attestation — "Search existing" over the four supported tags
 
-**Status:** Draft
+**Status:** Done — review PASS 2026-07-13
 **Created:** 2026-07-12
 **Type:** Feature
 **Epic:** `note-tagging` · **Book:** `note-tagging`
@@ -178,7 +178,7 @@ None blocking — UX decisions taken 2026-07-12 (optimistic pill + toast; applie
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0040-apply-attestation.md` (Accepted 2026-07-13)
 - Test plan: `engineering-team/stories/note-tagging/2-apply-attestation.test-plan.md` (2026-07-13)
-- Review: (after Review)
+- Review: `engineering-team/reviews/note-tagging/2-apply-attestation.md` (PASS 2026-07-13)
 - note-tagging #1 (`1-note-tag-demo.md`, ADR 0039) — the UI shell this story wires
 - Integration guide (external): `lfo-tagging-integration-guide.md` §0–§5, §9
 - community-feed ADRs 0036–0038 — the read side these writes will surface through
