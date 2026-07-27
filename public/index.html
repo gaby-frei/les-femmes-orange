@@ -1041,7 +1041,18 @@
 
     .solution-tagline em { color: var(--orange-dark); font-size: 1rem; }
 
-    .solution-item { display: flex; gap: 0.8rem; margin-bottom: 1.15rem; }
+    .solution-item {
+      display: flex; gap: 0.8rem; margin-bottom: 0.95rem;
+      background: var(--white); border: 1px solid var(--grey-mid);
+      border-radius: 12px; padding: 1.1rem 1.3rem;
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    }
+
+    .solution-item:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 24px rgba(224,116,58,0.12);
+      border-color: var(--orange);
+    }
 
     .solution-mark {
       flex-shrink: 0; font-size: 0.95rem; font-weight: 700; line-height: 1.75;
@@ -1622,7 +1633,7 @@
         <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Data ownership:</strong> Data is never locked in a single company&rsquo;s database. On <em><u>Nostr</u></em>, every post, comment, and reaction is broadcast across many <em><u>relays</u></em> and <em><u>signed</u></em> by its issuer, making the whole feed easily reconstructable. The community can move freely across servers, outlasting outages and shutdowns without losing a shred of its history.</p></div>
         <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Active spam prevention:</strong> Vouch-based membership and <em><u>trust thresholds</u></em> lock out most bad actors. Anyone who manages to slip through lands on the fringes of the community&rsquo;s <em><u>social graph</u></em> and is therefore unlikely to surface in feeds. When spam does surface, community members are empowered with <em><u>disputes</u></em>. Disputes let the community collectively down-rank and remove bad actors without ever relying on the judgment of centralized platforms.</p></div>
         <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Privacy:</strong> Communities like LFO retain the option to broadcast sensitive content to <em><u>permissioned servers</u></em> shielded from public view. Future E2E encrypted messaging groups will provide unparalleled decentralized privacy.</p></div>
-        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Ecosystem Interoperability:</strong> Every post authored in the LFO Hub exists within the <em><u>Nostr ecosystem</u></em>. This means that publicly broadcast posts are accessible across hundreds of other apps &ndash; no double-posting required: A post issued in the LFO Hub reaches both the LFO community and the poster&rsquo;s broader following. <em>Eventually, the LFO Hub will reach beyond Nostr to consolidate member-authored posts across X, LinkedIn, Facebook, and others, becoming the go-to destination for scattered communities.</em></p></div>
+        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Ecosystem Interoperability:</strong> Every post authored in the LFO Hub exists within the <em><u>Nostr ecosystem</u></em>. This means that publicly broadcast posts are accessible across hundreds of other apps &ndash; no double-posting required: A post issued in the LFO Hub reaches both the LFO community and the poster&rsquo;s broader following. Eventually, the LFO Hub will reach beyond Nostr to consolidate member-authored posts across X, LinkedIn, Facebook, and others, becoming the go-to destination for scattered communities.</p></div>
         <p>Enabled by the above features, the LFO Hub mirrors how communities thrive in the physical world &ndash; not as restricted databases, but as living social webs.</p>
       </section>
 

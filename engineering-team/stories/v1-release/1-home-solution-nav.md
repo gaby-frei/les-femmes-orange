@@ -59,6 +59,13 @@ membership, relay, or API surface changes.
     *Nostr ecosystem*; underline-only *Web of Trust*; italic-only *millions*, *how*, the closing
     sovereign-infrastructure tagline).
   - Sections are separated logically; the page adheres to LFO Hub's existing color scheme/styling.
+  - **Post-PASS UI iterations (PO-directed, 2026-07-27):** orange gradient background + orange
+    section headers w/ underline bars (glow motifs and h3 left-bars tried and removed); each ✗/✔
+    item wrapped in a hoverable card (white, 12px radius; orange border + warm shadow lift on
+    hover, pillar-card idiom). **Copy amendment:** the italics on the closing "Eventually, the LFO
+    Hub will reach beyond Nostr…" sentence (Ecosystem Interoperability) were removed at PO
+    direction — a deliberate PO override of the PDF's formatting, superseding fidelity for that
+    sentence only.
 - **O2 — tab order: RESOLVED (2026-07-27).** PO overrode the default: **"Solution" is the LAST tab
   on the left** — order is **Home | Members | Feed | Solution** (relative order of the existing
   tabs unchanged; Members/Feed still reveal only on sign-in, so a signed-out visitor sees
