@@ -30,8 +30,15 @@ orientation video where they land after sign-in. And "Home" describes the landin
   Vercel Blob/Blossom vs unlisted YouTube/Vimeo embed) — the PO decides after #1 completes. *(Not
   started)*
 
-**Execution order:** #1 → #2. Harness-light per the book's decided constraints: no Architecture
-phase unless #2's serving decision warrants a mini-ADR.
+**Execution order:** #1 (+ pending amendment) → #2. Harness-light per the book's decided
+constraints: no Architecture phase unless #2's serving decision warrants a mini-ADR.
+
+> **⛔ GATE (PO, 2026-07-27): #2 must NOT start until the #1 hover-definitions amendment ships.**
+> The PO is authoring 1–2 sentence definitions for 10–15 terms in the Solution copy, delivered as
+> an uploaded document; each term maps 1:1 to a word rendered *italic + underlined*. The UI shows
+> the definition on hover of that specific term. Design note for when the doc arrives: three
+> italic+underlined terms are ALSO links (Nostr, Nostr ecosystem, Web of Trust) — hover-definition
+> and click-through must coexist there.
 
 ## Open questions (epic-level)
 - **Video serving (#2):** repo static asset (rejected by default — permanent repo bloat, poor
