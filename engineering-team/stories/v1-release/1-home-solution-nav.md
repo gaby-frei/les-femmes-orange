@@ -1,7 +1,8 @@
 # Story 1: "Home" rename + public "Solution" page
 
-**Status:** Draft
+**Status:** Approved
 **Created:** 2026-07-27
+**Approved:** 2026-07-27 (PO, with copy delivery + two determinations — see Open questions)
 **Type:** Feature
 
 ## Background
@@ -46,10 +47,22 @@ membership, relay, or API surface changes.
 - SEO/routing work (the app is a single-page shell; no URL-per-view routing exists today and none is added).
 
 ## Open questions
-- **O1 — the copy itself:** PO to deliver the prewritten Solution copy (any format). *Blocks
-  implementation, not test design — gating/nav tests don't depend on wording.*
-- **O2 — tab order:** default assumption is **Home | Solution | Members | Feed** (Solution directly
-  after Home). PO may override at the approval gate.
+- **O1 — the copy itself: RESOLVED (2026-07-27).** PO delivered the copy as a PDF
+  (`~/Downloads/Solution Copy (4).pdf`, 7 pp). Structure is normative:
+  - Four top-level headers (largest font): **What is this app?**, **Online Communities Today are
+    Broken**, **How the LFO Hub Fixes a Broken Model**, **Enabling Technologies** — the last with
+    subheadings **Nostr Protocol** and **Tapestry Graph**.
+  - Section 2 is a seven-item ✗ list, section 3 an eight-item ✔ list; each item opens with a
+    **bold label**.
+  - **Formatting fidelity is an acceptance requirement:** every underline, italic, and bold in the
+    PDF must survive into the HTML (e.g. the underlined-italic terms *vouch*, *trust scores*,
+    *Nostr ecosystem*; underline-only *Web of Trust*; italic-only *millions*, *how*, the closing
+    sovereign-infrastructure tagline).
+  - Sections are separated logically; the page adheres to LFO Hub's existing color scheme/styling.
+- **O2 — tab order: RESOLVED (2026-07-27).** PO overrode the default: **"Solution" is the LAST tab
+  on the left** — order is **Home | Members | Feed | Solution** (relative order of the existing
+  tabs unchanged; Members/Feed still reveal only on sign-in, so a signed-out visitor sees
+  **Home | Solution**).
 
 ## Linked artifacts
 - ADR: *none — Architecture phase skipped by PO agreement (book's decided constraints)*
