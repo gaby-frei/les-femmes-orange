@@ -999,23 +999,47 @@
 
     /* ── SOLUTION PAGE (v1-release #1) ───────────────────── */
     /* Public explainer. Copy is PO-authored verbatim; underline/italic/bold
-       from the source doc are preserved as real <u>/<em>/<strong> markup. */
+       from the source doc are preserved as real <u>/<em>/<strong> markup.
+       UI iteration (PO 2026-07-27): orange-themed background + headers. */
 
-    .solution-page { max-width: 780px; margin: 0 auto; padding: 3.5rem 2rem 5rem; }
+    #page-solution {
+      background: linear-gradient(180deg, #fdf0e5 0%, #fef8f3 45%, var(--white) 100%);
+      position: relative; overflow: hidden;
+    }
+
+    /* soft orange glows, echoing the members-welcome motif */
+    #page-solution::before, #page-solution::after {
+      content: ''; position: absolute; border-radius: 50%;
+      background: var(--orange); pointer-events: none;
+    }
+    #page-solution::before { top: -110px; right: -110px; width: 380px; height: 380px; opacity: 0.10; }
+    #page-solution::after  { top: 480px; left: -140px; width: 320px; height: 320px; opacity: 0.06; }
+
+    .solution-page {
+      max-width: 780px; margin: 0 auto; padding: 3.5rem 2rem 5rem;
+      position: relative; z-index: 1;
+    }
 
     .solution-section + .solution-section {
-      border-top: 1px solid var(--grey-mid);
+      border-top: 1px solid #f6d9c3;
       margin-top: 3.25rem; padding-top: 3rem;
     }
 
     .solution-section h2 {
       font-size: clamp(1.5rem, 2.6vw, 1.9rem); font-weight: 800;
-      color: var(--dark); letter-spacing: -0.02em; margin-bottom: 1.4rem;
+      color: var(--orange-dark); letter-spacing: -0.02em; margin-bottom: 1.4rem;
+    }
+
+    /* short orange bar anchoring each section header */
+    .solution-section h2::after {
+      content: ''; display: block; width: 46px; height: 4px;
+      border-radius: 2px; background: var(--orange); margin-top: 0.6rem;
     }
 
     .solution-section h3 {
       font-size: 1.15rem; font-weight: 700; color: var(--dark);
       letter-spacing: -0.01em; margin: 2.2rem 0 1rem;
+      padding-left: 0.7rem; border-left: 3px solid var(--orange);
     }
 
     .solution-section h3:first-of-type { margin-top: 0; }
