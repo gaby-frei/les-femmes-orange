@@ -27,7 +27,8 @@
 ## Deviations & notes
 1. **One verbatim deviation, flagged per the story's out-of-scope rule (typos are flagged, not
    silently fixed):** the PDF runs two sentences together — "…easily reconstructable.The community
-   can move…" (Data ownership item). The page renders it with a space. **PO to ratify or revert.**
+   can move…" (Data ownership item). The page renders it with a space. **Ratified by PO
+   2026-07-27** — the corrected rendering stands.
 2. **Out-of-story tooling fix (own commit `8dab6d5`):** during test execution a *foreign* dev
    server (another project's Next.js, port 3000) was silently reused by Playwright's
    `reuseExistingServer`, running the whole spec against the wrong app. `server.js` and
