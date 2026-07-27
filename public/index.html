@@ -997,8 +997,53 @@
 
     /* ── RESPONSIVE ───────────────────────────────────────── */
 
+    /* ── SOLUTION PAGE (v1-release #1) ───────────────────── */
+    /* Public explainer. Copy is PO-authored verbatim; underline/italic/bold
+       from the source doc are preserved as real <u>/<em>/<strong> markup. */
+
+    .solution-page { max-width: 780px; margin: 0 auto; padding: 3.5rem 2rem 5rem; }
+
+    .solution-section + .solution-section {
+      border-top: 1px solid var(--grey-mid);
+      margin-top: 3.25rem; padding-top: 3rem;
+    }
+
+    .solution-section h2 {
+      font-size: clamp(1.5rem, 2.6vw, 1.9rem); font-weight: 800;
+      color: var(--dark); letter-spacing: -0.02em; margin-bottom: 1.4rem;
+    }
+
+    .solution-section h3 {
+      font-size: 1.15rem; font-weight: 700; color: var(--dark);
+      letter-spacing: -0.01em; margin: 2.2rem 0 1rem;
+    }
+
+    .solution-section h3:first-of-type { margin-top: 0; }
+
+    .solution-section p {
+      font-size: 0.95rem; line-height: 1.75; color: #3a3a3a; margin-bottom: 1rem;
+    }
+
+    .solution-section p:last-child { margin-bottom: 0; }
+
+    .solution-section strong { color: var(--dark); }
+
+    .solution-tagline em { color: var(--orange-dark); font-size: 1rem; }
+
+    .solution-item { display: flex; gap: 0.8rem; margin-bottom: 1.15rem; }
+
+    .solution-mark {
+      flex-shrink: 0; font-size: 0.95rem; font-weight: 700; line-height: 1.75;
+    }
+
+    .solution-item-x .solution-mark { color: #dc2626; }
+    .solution-item-check .solution-mark { color: var(--green); }
+
+    .solution-item p { margin-bottom: 0; }
+
     @media (max-width: 600px) {
       nav { padding: 0 1.25rem; }
+      .solution-page { padding: 2.25rem 1.25rem 4rem; }
       .nav-link-btn { padding: 0.4rem 0.5rem; font-size: 0.82rem; }
       .hero { padding: 5rem 1.5rem 4rem; }
       .members-grid { grid-template-columns: 1fr; }
@@ -1024,6 +1069,7 @@
       <li><button class="nav-link-btn active" id="nav-about-btn" onclick="showView('about')">Home</button></li>
       <li id="nav-members-li" style="display:none"><button class="nav-link-btn" id="nav-members-btn" onclick="showView('members')">Members</button></li>
       <li id="nav-feed-li" style="display:none"><button class="nav-link-btn" id="nav-feed-btn" onclick="showView('feed')">Feed</button></li>
+      <li><button class="nav-link-btn" id="nav-solution-btn" onclick="showView('solution')">Solution</button></li>
     </ul>
 
     <button id="nav-signin-btn" class="btn btn-primary" onclick="scrollToJoin()">Sign In</button>
@@ -1524,6 +1570,74 @@
     </div>
   </div><!-- /page-feed -->
 
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- PAGE: SOLUTION (v1-release #1)                          -->
+  <!-- Public — no sign-in required. Copy is PO-authored       -->
+  <!-- verbatim (Solution Copy PDF, 2026-07-27); source        -->
+  <!-- underline/italic/bold preserved as <u>/<em>/<strong>.   -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="page-solution" class="page hidden">
+    <div class="solution-page">
+
+      <section class="solution-section">
+        <h2>What is this app?</h2>
+        <p>This app is an all-in-one hub for the Les Femmes Orange (LFO) community, a global network of over 2,000 Bitcoin and freedom advocates.</p>
+        <p>The <strong>LFO Hub</strong> is a pioneering solution that enables truly <strong>decentralized</strong> member management, governance, and feed curation.</p>
+        <p>Using the LFO Hub, members retain complete <strong>ownership</strong> and <strong>control</strong> over their communications and roster.</p>
+        <p class="solution-tagline"><em>This is sovereign infrastructure built for sovereign communities.</em></p>
+      </section>
+
+      <section class="solution-section">
+        <h2>Online Communities Today are Broken</h2>
+        <p>Most online communities today are cornered into using centralized platforms like X, Instagram, Reddit, and Facebook. This design is both an operational nightmare and a glass ceiling that limits the growth and effectiveness of large organizations. The following limitations define the state of <em>nearly every digital community today</em>:</p>
+        <div class="solution-item solution-item-x"><span class="solution-mark">✗</span><p><strong>Member management:</strong> Multi-thousand-member communities are managed by hand, with a few centralized admins controlling the roster. Join requests are approved or denied based on best guesses rather than verifiable trust metrics.</p></div>
+        <div class="solution-item solution-item-x"><span class="solution-mark">✗</span><p><strong>Community governance:</strong> Average members have little to no influence over community roles or governance. Moderation decisions are dictated top-down by platform-designated moderators.</p></div>
+        <div class="solution-item solution-item-x"><span class="solution-mark">✗</span><p><strong>Community lifecycle:</strong> Community lifespans are tied to founding members. When initial caretakers go quiet, communities lack the necessary permissions and role infrastructure to evolve. Rules are brittle, nonconfigurable, and unable to be branched.</p></div>
+        <div class="solution-item solution-item-x"><span class="solution-mark">✗</span><p><strong>Feed curation:</strong> Community feeds are powered by black-box algorithms optimized for clicks, not connection. Human signals are ignored in favor of maximizing ad revenue.</p></div>
+        <div class="solution-item solution-item-x"><span class="solution-mark">✗</span><p><strong>User experience:</strong> Platform providers use one-size-fits-all algorithms, resulting in an overly generic user experience. Community feeds fail to reflect the individual&rsquo;s point of view, ignoring which community participants the individual trusts and to what degree.</p></div>
+        <div class="solution-item solution-item-x"><span class="solution-mark">✗</span><p><strong>Data dependency:</strong> Communities are locked inside proprietary platforms, and users are prevented from owning their data. Years of knowledge, conversation, and membership history often live in one company&rsquo;s database, subject to external vulnerabilities and terms-of-service changes.</p></div>
+        <div class="solution-item solution-item-x"><span class="solution-mark">✗</span><p><strong>Spam:</strong> A single bot or bad actor that bypasses safeguards can flood communities with spam and solicitations. Centralized approaches to spam control are retroactive and dependent on top-down removals.</p></div>
+        <p>This reality continues to have far-reaching consequences for communities everywhere. In the age of mass moderation and legislative crackdowns, rich communities with <em>millions</em> of members can be seized and killed overnight: mass Facebook Group suspensions, X crypto account purges, and Reddit community moderator removals.</p>
+        <p>The conclusion is clear: modern communities are not safe on legacy platforms.</p>
+      </section>
+
+      <section class="solution-section">
+        <h2>How the LFO Hub Fixes a Broken Model</h2>
+        <p>The LFO Hub addresses each of the above shortcomings by transforming the traditional platform design. The LFO Hub promotes natural and organic growth by placing users at the center of the model, enabling the following features:</p>
+        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Permissionless organizing:</strong> No administrator controls the roster. Members <em><u>vouch</u></em> for one another through signed attestations, and the community itself defines the rules for joining: how many vouchers a newcomer needs and how much <em><u>collective trust</u></em> those vouchers must carry. Membership is computed from these signals rather than by hand. Therefore, the community can continue to grow, even if its founders go quiet.</p></div>
+        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Decentralized governance:</strong> Communities are free to split when disagreements occur and to form specialized sub-communities in distinct niches. Anyone may declare a new community with its own charter, roles, and vouching requirements. Membership in a community is opt-in, allowing people to gather naturally around preferred rules and leaders.</p></div>
+        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Human-driven curation:</strong> Community feeds are shaped by people, not black-box algorithms. Any member can apply <em><u>topic tags</u></em> to endorse content. Since every endorsement is <em><u>cryptographically signed</u></em>, a user can opt into curation powered by trusted connections rather than platform providers.</p></div>
+        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Individually customized algorithms:</strong> <em><u>Trust scores</u></em> are calculated for every member in the community from each individual user&rsquo;s <em><u>point of view</u></em> (see <u>Web of Trust</u>). Every user retains control over <em>how</em> these trust scores factor into their individual <em><u>curation algorithm</u></em>: who is filtered out, who surfaces first, and in what particular order. The result is a feed that feels less like a bulletin board and more like your corner of the community.</p></div>
+        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Data ownership:</strong> Data is never locked in a single company&rsquo;s database. On <em><u>Nostr</u></em>, every post, comment, and reaction is broadcast across many <em><u>relays</u></em> and <em><u>signed</u></em> by its issuer, making the whole feed easily reconstructable. The community can move freely across servers, outlasting outages and shutdowns without losing a shred of its history.</p></div>
+        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Active spam prevention:</strong> Vouch-based membership and <em><u>trust thresholds</u></em> lock out most bad actors. Anyone who manages to slip through lands on the fringes of the community&rsquo;s <em><u>social graph</u></em> and is therefore unlikely to surface in feeds. When spam does surface, community members are empowered with <em><u>disputes</u></em>. Disputes let the community collectively down-rank and remove bad actors without ever relying on the judgment of centralized platforms.</p></div>
+        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Privacy:</strong> Communities like LFO retain the option to broadcast sensitive content to <em><u>permissioned servers</u></em> shielded from public view. Future E2E encrypted messaging groups will provide unparalleled decentralized privacy.</p></div>
+        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Ecosystem Interoperability:</strong> Every post authored in the LFO Hub exists within the <em><u>Nostr ecosystem</u></em>. This means that publicly broadcast posts are accessible across hundreds of other apps &ndash; no double-posting required: A post issued in the LFO Hub reaches both the LFO community and the poster&rsquo;s broader following. <em>Eventually, the LFO Hub will reach beyond Nostr to consolidate member-authored posts across X, LinkedIn, Facebook, and others, becoming the go-to destination for scattered communities.</em></p></div>
+        <p>Enabled by the above features, the LFO Hub mirrors how communities thrive in the physical world &ndash; not as restricted databases, but as living social webs.</p>
+      </section>
+
+      <section class="solution-section">
+        <h2>Enabling Technologies</h2>
+        <h3>Nostr Protocol</h3>
+        <p><u>Nostr</u> is an open-source <em>protocol</em> for censorship-resistant communication.</p>
+        <p>A <em>protocol</em> is a set of specifications (rules) that define <em>how</em> information is exchanged between participant apps.</p>
+        <p>Unlike legacy media, apps built on the Nostr &ldquo;rulebook&rdquo; do NOT rely on centralized company servers.</p>
+        <p>Rather, they store data across a network of independent mini-servers (relays).</p>
+        <p>Since all Nostr apps read from the same collection of relays, users can switch between apps while maintaining the <em>same identity and following.</em></p>
+        <p>Users also retain complete <em>ownership of their data</em>. Any user may host their own relay (i.e. a server for their data) and decide exactly where their data is stored.</p>
+        <p>This means that no platform can delete your account, seize your following, or erase your history.</p>
+        <h3>Tapestry Graph</h3>
+        <p>Tapestry Graph technology is the core engine behind the LFO Hub.</p>
+        <p>The <u>Tapestry Graph Protocol</u> defines key community concepts &mdash; such as tags, disputes, and vouches &mdash; and constructs the community graph from these signals.</p>
+        <p>Every member is a node in the community graph, connected to other members via edges.</p>
+        <p>These edges represent relationships <em>between</em> members.</p>
+        <p>The true power of this graph is realized when used in conjunction with <u>Web of Trust</u> algorithms.</p>
+        <p>Web of Trust algorithms traverse the LFO community graph, allowing any member&rsquo;s trustworthiness to be computed from the <em>perspective</em> of any other member in the community.</p>
+        <p>The result of these trust metrics is a user experience reflective of each individual&rsquo;s evolving network, entirely personalized and dynamic.</p>
+      </section>
+
+    </div>
+  </div><!-- /page-solution -->
+
   <!-- FOOTER -->
   <footer>
     <div class="footer-inner">
@@ -1704,18 +1818,22 @@
 
     // ── View switching ──────────────────────────────────────────────────────
     function showView(name) {
-      const aboutPage   = document.getElementById('page-about');
-      const membersPage = document.getElementById('page-members');
-      const feedPage    = document.getElementById('page-feed');
+      const aboutPage    = document.getElementById('page-about');
+      const membersPage  = document.getElementById('page-members');
+      const feedPage     = document.getElementById('page-feed');
+      const solutionPage = document.getElementById('page-solution');
 
       document.getElementById('nav-about-btn').classList.toggle('active', name === 'about');
       document.getElementById('nav-members-btn').classList.toggle('active', name === 'members');
       const feedBtn = document.getElementById('nav-feed-btn');
       if (feedBtn) feedBtn.classList.toggle('active', name === 'feed');
+      const solutionBtn = document.getElementById('nav-solution-btn');
+      if (solutionBtn) solutionBtn.classList.toggle('active', name === 'solution');
 
       aboutPage.classList.toggle('hidden', name !== 'about');
       membersPage.classList.toggle('hidden', name !== 'members');
       if (feedPage) feedPage.classList.toggle('hidden', name !== 'feed');
+      if (solutionPage) solutionPage.classList.toggle('hidden', name !== 'solution');
 
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
