@@ -1,6 +1,6 @@
 # Story 1: "Home" rename + public "Solution" page
 
-**Status:** Approved
+**Status:** Done (review PASS 2026-07-27)
 **Created:** 2026-07-27
 **Approved:** 2026-07-27 (PO, with copy delivery + two determinations — see Open questions)
 **Type:** Feature
@@ -66,5 +66,5 @@ membership, relay, or API surface changes.
 
 ## Linked artifacts
 - ADR: *none — Architecture phase skipped by PO agreement (book's decided constraints)*
-- Test plan: (filled in after Test Design phase)
-- Review: (filled in after Review phase)
+- Test plan: `engineering-team/stories/v1-release/1-home-solution-nav.test-plan.md`
+- Review: `engineering-team/reviews/v1-release/1-home-solution-nav.md` (PASS 2026-07-27)

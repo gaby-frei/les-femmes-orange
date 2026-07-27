@@ -20,7 +20,10 @@ orientation video where they land after sign-in. And "Home" describes the landin
 
 - #1 — `1-home-solution-nav` — Rename the "About" nav tab to **"Home"** (behavior unchanged) and add
   a new public **"Solution"** tab whose view formats the PO's prewritten copy (LFO Hub explainer:
-  pain points + enabling technologies). One story, two commits (one per change). *(In planning)*
+  pain points + enabling technologies). Tab order per PO override: Home | Members | Feed |
+  **Solution** (last). Copy rendered verbatim with underline/italic/bold fidelity; one flagged
+  deviation (a missing space in the source PDF, rendered corrected) awaits PO ratification.
+  *(Done — review PASS 2026-07-27)*
 - #2 — `2-member-guide-video` — **(QUEUED — awaiting PO serving decision)** Pre-recorded user-guide
   video on the Members page, between the Telegram banner and the verified-member cards; signed-in
   users only; renders immediately upon sign-in. Blocked on how the video is served (repo asset vs
