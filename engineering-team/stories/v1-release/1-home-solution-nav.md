@@ -66,6 +66,15 @@ membership, relay, or API surface changes.
     Hub will reach beyond Nostr…" sentence (Ecosystem Interoperability) were removed at PO
     direction — a deliberate PO override of the PDF's formatting, superseding fidelity for that
     sentence only.
+  - **Final touches (PO-directed, 2026-07-27):** in-page reference links (Nostr + Nostr ecosystem
+    → #nostr-protocol, "see Web of Trust" → #tapestry-graph; orange, emphasis preserved,
+    scroll-margin clears the sticky nav); external links ("Nostr" → nostr.org, "Brainstorm" →
+    brainstorm.nosfabrica.com/about; new tab + CSS-generated ↗); subheadings orange; all
+    headers/subheaders ×1.25. **Further PO copy amendments** (each superseding PDF fidelity):
+    Tapestry sentence rewritten by PO to "Engineered by Brainstorm, the Tapestry Graph Protocol
+    defines…" (underline moved off the protocol name, onto the linked "Brainstorm"); "Web of
+    Trust" in the algorithms sentence italicized; the "no platform can delete your account…"
+    sentence bolded.
 - **O2 — tab order: RESOLVED (2026-07-27).** PO overrode the default: **"Solution" is the LAST tab
   on the left** — order is **Home | Members | Feed | Solution** (relative order of the existing
   tabs unchanged; Members/Feed still reveal only on sign-in, so a signed-out visitor sees

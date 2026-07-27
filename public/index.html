@@ -1014,7 +1014,7 @@
     }
 
     .solution-section h2 {
-      font-size: clamp(1.5rem, 2.6vw, 1.9rem); font-weight: 800;
+      font-size: clamp(1.875rem, 3.25vw, 2.375rem); font-weight: 800;
       color: var(--orange-dark); letter-spacing: -0.02em; margin-bottom: 1.4rem;
     }
 
@@ -1025,11 +1025,23 @@
     }
 
     .solution-section h3 {
-      font-size: 1.15rem; font-weight: 700; color: var(--dark);
+      font-size: 1.4375rem; font-weight: 700; color: var(--orange-dark);
       letter-spacing: -0.01em; margin: 2.2rem 0 1rem;
     }
 
     .solution-section h3:first-of-type { margin-top: 0; }
+
+    /* in-page reference link (e.g. "see Web of Trust" → Tapestry Graph) */
+    .solution-anchor { color: var(--orange-dark); text-decoration: none; }
+    .solution-anchor:hover u { text-decoration-color: var(--orange-dark); }
+
+    /* external links get the ↗ convention (CSS-generated — copy stays verbatim) */
+    .solution-anchor[target="_blank"]::after {
+      content: '\2197'; /* ↗ */
+      font-size: 0.72em; vertical-align: super; margin-left: 0.12em;
+      text-decoration: none; display: inline-block;
+    }
+    #tapestry-graph, #nostr-protocol { scroll-margin-top: 80px; } /* clear the 64px sticky nav */
 
     .solution-section p {
       font-size: 0.95rem; line-height: 1.75; color: #3a3a3a; margin-bottom: 1rem;
@@ -1629,30 +1641,30 @@
         <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Permissionless organizing:</strong> No administrator controls the roster. Members <em><u>vouch</u></em> for one another through signed attestations, and the community itself defines the rules for joining: how many vouchers a newcomer needs and how much <em><u>collective trust</u></em> those vouchers must carry. Membership is computed from these signals rather than by hand. Therefore, the community can continue to grow, even if its founders go quiet.</p></div>
         <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Decentralized governance:</strong> Communities are free to split when disagreements occur and to form specialized sub-communities in distinct niches. Anyone may declare a new community with its own charter, roles, and vouching requirements. Membership in a community is opt-in, allowing people to gather naturally around preferred rules and leaders.</p></div>
         <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Human-driven curation:</strong> Community feeds are shaped by people, not black-box algorithms. Any member can apply <em><u>topic tags</u></em> to endorse content. Since every endorsement is <em><u>cryptographically signed</u></em>, a user can opt into curation powered by trusted connections rather than platform providers.</p></div>
-        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Individually customized algorithms:</strong> <em><u>Trust scores</u></em> are calculated for every member in the community from each individual user&rsquo;s <em><u>point of view</u></em> (see <u>Web of Trust</u>). Every user retains control over <em>how</em> these trust scores factor into their individual <em><u>curation algorithm</u></em>: who is filtered out, who surfaces first, and in what particular order. The result is a feed that feels less like a bulletin board and more like your corner of the community.</p></div>
-        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Data ownership:</strong> Data is never locked in a single company&rsquo;s database. On <em><u>Nostr</u></em>, every post, comment, and reaction is broadcast across many <em><u>relays</u></em> and <em><u>signed</u></em> by its issuer, making the whole feed easily reconstructable. The community can move freely across servers, outlasting outages and shutdowns without losing a shred of its history.</p></div>
+        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Individually customized algorithms:</strong> <em><u>Trust scores</u></em> are calculated for every member in the community from each individual user&rsquo;s <em><u>point of view</u></em> (see <a class="solution-anchor" href="#tapestry-graph"><u>Web of Trust</u></a>). Every user retains control over <em>how</em> these trust scores factor into their individual <em><u>curation algorithm</u></em>: who is filtered out, who surfaces first, and in what particular order. The result is a feed that feels less like a bulletin board and more like your corner of the community.</p></div>
+        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Data ownership:</strong> Data is never locked in a single company&rsquo;s database. On <a class="solution-anchor" href="#nostr-protocol"><em><u>Nostr</u></em></a>, every post, comment, and reaction is broadcast across many <em><u>relays</u></em> and <em><u>signed</u></em> by its issuer, making the whole feed easily reconstructable. The community can move freely across servers, outlasting outages and shutdowns without losing a shred of its history.</p></div>
         <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Active spam prevention:</strong> Vouch-based membership and <em><u>trust thresholds</u></em> lock out most bad actors. Anyone who manages to slip through lands on the fringes of the community&rsquo;s <em><u>social graph</u></em> and is therefore unlikely to surface in feeds. When spam does surface, community members are empowered with <em><u>disputes</u></em>. Disputes let the community collectively down-rank and remove bad actors without ever relying on the judgment of centralized platforms.</p></div>
         <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Privacy:</strong> Communities like LFO retain the option to broadcast sensitive content to <em><u>permissioned servers</u></em> shielded from public view. Future E2E encrypted messaging groups will provide unparalleled decentralized privacy.</p></div>
-        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Ecosystem Interoperability:</strong> Every post authored in the LFO Hub exists within the <em><u>Nostr ecosystem</u></em>. This means that publicly broadcast posts are accessible across hundreds of other apps &ndash; no double-posting required: A post issued in the LFO Hub reaches both the LFO community and the poster&rsquo;s broader following. Eventually, the LFO Hub will reach beyond Nostr to consolidate member-authored posts across X, LinkedIn, Facebook, and others, becoming the go-to destination for scattered communities.</p></div>
+        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Ecosystem Interoperability:</strong> Every post authored in the LFO Hub exists within the <a class="solution-anchor" href="#nostr-protocol"><em><u>Nostr ecosystem</u></em></a>. This means that publicly broadcast posts are accessible across hundreds of other apps &ndash; no double-posting required: A post issued in the LFO Hub reaches both the LFO community and the poster&rsquo;s broader following. Eventually, the LFO Hub will reach beyond Nostr to consolidate member-authored posts across X, LinkedIn, Facebook, and others, becoming the go-to destination for scattered communities.</p></div>
         <p>Enabled by the above features, the LFO Hub mirrors how communities thrive in the physical world &ndash; not as restricted databases, but as living social webs.</p>
       </section>
 
       <section class="solution-section">
         <h2>Enabling Technologies</h2>
-        <h3>Nostr Protocol</h3>
-        <p><u>Nostr</u> is an open-source <em>protocol</em> for censorship-resistant communication.</p>
+        <h3 id="nostr-protocol">Nostr Protocol</h3>
+        <p><a class="solution-anchor" href="https://nostr.org/" target="_blank" rel="noopener"><u>Nostr</u></a> is an open-source <em>protocol</em> for censorship-resistant communication.</p>
         <p>A <em>protocol</em> is a set of specifications (rules) that define <em>how</em> information is exchanged between participant apps.</p>
         <p>Unlike legacy media, apps built on the Nostr &ldquo;rulebook&rdquo; do NOT rely on centralized company servers.</p>
         <p>Rather, they store data across a network of independent mini-servers (relays).</p>
         <p>Since all Nostr apps read from the same collection of relays, users can switch between apps while maintaining the <em>same identity and following.</em></p>
         <p>Users also retain complete <em>ownership of their data</em>. Any user may host their own relay (i.e. a server for their data) and decide exactly where their data is stored.</p>
-        <p>This means that no platform can delete your account, seize your following, or erase your history.</p>
-        <h3>Tapestry Graph</h3>
+        <p><strong>This means that no platform can delete your account, seize your following, or erase your history.</strong></p>
+        <h3 id="tapestry-graph">Tapestry Graph</h3>
         <p>Tapestry Graph technology is the core engine behind the LFO Hub.</p>
-        <p>The <u>Tapestry Graph Protocol</u> defines key community concepts &mdash; such as tags, disputes, and vouches &mdash; and constructs the community graph from these signals.</p>
+        <p>Engineered by <a class="solution-anchor" href="https://brainstorm.nosfabrica.com/about" target="_blank" rel="noopener"><u>Brainstorm</u></a>, the Tapestry Graph Protocol defines key community concepts &mdash; such as tags, disputes, and vouches &mdash; and constructs the community graph from these signals.</p>
         <p>Every member is a node in the community graph, connected to other members via edges.</p>
         <p>These edges represent relationships <em>between</em> members.</p>
-        <p>The true power of this graph is realized when used in conjunction with <u>Web of Trust</u> algorithms.</p>
+        <p>The true power of this graph is realized when used in conjunction with <em><u>Web of Trust</u></em> algorithms.</p>
         <p>Web of Trust algorithms traverse the LFO community graph, allowing any member&rsquo;s trustworthiness to be computed from the <em>perspective</em> of any other member in the community.</p>
         <p>The result of these trust metrics is a user experience reflective of each individual&rsquo;s evolving network, entirely personalized and dynamic.</p>
       </section>
