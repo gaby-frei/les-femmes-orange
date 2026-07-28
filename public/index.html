@@ -1035,6 +1035,45 @@
     .solution-anchor { color: var(--orange-dark); text-decoration: none; }
     .solution-anchor:hover u { text-decoration-color: var(--orange-dark); }
 
+    /* defined terms (#1 hover-definitions amendment): italic+underlined glossary words.
+       Orange + light-orange highlight; definition tooltip on hover AND keyboard focus
+       (tabindex=0 in markup). Definition text lives in data-def — copy stays verbatim. */
+    .solution-term {
+      position: relative; cursor: help;
+      background: var(--orange-light); border-radius: 4px; padding: 0.05em 0.22em;
+    }
+
+    .solution-term em, .solution-term u { color: var(--orange-dark); }
+
+    /* PO direction (2026-07-28): defined terms drop the underline AND italics (chip +
+       orange already mark them); <u>/<em> markup stays as the copy-fidelity record. */
+    .solution-term u { text-decoration: none; }
+    .solution-term em { font-style: normal; }
+
+    .solution-term::after {
+      content: attr(data-def);
+      position: absolute; left: 50%; bottom: calc(100% + 9px); transform: translateX(-50%);
+      width: max-content; max-width: 280px;
+      background: var(--dark); color: var(--white);
+      font-size: 0.8rem; font-weight: 500; line-height: 1.55; text-align: left;
+      padding: 0.6rem 0.85rem; border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+      opacity: 0; pointer-events: none; transition: opacity 0.15s;
+      z-index: 20;
+    }
+
+    /* caret under the tooltip */
+    .solution-term::before {
+      content: ''; position: absolute; left: 50%; bottom: calc(100% + 3px);
+      transform: translateX(-50%);
+      border: 6px solid transparent; border-top-color: var(--dark); border-bottom: none;
+      opacity: 0; pointer-events: none; transition: opacity 0.15s;
+      z-index: 20;
+    }
+
+    .solution-term:hover::after, .solution-term:focus-visible::after,
+    .solution-term:hover::before, .solution-term:focus-visible::before { opacity: 1; }
+
     /* external links get the ↗ convention (CSS-generated — copy stays verbatim) */
     .solution-anchor[target="_blank"]::after {
       content: '\2197'; /* ↗ */
@@ -1638,14 +1677,14 @@
       <section class="solution-section">
         <h2>How the LFO Hub Fixes a Broken Model</h2>
         <p>The LFO Hub addresses each of the above shortcomings by transforming the traditional platform design. The LFO Hub promotes natural and organic growth by placing users at the center of the model, enabling the following features:</p>
-        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Permissionless organizing:</strong> No administrator controls the roster. Members <em><u>vouch</u></em> for one another through signed attestations, and the community itself defines the rules for joining: how many vouchers a newcomer needs and how much <em><u>collective trust</u></em> those vouchers must carry. Membership is computed from these signals rather than by hand. Therefore, the community can continue to grow, even if its founders go quiet.</p></div>
+        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Permissionless organizing:</strong> No administrator controls the roster. Members <span class="solution-term" tabindex="0" data-def="A public statement affirming that someone belongs in the community."><em><u>vouch</u></em></span> for one another through signed attestations, and the community itself defines the rules for joining: how many vouchers a newcomer needs and how much <span class="solution-term" tabindex="0" data-def="The aggregated trust scores of all members who have issued a vouch. Trust scores are calculated from the House Point of View."><em><u>collective trust</u></em></span> those vouchers must carry. Membership is computed from these signals rather than by hand. Therefore, the community can continue to grow, even if its founders go quiet.</p></div>
         <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Decentralized governance:</strong> Communities are free to split when disagreements occur and to form specialized sub-communities in distinct niches. Anyone may declare a new community with its own charter, roles, and vouching requirements. Membership in a community is opt-in, allowing people to gather naturally around preferred rules and leaders.</p></div>
-        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Human-driven curation:</strong> Community feeds are shaped by people, not black-box algorithms. Any member can apply <em><u>topic tags</u></em> to endorse content. Since every endorsement is <em><u>cryptographically signed</u></em>, a user can opt into curation powered by trusted connections rather than platform providers.</p></div>
-        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Individually customized algorithms:</strong> <em><u>Trust scores</u></em> are calculated for every member in the community from each individual user&rsquo;s <em><u>point of view</u></em> (see <a class="solution-anchor" href="#tapestry-graph"><u>Web of Trust</u></a>). Every user retains control over <em>how</em> these trust scores factor into their individual <em><u>curation algorithm</u></em>: who is filtered out, who surfaces first, and in what particular order. The result is a feed that feels less like a bulletin board and more like your corner of the community.</p></div>
-        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Data ownership:</strong> Data is never locked in a single company&rsquo;s database. On <a class="solution-anchor" href="#nostr-protocol"><em><u>Nostr</u></em></a>, every post, comment, and reaction is broadcast across many <em><u>relays</u></em> and <em><u>signed</u></em> by its issuer, making the whole feed easily reconstructable. The community can move freely across servers, outlasting outages and shutdowns without losing a shred of its history.</p></div>
-        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Active spam prevention:</strong> Vouch-based membership and <em><u>trust thresholds</u></em> lock out most bad actors. Anyone who manages to slip through lands on the fringes of the community&rsquo;s <em><u>social graph</u></em> and is therefore unlikely to surface in feeds. When spam does surface, community members are empowered with <em><u>disputes</u></em>. Disputes let the community collectively down-rank and remove bad actors without ever relying on the judgment of centralized platforms.</p></div>
-        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Privacy:</strong> Communities like LFO retain the option to broadcast sensitive content to <em><u>permissioned servers</u></em> shielded from public view. Future E2E encrypted messaging groups will provide unparalleled decentralized privacy.</p></div>
-        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Ecosystem Interoperability:</strong> Every post authored in the LFO Hub exists within the <a class="solution-anchor" href="#nostr-protocol"><em><u>Nostr ecosystem</u></em></a>. This means that publicly broadcast posts are accessible across hundreds of other apps &ndash; no double-posting required: A post issued in the LFO Hub reaches both the LFO community and the poster&rsquo;s broader following. Eventually, the LFO Hub will reach beyond Nostr to consolidate member-authored posts across X, LinkedIn, Facebook, and others, becoming the go-to destination for scattered communities.</p></div>
+        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Human-driven curation:</strong> Community feeds are shaped by people, not black-box algorithms. Any member can apply <span class="solution-term" tabindex="0" data-def="Short labels attached to posts that surface content within the community feed."><em><u>topic tags</u></em></span> to endorse content. Since every endorsement is <span class="solution-term" tabindex="0" data-def="Cryptographic signatures allowing anyone to verify the issuer of a tag, vouch, dispute, post, or other action within LFO Hub."><em><u>cryptographically signed</u></em></span>, a user can opt into curation powered by trusted connections rather than platform providers.</p></div>
+        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Individually customized algorithms:</strong> <span class="solution-term" tabindex="0" data-def="A measure of how trusted each member is, calculated from the network of vouches and connections around them."><em><u>Trust scores</u></em></span> are calculated for every member in the community from each individual user&rsquo;s point of view (see <a class="solution-anchor" href="#tapestry-graph"><u>Web of Trust</u></a>). Every user retains control over <em>how</em> these trust scores factor into their individual <span class="solution-term" tabindex="0" data-def="Automated content engines that determine which posts are displayed on a user's feed."><em><u>curation algorithm</u></em></span>: who is filtered out, who surfaces first, and in what particular order. The result is a feed that feels less like a bulletin board and more like your corner of the community.</p></div>
+        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Data ownership:</strong> Data is never locked in a single company&rsquo;s database. On <a class="solution-anchor" href="#nostr-protocol"><u>Nostr</u></a>, every post, comment, and reaction is broadcast across many <span class="solution-term" tabindex="0" data-def="Small, independent servers that store posts."><em><u>relays</u></em></span> and signed by its issuer, making the whole feed easily reconstructable. The community can move freely across servers, outlasting outages and shutdowns without losing a shred of its history.</p></div>
+        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Active spam prevention:</strong> Vouch-based membership and <span class="solution-term" tabindex="0" data-def="The minimum trust standing a newcomer must reach to count as a member. Dependent on collective trust as calculated from the House Point of View."><em><u>trust thresholds</u></em></span> lock out most bad actors. Anyone who manages to slip through lands on the fringes of the community&rsquo;s <span class="solution-term" tabindex="0" data-def="The map of who is connected to whom across the community."><em><u>social graph</u></em></span> and is therefore unlikely to surface in feeds. When spam does surface, community members are empowered with <span class="solution-term" tabindex="0" data-def="A public statement that a member or piece of content does NOT belong in the community."><em><u>disputes</u></em></span>. Disputes let the community collectively down-rank and remove bad actors without ever relying on the judgment of centralized platforms.</p></div>
+        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Privacy:</strong> Communities like LFO retain the option to broadcast sensitive content to <span class="solution-term" tabindex="0" data-def="Relays that only accept content from and serve to approved members."><em><u>permissioned servers</u></em></span> shielded from public view. Future E2E encrypted messaging groups will provide unparalleled decentralized privacy.</p></div>
+        <div class="solution-item solution-item-check"><span class="solution-mark">✔</span><p><strong>Ecosystem Interoperability:</strong> Every post authored in the LFO Hub exists within the <span class="solution-term" tabindex="0" data-def="The family of apps built on Nostr. Learn more at nostrapps.com."><em><u>Nostr ecosystem</u></em></span>. This means that publicly broadcast posts are accessible across hundreds of other apps &ndash; no double-posting required: A post issued in the LFO Hub reaches both the LFO community and the poster&rsquo;s broader following. Eventually, the LFO Hub will reach beyond Nostr to consolidate member-authored posts across X, LinkedIn, Facebook, and others, becoming the go-to destination for scattered communities.</p></div>
         <p>Enabled by the above features, the LFO Hub mirrors how communities thrive in the physical world &ndash; not as restricted databases, but as living social webs.</p>
       </section>
 
@@ -1664,7 +1703,7 @@
         <p>Engineered by <a class="solution-anchor" href="https://brainstorm.nosfabrica.com/about" target="_blank" rel="noopener"><u>Brainstorm</u></a>, the Tapestry Graph Protocol defines key community concepts &mdash; such as tags, disputes, and vouches &mdash; and constructs the community graph from these signals.</p>
         <p>Every member is a node in the community graph, connected to other members via edges.</p>
         <p>These edges represent relationships <em>between</em> members.</p>
-        <p>The true power of this graph is realized when used in conjunction with <em><u>Web of Trust</u></em> algorithms.</p>
+        <p>The true power of this graph is realized when used in conjunction with Web of Trust algorithms.</p>
         <p>Web of Trust algorithms traverse the LFO community graph, allowing any member&rsquo;s trustworthiness to be computed from the <em>perspective</em> of any other member in the community.</p>
         <p>The result of these trust metrics is a user experience reflective of each individual&rsquo;s evolving network, entirely personalized and dynamic.</p>
       </section>

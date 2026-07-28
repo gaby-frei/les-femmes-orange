@@ -130,9 +130,12 @@ test.describe('v1 shell — Home rename + Solution page (v1-release #1)', () => 
       return { italic: cs.fontStyle === 'italic', underlined, weight: Number(cs.fontWeight) };
     });
 
+    // Amended per PO term styling (2026-07-28): defined terms render as plain orange text
+    // on the chip — underline AND italics visually suppressed (the <u>/<em> markup remains
+    // as the fidelity record).
     const vouch = solutionPage(page).locator('u, .term').filter({ hasText: /^vouch$/ }).first();
     await expect(vouch).toBeVisible();
-    expect(await styleOf(vouch), 'vouch is underlined italic').toMatchObject({ italic: true, underlined: true });
+    expect(await styleOf(vouch), 'vouch is plain — underline and italics suppressed').toMatchObject({ italic: false, underlined: false });
 
     const tagline = solutionPage(page).getByText('This is sovereign infrastructure built for sovereign communities.');
     expect((await styleOf(tagline)).italic, 'the tagline is italic').toBe(true);

@@ -75,6 +75,18 @@ membership, relay, or API surface changes.
     defines…" (underline moved off the protocol name, onto the linked "Brainstorm"); "Web of
     Trust" in the algorithms sentence italicized; the "no platform can delete your account…"
     sentence bolded.
+  - **Hover-definitions amendment (PO-directed, 2026-07-28):** 12 glossary terms (per the PO's
+    "Term definitions" PDF) wrapped in `.solution-term` chips — light-orange highlight, orange
+    text, definition tooltip (dark, CSS `attr(data-def)`, caret) on hover AND keyboard focus
+    (`tabindex=0`). Copy untouched (definitions live in `data-def`). Terms render PLAIN — the
+    PDF's underline+italics are visually suppressed by chip CSS (markup retained as fidelity
+    record); spec T9 formally amended to the new contract. Terms: vouch, collective trust, topic
+    tags, cryptographically signed, Trust scores, curation algorithm, relays, trust thresholds,
+    social graph, disputes, permissioned servers, Nostr ecosystem (its former in-page link
+    removed at PO direction; definition cites nostrapps.com as plain text). Accompanying PO copy
+    edits: "point of view" and "signed" de-emphasized to plain text (markup removed — not
+    glossary terms); linked "Nostr" (Data ownership) de-italicized; "Web of Trust" in the
+    Tapestry sentence de-formatted to plain text (PO's direct edit).
 - **O2 — tab order: RESOLVED (2026-07-27).** PO overrode the default: **"Solution" is the LAST tab
   on the left** — order is **Home | Members | Feed | Solution** (relative order of the existing
   tabs unchanged; Members/Feed still reveal only on sign-in, so a signed-out visitor sees
