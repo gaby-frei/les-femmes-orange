@@ -69,5 +69,5 @@ Architect should resolve handles.
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0041-npub-identity-search.md` (Accepted 2026-07-30)
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/npub-search/1-identity-search-attest.test-plan.md` (spec: `tests/npub-search.spec.js` — T1–T13 red, T14 regression green, 2026-07-30)
 - Review: (filled in after Review phase)
