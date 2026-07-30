@@ -891,6 +891,57 @@
     .member-attested-by { font-size: 0.72rem; color: var(--grey-text); }
     .member-attested-by strong { color: var(--dark-mid); font-weight: 600; }
 
+    /* ── NPUB SEARCH (npub-search #1, ADR 0041) ─────────────── */
+
+    .member-search { position: relative; margin-bottom: 2.25rem; }
+
+    .member-search-label {
+      display: block; font-size: 0.8rem; font-weight: 700; color: var(--dark);
+      letter-spacing: 0.01em; margin-bottom: 0.45rem;
+    }
+
+    #member-search-input {
+      width: 100%; box-sizing: border-box;
+      padding: 0.7rem 1rem; font-family: monospace; font-size: 0.85rem;
+      color: var(--dark); background: var(--white);
+      border: 1px solid var(--grey-mid); border-radius: 8px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    #member-search-input:focus {
+      outline: none; border-color: var(--orange);
+      box-shadow: 0 0 0 3px rgba(245,148,92,0.15);
+    }
+
+    .member-search-hint {
+      font-size: 0.78rem; color: #b45309; margin-top: 0.45rem; line-height: 1.5;
+    }
+
+    /* Dropdown overlay: absolutely positioned so opening/closing NEVER reflows the
+       grids beneath (page-integrity AC). Horizontal card row from day one — story #2
+       drops N ranked candidates into this same container. */
+    .member-search-panel {
+      position: absolute; top: 100%; left: 0; right: 0; z-index: 60;
+      margin-top: 0.5rem; padding: 1rem;
+      background: var(--white); border: 1px solid var(--grey-mid); border-radius: 12px;
+      box-shadow: 0 14px 36px rgba(0,0,0,0.13);
+      display: flex; gap: 1rem; overflow-x: auto;
+    }
+    .member-search-panel[hidden] { display: none; }
+
+    .member-search-loading {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-size: 0.85rem; color: var(--grey-text); padding: 0.35rem 0.2rem;
+    }
+
+    .member-card.candidate { flex: 0 0 320px; max-width: 320px; }
+
+    .member-badge.none-badge {
+      background: var(--grey-light, #f3f4f6); color: var(--grey-text);
+      border: 1px solid var(--grey-mid);
+    }
+
+    .candidate-noprofile { font-style: normal; }
+
     /* ── FAQ ─────────────────────────────────────────────────── */
 
     .faq-section {
@@ -1558,6 +1609,17 @@
     <!-- Members grid -->
     <div class="members-page">
 
+      <!-- Npub search (npub-search #1, ADR 0041): identity-string lookup + vouch from panel.
+           Inherits the page's verified-members-only gate; all decoding is client-side. -->
+      <div class="member-search">
+        <label class="member-search-label" for="member-search-input">Find someone on Nostr</label>
+        <input id="member-search-input" type="text" autocomplete="off" spellcheck="false"
+               placeholder="Paste an npub, hex pubkey, or nprofile…"
+               oninput="onMemberSearchInput(this.value)" onkeydown="onMemberSearchKeydown(event)">
+        <p class="member-search-hint" id="member-search-hint" style="display:none">Not a recognized identity — paste a full npub, a 64-character hex pubkey, or an nprofile.</p>
+        <div id="member-search-panel" class="member-search-panel" hidden></div>
+      </div>
+
       <div id="members-loading" class="members-loading">
         <div class="spinner"></div>
         <p>Loading members from Nostr relays…</p>
@@ -1834,6 +1896,15 @@
       'wss://nos.lol',
     ];
 
+    // Search-path ONLY (npub-search #1, ADR 0041): extra kind-0 sources so arbitrary
+    // (non-member) identities are findable. Membership truth and feed sourcing never
+    // touch these. purplepag.es = dedicated profile aggregator; damus = broad general
+    // relay already trusted as a feed augment.
+    const PROFILE_RELAYS = [
+      'wss://purplepag.es',
+      'wss://relay.damus.io',
+    ];
+
     // ── Community feed config (community-feed) ───────────────────────────────
     // Display list for the "Feed Source Relays" panel (the actual fetch now happens
     // server-side in /api/feed — ADR 0033 — and reports per-relay status back here).
@@ -2005,6 +2076,29 @@
       return verifiedMap.has(hexPubkey);
     }
 
+    // ── Identity decode (npub-search #1, ADR 0041) ──────────────────────────
+    // Pure, client-side, no network: an exact identity string → { hex, hints } or null.
+    // bech32 checksums make a typo'd npub/nprofile fail loudly rather than resolve wrong.
+    // hints = nprofile relay hints, sanitized: wss:// only, deduped, max 3 — attacker-
+    // controllable input, so they may only ADD bounded TLS relays to the fan-out.
+    function decodeIdentity(raw) {
+      if (!raw || typeof raw !== 'string') return null;
+      const trimmed = raw.trim().toLowerCase();
+      if (/^[0-9a-f]{64}$/.test(trimmed)) return { hex: trimmed, hints: [] };
+      if (!trimmed.startsWith('npub1') && !trimmed.startsWith('nprofile1')) return null;
+      try {
+        const decoded = window._nostrDecode(trimmed);
+        if (decoded.type === 'npub') return { hex: decoded.data, hints: [] };
+        if (decoded.type === 'nprofile') {
+          const hints = [...new Set((decoded.data.relays || []).filter(
+            r => typeof r === 'string' && r.startsWith('wss://')
+          ))].slice(0, 3);
+          return { hex: decoded.data.pubkey, hints };
+        }
+      } catch {}
+      return null;
+    }
+
     // ── Display helpers ─────────────────────────────────────────────────────
     function hexToNpubShort(hex) {
       if (window._nostrNpubEncode) {
@@ -2133,6 +2227,58 @@
     }
 
     // ── Apply LFO tag to a pending member ──────────────────────────────────
+    // ── Vouch core (npub-search #1, ADR 0041) ───────────────────────────────
+    // The single write path for membership attestations: build → sign (member's own
+    // key) → publish → optimistic cache update + member-set rebuild. NO DOM. Every
+    // vouch surface (pending grid via applyLFOTag, search panel via vouchFromPanel)
+    // wraps its own UI around this.
+    // Returns { ok:false, reason:'declined'|'error' } or
+    //         { ok:true, brainstormOk, verified } (verified = target now in the closure).
+    async function publishVouch(targetHex) {
+      // d-tag matches brainstorm's native pubkey-tagging format:
+      // profile-tag-lfo-<first8 of tagged>-<first8 of tagger>
+      const dTag = `profile-tag-lfo-${targetHex.slice(0,8)}-${currentPubkey.slice(0,8)}`;
+
+      const unsignedEvent = {
+        kind: 39999,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ['d', dTag],
+          ['e', LFO_TAG_EVENT_ID],
+          ['z', NOSTR_USER_TAG_ADDR],
+          ['p', targetHex],
+          ['polarity', '1'],
+        ],
+        content: '',
+      };
+
+      let signedEvent;
+      try {
+        signedEvent = await window.LFOSigner.sign(unsignedEvent);
+      } catch {
+        return { ok: false, reason: 'declined' };
+      }
+
+      try {
+        // Publish to brainstorm (primary confirmation relay) and all others in parallel
+        const [brainstormResult] = await Promise.all([
+          publishEventToRelay(RELAYS[0], signedEvent, 8000),
+          ...RELAYS.slice(1).map(r => publishEventToRelay(r, signedEvent, 6000)),
+        ]);
+
+        // Optimistically update the in-memory cache and re-derive member sets.
+        // Push into the shared tag-item array, invalidate the cached closure, and
+        // rebuild via getMemberSets so the new attestation is reflected everywhere.
+        const tagItems = await getTagItems();
+        tagItems.push(signedEvent);
+        _memberSetsCache = null;
+        const { verifiedMap } = await getMemberSets();
+        return { ok: true, brainstormOk: brainstormResult.ok, verified: verifiedMap.has(targetHex) };
+      } catch {
+        return { ok: false, reason: 'error' };
+      }
+    }
+
     async function applyLFOTag(targetHex, targetName, footerEl) {
       if (!window.LFOSigner.canSign() || !currentPubkey || !_isVerifiedMember) return;
 
@@ -2145,60 +2291,28 @@
       if (attestBtn) attestBtn.replaceWith(syncRow);
       else footerEl.appendChild(syncRow);
 
-      try {
-        // d-tag matches brainstorm's native pubkey-tagging format:
-        // profile-tag-lfo-<first8 of tagged>-<first8 of tagger>
-        const dTag = `profile-tag-lfo-${targetHex.slice(0,8)}-${currentPubkey.slice(0,8)}`;
+      const res = await publishVouch(targetHex);
 
-        const unsignedEvent = {
-          kind: 39999,
-          created_at: Math.floor(Date.now() / 1000),
-          tags: [
-            ['d', dTag],
-            ['e', LFO_TAG_EVENT_ID],
-            ['z', NOSTR_USER_TAG_ADDR],
-            ['p', targetHex],
-            ['polarity', '1'],
-          ],
-          content: '',
-        };
+      if (!res.ok && res.reason === 'declined') {
+        // User rejected or extension error — restore button
+        const restoredBtn = document.createElement('button');
+        restoredBtn.className = 'attest-btn';
+        restoredBtn.textContent = 'Vouch';
+        restoredBtn.addEventListener('click', () =>
+          applyLFOTag(targetHex, targetName, restoredBtn.closest('.member-footer'))
+        );
+        syncRow.replaceWith(restoredBtn);
+        return;
+      }
 
-        let signedEvent;
-        try {
-          signedEvent = await window.LFOSigner.sign(unsignedEvent);
-        } catch {
-          // User rejected or extension error — restore button
-          const restoredBtn = document.createElement('button');
-          restoredBtn.className = 'attest-btn';
-          restoredBtn.textContent = 'Vouch';
-          restoredBtn.addEventListener('click', () =>
-            applyLFOTag(targetHex, targetName, restoredBtn.closest('.member-footer'))
-          );
-          syncRow.replaceWith(restoredBtn);
-          return;
-        }
-
-        // Publish to brainstorm (primary confirmation relay) and all others in parallel
-        const [brainstormResult] = await Promise.all([
-          publishEventToRelay(RELAYS[0], signedEvent, 8000),
-          ...RELAYS.slice(1).map(r => publishEventToRelay(r, signedEvent, 6000)),
-        ]);
-
-        if (!brainstormResult.ok) {
+      if (res.ok) {
+        if (!res.brainstormOk) {
           syncRow.innerHTML =
             '<span style="font-size:0.7rem;color:var(--amber)">Published — sync pending</span>';
-          // Still add to local cache so the UI updates optimistically
+          // Still cached locally so the UI updates optimistically
         }
 
-        // Optimistically update the in-memory cache and re-derive member sets.
-        // Push into the shared tag-item array, invalidate the cached closure, and
-        // rebuild via getMemberSets so the new attestation is reflected everywhere.
-        const tagItems = await getTagItems();
-        tagItems.push(signedEvent);
-        _memberSetsCache = null;
-        const { verifiedMap } = await getMemberSets();
-
-        if (verifiedMap.has(targetHex)) {
+        if (res.verified) {
           const pendingCard  = footerEl.closest('.member-card');
           const pendingGrid  = document.getElementById('pending-members-grid');
           const verifiedGrid = document.getElementById('verified-members-grid');
@@ -2221,20 +2335,21 @@
           syncRow.innerHTML =
             '<span style="font-size:0.7rem;color:var(--grey-text)">Tagged — awaiting sync</span>';
         }
-
-      } catch {
-        syncRow.innerHTML =
-          '<span style="font-size:0.7rem;color:#f87171">Error — try again</span>';
-        setTimeout(() => {
-          const retryBtn = document.createElement('button');
-          retryBtn.className = 'attest-btn';
-          retryBtn.textContent = 'Vouch';
-          retryBtn.addEventListener('click', () =>
-            applyLFOTag(targetHex, targetName, retryBtn.closest('.member-footer'))
-          );
-          syncRow.replaceWith(retryBtn);
-        }, 3000);
+        return;
       }
+
+      // res.ok === false, reason 'error' — publish/cache failure
+      syncRow.innerHTML =
+        '<span style="font-size:0.7rem;color:#f87171">Error — try again</span>';
+      setTimeout(() => {
+        const retryBtn = document.createElement('button');
+        retryBtn.className = 'attest-btn';
+        retryBtn.textContent = 'Vouch';
+        retryBtn.addEventListener('click', () =>
+          applyLFOTag(targetHex, targetName, retryBtn.closest('.member-footer'))
+        );
+        syncRow.replaceWith(retryBtn);
+      }, 3000);
     }
 
     // ── Members page: build verified + pending sets ─────────────────────────
@@ -2268,8 +2383,43 @@
       return meta;
     }
 
+    // ── Search-scoped profile lookup (npub-search #1, ADR 0041) ─────────────
+    // Flat parallel fan-out over RELAYS + PROFILE_RELAYS + sanitized nprofile hints,
+    // with PROGRESSIVE RESOLVE: onProfile fires on the FIRST hit (render immediately)
+    // and again only for a strictly newer created_at (card upgrades in place).
+    // Hits backfill _metaCache for the rest of the app; a full miss is NOT
+    // negative-cached — a re-search re-queries (the O3 outreach loop must work
+    // without a page reload). Resolves true if any profile was found.
+    async function fetchSearchProfile(hex, hints = [], onProfile = () => {}) {
+      if (_metaCache.has(hex)) { onProfile(_metaCache.get(hex)); return true; }
+      const relays = [...new Set([...RELAYS, ...PROFILE_RELAYS, ...hints])];
+      let newest = null;
+      await Promise.all(relays.map(r =>
+        queryRelay(r, { kinds: [0], authors: [hex], limit: 4 }, 6000).then(events => {
+          for (const ev of events) {
+            if (ev.pubkey !== hex || typeof ev.created_at !== 'number') continue;
+            if (newest && ev.created_at <= newest._ts) continue;
+            try {
+              newest = { ...JSON.parse(ev.content), _ts: ev.created_at };
+            } catch { continue; }
+            _metaCache.set(hex, newest);
+            _metaFetched.add(hex);
+            onProfile(newest);
+          }
+        }).catch(() => {})
+      ));
+      return newest !== null;
+    }
+
     // ── Build a single member card DOM element ──────────────────────────────
+    // type: 'verified' | 'pending' | 'candidate' (npub-search #1, ADR 0041).
+    // Candidate options: { status: 'verified'|'pending'|'none', canVouch, hasProfile } —
+    // the search panel reuses this builder so panel and grids share one profile
+    // presentation (name, NIP-05, avatar, bio, npub row).
     function makeMemberCard(hex, metaMap, type, taggerHex, options = {}) {
+      const isCandidate = type === 'candidate';
+      // status drives the badge + footer for every card type
+      const status = isCandidate ? options.status : (type === 'pending' ? 'pending' : 'verified');
       const m           = metaMap.get(hex) || {};
       const rawName     = m.display_name || m.name || '';
       const displayName = rawName || hexToNpubShort(hex);
@@ -2287,8 +2437,28 @@
       const taggerMeta  = taggerHex ? (metaMap.get(taggerHex) || {}) : {};
       const taggerLabel = taggerMeta.display_name || taggerMeta.name || (taggerHex ? hexToNpubShort(taggerHex) : '');
 
+      const badgeHtml = status === 'verified'
+        ? '<span class="member-badge verified">✓ Member</span>'
+        : status === 'pending'
+          ? '<span class="member-badge pending-badge">Pending</span>'
+          : '<span class="member-badge none-badge">Not yet a member</span>';
+
+      // Vouch affordance: grid pending cards keep the existing rule; candidates need
+      // canVouch (verified member with a working signer) AND a visible profile (story
+      // O3: never vouch an identity you can't visually confirm) AND a non-verified status.
+      const showVouch = isCandidate
+        ? (options.canVouch && options.hasProfile && status !== 'verified')
+        : (type === 'pending' && options.showAttestBtn);
+
+      // O3 view-only copy for profile-less candidates (PO-fixed intent, vouch vocabulary)
+      const noProfileHtml = isCandidate && !options.hasProfile
+        ? `<p class="member-bio candidate-noprofile">No profile found for this key. Vouching requires visible profile metadata so you can confirm you've found the right person — reach out and ask them to complete their Nostr profile (on a client like <a href="https://primal.net" target="_blank" rel="noopener" style="color:var(--orange);text-decoration:none">Primal</a>), then search again.</p>`
+        : '';
+
       const card = document.createElement('div');
-      card.className = 'member-card' + (type === 'pending' ? ' pending' : '');
+      card.className = 'member-card'
+        + (type === 'pending' ? ' pending' : '')
+        + (isCandidate ? ' candidate' : '');
 
       card.innerHTML = `
         <div class="member-card-top">
@@ -2301,6 +2471,7 @@
           </div>
         </div>
         ${about ? `<p class="member-bio">${escHtml(about)}</p>` : ''}
+        ${noProfileHtml}
         <div class="member-npub-row">
           <span class="member-npub-text">${escHtml(npubShort)}</span>
           <button class="member-copy-btn" data-hex="${escHtml(hex)}" onclick="copyMemberNpub(this)" title="Copy npub">
@@ -2308,25 +2479,30 @@
           </button>
         </div>
         <div class="member-footer">
-          <span class="member-badge ${type === 'pending' ? 'pending-badge' : 'verified'}">${type === 'pending' ? 'Pending' : '✓ Member'}</span>
-          ${type !== 'pending' && taggerHex && taggerHex !== SEED_PUBKEY
+          ${badgeHtml}
+          ${status === 'verified' && taggerHex && taggerHex !== SEED_PUBKEY
             ? `<span class="member-attested-by">by <strong>${escHtml(taggerLabel)}</strong></span>`
-            : type !== 'pending' ? `<span class="member-attested-by">Founding curator</span>` : ''}
-          ${type === 'pending' && options.showAttestBtn
+            : status === 'verified' ? `<span class="member-attested-by">Founding curator</span>` : ''}
+          ${showVouch
             ? `<button class="attest-btn" data-target-hex="${escHtml(hex)}" data-target-name="${escHtml(tagName)}">Vouch</button>`
             : ''}
         </div>
       `;
 
-      // Wire up attest button (data attributes avoid inline handler scoping issues)
+      // Wire up attest button (data attributes avoid inline handler scoping issues).
+      // Grid cards run the pending-grid flow; candidates run the panel flow.
       const attestBtn = card.querySelector('.attest-btn');
       if (attestBtn) {
         attestBtn.addEventListener('click', () => {
-          applyLFOTag(
-            attestBtn.dataset.targetHex,
-            attestBtn.dataset.targetName,
-            attestBtn.closest('.member-footer')
-          );
+          if (isCandidate) {
+            vouchFromPanel(attestBtn.dataset.targetHex, attestBtn.dataset.targetName, card);
+          } else {
+            applyLFOTag(
+              attestBtn.dataset.targetHex,
+              attestBtn.dataset.targetName,
+              attestBtn.closest('.member-footer')
+            );
+          }
         });
       }
 
@@ -2409,6 +2585,142 @@
       loadingEl.style.display   = 'none';
       verifiedSec.style.display = '';
       if (pendingPubkeys.length > 0) pendingSec.style.display = '';
+    }
+
+    // ── Npub search controller (npub-search #1, ADR 0041) ───────────────────
+    // Debounced local decode → status lookup + flat-parallel profile fetch → one
+    // candidate card in the dropdown overlay. The panel NEVER sits blank while
+    // relays are in flight (PO loading-state requirement), and opening/closing it
+    // never touches the grids beneath (overlay positioning).
+    let _searchDebounce = null;
+    let _searchSeq = 0;   // stale async guard: only the latest search may paint
+
+    function _searchEls() {
+      return {
+        panelEl: document.getElementById('member-search-panel'),
+        hintEl:  document.getElementById('member-search-hint'),
+      };
+    }
+
+    function hideMemberSearchPanel() {
+      const { panelEl, hintEl } = _searchEls();
+      _searchSeq++;             // invalidate any in-flight search
+      if (panelEl) { panelEl.hidden = true; panelEl.innerHTML = ''; }
+      if (hintEl) hintEl.style.display = 'none';
+    }
+
+    function onMemberSearchInput(value) {
+      clearTimeout(_searchDebounce);
+      const raw = (value || '').trim();
+      if (!raw) { hideMemberSearchPanel(); return; }
+      _searchDebounce = setTimeout(() => runMemberSearch(raw), 400);
+    }
+
+    function onMemberSearchKeydown(e) {
+      if (e.key === 'Escape') { clearTimeout(_searchDebounce); hideMemberSearchPanel(); }
+    }
+
+    // Click outside the search block dismisses the panel (page beneath untouched).
+    // pointerdown, not click: panel buttons replace themselves synchronously in their
+    // click handlers, so by the time a click bubbles here its target can be detached
+    // and would falsely read as "outside" (and detached targets are ignored anyway).
+    document.addEventListener('pointerdown', (e) => {
+      if (!document.contains(e.target)) return;
+      const wrap = document.querySelector('.member-search');
+      if (!wrap || wrap.contains(e.target)) return;
+      const panelEl = document.getElementById('member-search-panel');
+      if (panelEl && !panelEl.hidden) hideMemberSearchPanel();
+    });
+
+    async function runMemberSearch(raw) {
+      const seq = ++_searchSeq;
+      const { panelEl, hintEl } = _searchEls();
+      if (!panelEl || !hintEl) return;
+
+      const decoded = decodeIdentity(raw);
+      if (!decoded) {
+        // Story #1 dead end — story #2 converts this to free-text fall-through.
+        panelEl.hidden = true;
+        panelEl.innerHTML = '';
+        hintEl.style.display = '';
+        return;
+      }
+      hintEl.style.display = 'none';
+
+      // Loading state up immediately — never a blank panel while relays are queried.
+      panelEl.hidden = false;
+      panelEl.innerHTML = '<div class="member-search-loading"><span class="syncing-mini-spinner"></span>Searching relays for this identity…</div>';
+
+      const { verifiedMap, pendingMap } = await getMemberSets();
+      if (seq !== _searchSeq) return;
+      const status = verifiedMap.has(decoded.hex) ? 'verified'
+        : pendingMap.has(decoded.hex) ? 'pending' : 'none';
+      const canVouch = _isVerifiedMember && window.LFOSigner.canSign();
+      const taggerHex = status === 'verified' ? verifiedMap.get(decoded.hex) : null;
+
+      const renderCandidate = (metaMap, hasProfile) => {
+        if (seq !== _searchSeq) return;   // a newer search or a dismissal won the race
+        panelEl.innerHTML = '';
+        panelEl.appendChild(
+          makeMemberCard(decoded.hex, metaMap, 'candidate', taggerHex, { status, canVouch, hasProfile })
+        );
+      };
+
+      // Progressive resolve: first hit paints, a strictly newer profile repaints.
+      const found = await fetchSearchProfile(decoded.hex, decoded.hints, (meta) => {
+        const metaMap = new Map([[decoded.hex, meta]]);
+        if (taggerHex && _metaCache.has(taggerHex)) metaMap.set(taggerHex, _metaCache.get(taggerHex));
+        renderCandidate(metaMap, true);
+      });
+      if (!found) renderCandidate(new Map(), false);   // O3 view-only state
+    }
+
+    // Vouch from the search panel: same publishVouch core as the pending grid, with
+    // panel-local button states. On success the badge flips in place and the grids
+    // re-render from the (already-updated) caches — no duplicated grid surgery.
+    async function vouchFromPanel(targetHex, targetName, cardEl) {
+      if (!window.LFOSigner.canSign() || !currentPubkey || !_isVerifiedMember) return;
+
+      const footer = cardEl.querySelector('.member-footer');
+      const btn = footer.querySelector('.attest-btn');
+      if (btn) btn.disabled = true;
+
+      const syncRow = document.createElement('span');
+      syncRow.className = 'syncing-row';
+      syncRow.innerHTML = '<span class="syncing-mini-spinner"></span>Syncing…';
+      if (btn) btn.replaceWith(syncRow);
+      else footer.appendChild(syncRow);
+
+      const restoreVouchBtn = () => {
+        const restored = document.createElement('button');
+        restored.className = 'attest-btn';
+        restored.textContent = 'Vouch';
+        restored.addEventListener('click', () => vouchFromPanel(targetHex, targetName, cardEl));
+        syncRow.replaceWith(restored);
+      };
+
+      const res = await publishVouch(targetHex);
+
+      if (!res.ok) {
+        if (res.reason === 'declined') {
+          restoreVouchBtn();                 // user said no — silent restore, nothing published
+        } else {
+          syncRow.innerHTML = '<span style="font-size:0.7rem;color:#f87171">Error — try again</span>';
+          setTimeout(restoreVouchBtn, 3000); // retry is safe: deterministic d-tag, idempotent
+        }
+        return;
+      }
+
+      const badge = cardEl.querySelector('.member-badge');
+      if (res.verified) {
+        if (badge) { badge.className = 'member-badge verified'; badge.textContent = '✓ Member'; }
+        syncRow.innerHTML = '<span style="font-size:0.7rem;color:var(--grey-text)">Vouched by you</span>';
+        // Grids re-render from the caches publishVouch already updated (cache-warm, no
+        // network) so the new member appears in the verified grid without a reload.
+        loadMembersPage();
+      } else {
+        syncRow.innerHTML = '<span style="font-size:0.7rem;color:var(--grey-text)">Vouched — awaiting sync</span>';
+      }
     }
 
     // ── Community feed (community-feed) ──────────────────────────────────────
