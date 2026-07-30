@@ -42,6 +42,7 @@ search bar.
 - [ ] **Attest from the panel.** Given a candidate who is not yet verified, when a verified member (able to sign — extension or unlocked local key, same rule as the pending grid) clicks the panel's attest action and completes signing, then an attestation identical in semantics to the pending-grid flow is published, with equivalent success feedback, error handling, and retry behavior.
 - [ ] **Post-attest coherence.** After a successful attest from the panel, the candidate's shown status updates without a page reload, and the members grids reflect the new attestation the same way a pending-grid attest does today.
 - [ ] **Already-verified candidate → status only.** Given a candidate who is already verified, the panel shows Verified status (and attester, where the grid would show it) and offers **no attest action** — search-attest is for vouching newcomers.
+- [ ] **Loading feedback (PO amendment 2026-07-30).** Any lag between the member's search and the rendering of the candidate shows a loading/buffering indicator (icon or message) in the panel — the member is never left looking at a blank or frozen panel while relays are being queried.
 - [ ] **Non-identity input.** Given a string that is not a valid identity, the member gets a clear, non-destructive inline indication that the input isn't a recognized identity — no broken panel, no failed-request noise, no change to the page beneath. (Story #2 will replace this dead end with fall-through to free-text search; the message may hint that name search is coming.)
 - [ ] **Page integrity.** Opening, using, clearing, or abandoning the search never mutates the verified/pending grids, the feed, or session state. Dismissing the panel returns the page to its exact prior appearance.
 
@@ -67,6 +68,6 @@ Architect should resolve handles.
 - **O4 — Already-verified candidates.** ~~Open~~ **Resolved (PO, 2026-07-30):** **status only, no action.**
 
 ## Linked artifacts
-- ADR: (filled in after Architecture phase)
+- ADR: `engineering-team/decisions/0041-npub-identity-search.md` (Accepted 2026-07-30)
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
