@@ -1409,7 +1409,7 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                 <span style="font-size:0.82rem;font-weight:600;color:#d97706">Your application is pending</span>
               </div>
-              <p style="font-size:0.78rem;color:#666;margin-top:0.5rem;line-height:1.55">A verified LFO member can attest you from the Members page.</p>
+              <p style="font-size:0.78rem;color:#666;margin-top:0.5rem;line-height:1.55">A verified LFO member can vouch for you from the Members page.</p>
             </div>
 
             <div style="display:flex;align-items:flex-start;gap:0.65rem;background:rgba(245,148,92,0.07);border:1px solid rgba(245,148,92,0.15);border-radius:8px;padding:0.75rem 0.9rem;margin-top:1.2rem">
@@ -1428,7 +1428,7 @@
           <!-- STATE: APPLY CONFIRM -->
           <div id="state-apply-confirm" class="signin-state">
             <p class="state-idle-title">Apply for membership</p>
-            <p style="font-size:0.85rem;color:#888;line-height:1.7;margin-bottom:1.2rem">Your profile will appear in the pending section of the members list, where a <strong style="color:#ccc">verified member can attest you</strong>. This action will publish a signed Nostr event tagging your npub with the LFO membership tag.</p>
+            <p style="font-size:0.85rem;color:#888;line-height:1.7;margin-bottom:1.2rem">Your profile will appear in the pending section of the members list, where a <strong style="color:#ccc">verified member can vouch for you</strong>. This action will publish a signed Nostr event tagging your npub with the LFO membership tag.</p>
             <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;padding:0.6rem 0.9rem;margin-bottom:1.4rem;font-size:0.78rem;font-family:monospace;color:#777;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="apply-confirm-npub"></div>
 
             <!-- No-extension warning, revealed if user clicks confirm without one -->
@@ -1464,7 +1464,7 @@
                 <p class="verified-title">Application submitted</p>
               </div>
             </div>
-            <p style="font-size:0.85rem;color:#888;line-height:1.7;margin-bottom:1.2rem">Your profile is now in the pending members list. Share your npub with a verified LFO member — they can attest you from the Members page.</p>
+            <p style="font-size:0.85rem;color:#888;line-height:1.7;margin-bottom:1.2rem">Your profile is now in the pending members list. Share your npub with a verified LFO member — they can vouch for you from the Members page.</p>
             <div style="display:flex;align-items:flex-start;gap:0.65rem;background:rgba(245,148,92,0.07);border:1px solid rgba(245,148,92,0.15);border-radius:8px;padding:0.75rem 0.9rem;margin-bottom:1.2rem">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:0.15rem"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
               <div>
@@ -1485,7 +1485,7 @@
           <div id="state-no-extension" class="signin-state">
             <p class="state-idle-title">No Nostr extension found</p>
             <p class="no-ext-body">
-              No NIP-07 extension was detected. Enter your secret key (nsec) to sign in — you'll set a passphrase that encrypts it on this device so you can apply and attest. Or install a browser extension below.
+              No NIP-07 extension was detected. Enter your secret key (nsec) to sign in — you'll set a passphrase that encrypts it on this device so you can apply and vouch. Or install a browser extension below.
             </p>
             <div class="manual-input-wrap" style="margin-bottom:1.4rem;">
               <input
@@ -1573,10 +1573,10 @@
 
       <div class="members-section" id="pending-members-section" style="display:none">
         <div class="members-section-header">
-          <h2>Pending — Awaiting Attestation</h2>
+          <h2>Pending — Awaiting Vouches</h2>
           <span class="members-count" id="pending-count"></span>
         </div>
-        <p style="font-size:0.875rem;color:var(--grey-text);margin-bottom:1.5rem;line-height:1.6">These Nostr users have applied the LFO tag but haven't been attested by a verified member yet. Attesting a pending user will grant them access to gated messaging groups, events, and membership lists. <strong>Only attest users that you trust.</strong></p>
+        <p style="font-size:0.875rem;color:var(--grey-text);margin-bottom:1.5rem;line-height:1.6">These users have applied for membership but haven't been vouched by a verified member. Vouching for one of these users will grant them access to gated messaging groups, events, and membership lists. <strong>Only vouch for users that you trust.</strong></p>
         <div class="members-grid" id="pending-members-grid"></div>
       </div>
 
@@ -1584,11 +1584,11 @@
         <h2>FAQ</h2>
         <details class="faq-item">
           <summary>
-            Why isn't the person I want to attest showing up in the pending list?
+            Why isn't the person I want to vouch for showing up in the pending list?
             <svg class="faq-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
           </summary>
           <div class="faq-body">
-            They need to apply first. Ask them to visit the Les Femmes Orange homepage, sign in with their Nostr key, and click "Apply for membership." Once they've submitted their application, their profile will appear here under Pending — Awaiting Attestation.
+            They need to apply first. Ask them to visit the Les Femmes Orange homepage, sign in with their Nostr key, and click "Apply for membership." Once they've submitted their application, their profile will appear here under Pending — Awaiting Vouches.
           </div>
         </details>
       </div>
@@ -2170,7 +2170,7 @@
           // User rejected or extension error — restore button
           const restoredBtn = document.createElement('button');
           restoredBtn.className = 'attest-btn';
-          restoredBtn.textContent = 'Attest as Member';
+          restoredBtn.textContent = 'Vouch';
           restoredBtn.addEventListener('click', () =>
             applyLFOTag(targetHex, targetName, restoredBtn.closest('.member-footer'))
           );
@@ -2228,7 +2228,7 @@
         setTimeout(() => {
           const retryBtn = document.createElement('button');
           retryBtn.className = 'attest-btn';
-          retryBtn.textContent = 'Attest as Member';
+          retryBtn.textContent = 'Vouch';
           retryBtn.addEventListener('click', () =>
             applyLFOTag(targetHex, targetName, retryBtn.closest('.member-footer'))
           );
@@ -2313,7 +2313,7 @@
             ? `<span class="member-attested-by">by <strong>${escHtml(taggerLabel)}</strong></span>`
             : type !== 'pending' ? `<span class="member-attested-by">Founding curator</span>` : ''}
           ${type === 'pending' && options.showAttestBtn
-            ? `<button class="attest-btn" data-target-hex="${escHtml(hex)}" data-target-name="${escHtml(tagName)}">Attest as Member</button>`
+            ? `<button class="attest-btn" data-target-hex="${escHtml(hex)}" data-target-name="${escHtml(tagName)}">Vouch</button>`
             : ''}
         </div>
       `;
