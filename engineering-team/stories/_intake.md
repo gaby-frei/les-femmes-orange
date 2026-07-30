@@ -142,3 +142,21 @@ event-tag creation/signing/publishing/querying — those wait on the teammate's 
 **Book:** new, no PRD → acceptance frame at `engineering-team/audits/note-tagging/book.md`.
 **Epic:** `note-tagging` (new). Story: #1 `note-tag-demo`.
 **Phase path confirmed with user:** entered Planning via `/plan-feature`.
+
+## 2026-07-30 — Npub search: find + attest any Nostr identity from the Members page
+
+**Raw request (user's words):**
+> Before returning to v1-release#1 story 2 and closing out the v1-release#1 book, we need to build
+> support for and deploy NPUB SEARCH. […] "npub search" will allow users to search for a nostr
+> identity as a string (npub, hex pubkey, or nprofile) and attest candidate npubs from a horizontal
+> drop down pannel. This search bar and pannel will likely live on the member's page above the grid
+> of "verified members." […] we will be repurposing parts of the brainstrom.world ui and search
+> logic, either via Open Ranking or NIP-50 (to be decided). The deployed brainstorm search page can
+> be found on the main branch in […]/tapestry.
+
+**Classification:** Feature
+**Strictness:** Standard → all phases (Planning → Architecture → Test Design → Implementation → Review). Architecture explicitly NOT skipped (search-backend decision: Open Ranking vs NIP-50; profile-metadata sourcing).
+**Book:** new, no PRD → acceptance frame at `engineering-team/audits/npub-search/book.md`
+**Epic:** `npub-search` (new). Stories: #1 `1-identity-search-attest` (drafted). Free-text ranked search pending PO scope call.
+**Not folded into:** `v1-release` (different intent anchor — that book stays open on its own frame) or `note-tagging` (attestation event machinery is settled; what's new is identity search/resolution).
+**Phase path confirmed with user:** yes — user asked for harness placement recommendation, then "kick off the product planner"; entered Planning via `/plan-feature`.
