@@ -134,6 +134,20 @@ All in `public/index.html` unless noted.
 - **Copy (PO-fixed, vouch vocabulary):** no-profile state must say vouching requires visible profile metadata so the member can confirm they've found the right person, and encourage reaching out so the person completes their profile (mirror the existing "Make your profile recognizable" guidance, ~1418).
 - **Tests:** `tests/npub-search.spec.js` (Playwright, PORT-aware config as-is). Note for Test Design: candidate/status flows need the page reachable — the suite's existing pattern of driving `showView`/stubbing state applies; regression on the pending-grid vouch path is mandatory (the `publishVouch` extraction touches it).
 
+## Amendments
+
+- **2026-07-31 — O3 REVERSED by the PO.** Every reference to the "O3 view-only state" in this
+  ADR is historical: profile-less candidates are now **vouchable like any other valid npub**,
+  with no "no profile found" copy. A full profile miss renders an npub-only candidate row
+  (short npub in the name slot) with the normal status badge and Vouch action. The
+  no-negative-cache rule and everything else in Option B stand unchanged.
+- **2026-07-31 — Panel geometry.** Candidates render as full-width **rows** in a vertical
+  dropdown list (brainstorm.world reference, reduced detail: photo, name, verification
+  address, right-justified badge) rather than the horizontal card tiles originally sketched.
+- **2026-07-31 — NIP-05 ✓ earned.** The verification-address checkmark renders only after a
+  client-side `/.well-known/nostr.json` check confirms the domain maps the name to this
+  pubkey ("✓ when provable"); session-cached per (address, pubkey).
+
 ## Out of scope
 
 - Free-text search, ranking, Open Ranking vs NIP-50, and any server search proxy — story #2's ADR.

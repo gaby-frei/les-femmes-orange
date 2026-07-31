@@ -13,13 +13,14 @@
 //        in flight (PO: the panel is never blank during a lookup). Candidate card =
 //        #member-search-panel .member-card.candidate reusing .member-name / .member-nip05 /
 //        .member-bio / .member-npub-text / .member-badge / .attest-btn ("Vouch").
-//        Badges: "✓ Member" | "Pending" | "Not yet a member".
+//        Badges: "✓ Member" | "Pending" | "Not a member".
 //   window.decodeIdentity(raw) -> { hex, hints[] } | null. Pure. Hex 64 / npub1 / nprofile1;
 //        bech32 checksum failures -> null; hints sanitized: wss:// only, deduped, max 3.
 //   Profile lookup: parallel queryRelay fan-out over RELAYS + PROFILE_RELAYS
 //        (purplepag.es, relay.damus.io) + sanitized hints; renders on FIRST hit; a strictly
 //        newer created_at arriving later upgrades the card; a full miss is NOT negative-cached
-//        (re-search re-queries) and shows the O3 view-only state (no-profile copy + no Vouch).
+//        (re-search re-queries) and renders an npub-only row that is vouchable like any
+//        other candidate (PO rollback of O3, 2026-07-31 — no special copy, no view-only state).
 //   Vouch: publishVouch core — kind 39999, d = profile-tag-lfo-<tagged8>-<tagger8>,
 //        e = LFO concept id, z = nostr-user-tag addr, p = target, polarity 1 — signed by the
 //        member, published via publishEventToRelay (brainstorm = confirmation relay). Panel
@@ -199,21 +200,56 @@ test.describe('npub search — identity search + vouch from panel (npub-search #
       await search(page, form);
       await expect(candidate(page), `candidate renders for ${form.slice(0, 12)}…`).toHaveCount(1);
       await expect(candidate(page).locator('.member-name')).toHaveText('Olive Outsider');
-      await expect(candidate(page).locator('.member-npub-text')).toHaveText(shortNpub(OUTSIDER));
     }
   });
 
-  // T4
-  test('candidate card carries the full member-card treatment plus "Not yet a member" + Vouch', async ({ page }) => {
+  // T4 — AMENDED per PO row-format directive (2026-07-31, brainstorm.world reference):
+  // reduced detail — photo, name, verification address only; status badge right-justified;
+  // no bio, no npub row on candidates.
+  test('candidate row: photo + name + verification address, right-justified badge, Vouch', async ({ page }) => {
     await openMembers(page);
     await search(page, OUTSIDER_NPUB);
     await expect(candidate(page)).toBeVisible();
+    await expect(candidate(page).locator('.member-avatar'), 'profile photo slot').toBeVisible();
     await expect(candidate(page).locator('.member-name')).toHaveText('Olive Outsider');
-    await expect(candidate(page).locator('.member-nip05')).toHaveText('olive@nostr.example');
-    await expect(candidate(page).locator('.member-bio')).toContainText('A trusted friend');
-    await expect(candidate(page).locator('.member-npub-text')).toHaveText(shortNpub(OUTSIDER));
-    await expect(badge(page)).toHaveText(/Not yet a member/i);
+    await expect(candidate(page).locator('.member-nip05'), 'verification address shown').toContainText('olive@nostr.example');
+    // nostr.example is unreachable — the ✓ must NOT appear for an unprovable claim.
+    await expect(candidate(page).locator('.candidate-nip05-check'), 'no checkmark without domain proof').toHaveCount(0);
+    await expect(candidate(page).locator('.member-bio'), 'reduced detail: no bio').toHaveCount(0);
+    await expect(candidate(page).locator('.member-npub-row'), 'reduced detail: no npub row').toHaveCount(0);
+    await expect(badge(page)).toHaveText(/Not a member/i);
     await expect(vouchBtn(page), 'vouch offered for a non-member with a profile').toHaveText(/Vouch/);
+    // Badge cluster is right-justified within the row.
+    const cardBox = await candidate(page).boundingBox();
+    const badgeBox = await badge(page).boundingBox();
+    expect(badgeBox.x + badgeBox.width / 2, 'badge sits in the right half of the row')
+      .toBeGreaterThan(cardBox.x + cardBox.width / 2);
+  });
+
+  // T4b — NIP-05 ✓ is EARNED (PO option-b decision 2026-07-31): shown only when the
+  // address's domain maps the name back to this exact pubkey via /.well-known/nostr.json.
+  test('NIP-05 checkmark appears only when the domain confirms the pubkey', async ({ page }) => {
+    await page.route('**/.well-known/nostr.json*', (route) => {
+      const url = route.request().url();
+      const headers = { 'Access-Control-Allow-Origin': '*' };
+      if (url.includes('nostr.example')) {
+        // olive@nostr.example genuinely maps to OUTSIDER → ✓
+        route.fulfill({ headers, json: { names: { olive: OUTSIDER } } });
+      } else {
+        // pat@lfo.example maps to a DIFFERENT key → claim fails, no ✓
+        route.fulfill({ headers, json: { names: { pat: 'ff'.repeat(32) } } });
+      }
+    });
+    await openMembers(page);
+
+    await search(page, OUTSIDER_NPUB);
+    await expect(candidate(page).locator('.member-nip05')).toContainText('olive@nostr.example');
+    await expect(candidate(page).locator('.candidate-nip05-check'), 'domain confirms → ✓ earned').toBeVisible();
+
+    await search(page, PEND_NPUB);
+    await expect(candidate(page).locator('.member-nip05')).toContainText('pat@lfo.example');
+    await page.waitForTimeout(400); // give a wrong verification time to (incorrectly) paint
+    await expect(candidate(page).locator('.candidate-nip05-check'), 'domain mismatch → no ✓').toHaveCount(0);
   });
 
   // T5 — PO amendment: never a blank panel while relays are in flight.
@@ -270,17 +306,23 @@ test.describe('npub search — identity search + vouch from panel (npub-search #
     await expect(vouchBtn(page), 'status only — never an action on an existing member').toHaveCount(0);
   });
 
-  // T9 — O3: view-only + outreach copy; miss is retryable (no negative cache).
-  test('no profile anywhere → view-only card with outreach copy; re-search re-queries', async ({ page }) => {
+  // T9 — AMENDED (PO rollback of O3, 2026-07-31): a profile-less candidate renders with
+  // its short npub in the name slot, NO "no profile found" copy, and IS vouchable like
+  // any other valid key. The no-negative-cache rule stands: re-search re-queries.
+  test('no profile anywhere → npub-only row, vouchable, no special copy; re-search re-queries', async ({ page }) => {
     await openMembers(page);
     await page.evaluate(() => { window.__relayCalls = []; });
     await search(page, GHOST_NPUB);
     await expect(candidate(page)).toBeVisible({ timeout: 15_000 });
-    await expect(candidate(page).locator('.member-npub-text')).toHaveText(shortNpub(GHOST));
-    await expect(candidate(page), 'says no profile was found').toContainText(/no profile found/i);
-    await expect(candidate(page), 'explains vouching needs a visible profile to confirm identity').toContainText(/profile/i);
-    await expect(candidate(page), 'encourages reaching out to complete the profile').toContainText(/reach out|ask them/i);
-    await expect(vouchBtn(page), 'view-only — no vouch without a profile').toHaveCount(0);
+    // Row format (2026-07-31 amendment): no npub row — the name slot carries the short
+    // npub fallback so the member still sees which key they looked up.
+    await expect(candidate(page).locator('.member-name')).toHaveText(shortNpub(GHOST));
+    // PO warning copy (2026-07-31) — verbatim, replaces the old view-only outreach copy.
+    await expect(candidate(page).locator('.candidate-warning'))
+      .toHaveText('This profile is missing visible profile metadata. Double check that you know and trust the owner of this pubkey.');
+    await expect(candidate(page), 'old view-only copy gone').not.toContainText(/no profile found/i);
+    await expect(badge(page)).toHaveText(/Not a member/i);
+    await expect(vouchBtn(page), 'profile-less candidates are vouchable').toHaveText(/Vouch/);
 
     const first = (await profileCallsFor(page, GHOST)).length;
     expect(first, 'the miss actually queried relays').toBeGreaterThan(0);
@@ -328,7 +370,7 @@ test.describe('npub search — identity search + vouch from panel (npub-search #
     await vouchBtn(page).click();
     expect(await page.evaluate(() => window.__published.length), 'decline publishes nothing').toBe(0);
     await expect(vouchBtn(page), 'button restored after decline').toBeVisible({ timeout: 10_000 });
-    await expect(badge(page), 'status unchanged').toHaveText(/Not yet a member/i);
+    await expect(badge(page), 'status unchanged').toHaveText(/Not a member/i);
   });
 
   // T12

@@ -917,30 +917,49 @@
     }
 
     /* Dropdown overlay: absolutely positioned so opening/closing NEVER reflows the
-       grids beneath (page-integrity AC). Horizontal card row from day one — story #2
-       drops N ranked candidates into this same container. */
+       grids beneath (page-integrity AC). Vertical list of full-width result ROWS
+       (PO amendment 2026-07-31, brainstorm.world reference) — story #2 stacks N
+       ranked candidates into this same container. */
     .member-search-panel {
       position: absolute; top: 100%; left: 0; right: 0; z-index: 60;
-      margin-top: 0.5rem; padding: 1rem;
+      margin-top: 0.5rem; padding: 0.45rem;
       background: var(--white); border: 1px solid var(--grey-mid); border-radius: 12px;
       box-shadow: 0 14px 36px rgba(0,0,0,0.13);
-      display: flex; gap: 1rem; overflow-x: auto;
+      display: flex; flex-direction: column; gap: 0.15rem;
     }
     .member-search-panel[hidden] { display: none; }
 
     .member-search-loading {
       display: flex; align-items: center; gap: 0.5rem;
-      font-size: 0.85rem; color: var(--grey-text); padding: 0.35rem 0.2rem;
+      font-size: 0.85rem; color: var(--grey-text); padding: 0.6rem 0.55rem;
     }
 
-    .member-card.candidate { flex: 0 0 320px; max-width: 320px; }
+    /* Candidate = one row: avatar | name + verification address | right cluster. */
+    .member-card.candidate {
+      flex-direction: row; align-items: center; gap: 0.9rem;
+      width: 100%; box-sizing: border-box;
+      border: none; border-radius: 10px; padding: 0.65rem 0.8rem;
+    }
+    .member-card.candidate:hover {
+      box-shadow: none; transform: none; background: var(--grey-light);
+    }
+    .member-card.candidate .member-avatar { width: 48px; height: 48px; }
+    .candidate-id { min-width: 0; flex: 1; }
+    .member-card.candidate .member-nip05 {
+      color: var(--orange-dark); font-size: 0.78rem; margin-top: 0.15rem;
+    }
+    .candidate-nip05-check { color: var(--orange-dark); font-weight: 700; }
+    .candidate-warning { font-size: 0.75rem; color: var(--grey-text); margin-top: 0.25rem; }
+    .member-card.candidate .member-footer.candidate-right {
+      margin-left: auto; flex-shrink: 0;
+      border-top: none; padding-top: 0; flex-wrap: nowrap; gap: 0.6rem;
+    }
+    .member-card.candidate .attest-btn { margin-left: 0; }
 
     .member-badge.none-badge {
       background: var(--grey-light, #f3f4f6); color: var(--grey-text);
       border: 1px solid var(--grey-mid);
     }
-
-    .candidate-noprofile { font-style: normal; }
 
     /* ── FAQ ─────────────────────────────────────────────────── */
 
@@ -2383,13 +2402,45 @@
       return meta;
     }
 
+    // ── NIP-05 verification (npub-search #1 amendment, PO 2026-07-31) ───────
+    // A nip05 string in a kind-0 profile is a self-authored CLAIM; it only means
+    // something if https://<domain>/.well-known/nostr.json maps the name back to
+    // this pubkey. The candidate row's ✓ is EARNED: shown only when this check
+    // passes ("✓ when provable" — CORS-blocked or unreachable domains simply get
+    // no checkmark). Results cached per (address, pubkey) for the session.
+    const _nip05Checks = new Map();   // `${nip05}|${hex}` -> Promise<boolean>
+
+    function verifyNip05(nip05, hex) {
+      const key = String(nip05).trim().toLowerCase() + '|' + hex;
+      if (!_nip05Checks.has(key)) {
+        _nip05Checks.set(key, (async () => {
+          const m = /^([\w.+-]*)@([\w.-]+)$/.exec(String(nip05).trim().toLowerCase());
+          if (!m) return false;
+          const name = m[1] || '_';
+          try {
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), 4000);
+            const res = await fetch(
+              `https://${m[2]}/.well-known/nostr.json?name=${encodeURIComponent(name)}`,
+              { signal: ctrl.signal }
+            );
+            clearTimeout(timer);
+            if (!res.ok) return false;
+            const json = await res.json();
+            return json?.names?.[name] === hex;
+          } catch { return false; }
+        })());
+      }
+      return _nip05Checks.get(key);
+    }
+
     // ── Search-scoped profile lookup (npub-search #1, ADR 0041) ─────────────
     // Flat parallel fan-out over RELAYS + PROFILE_RELAYS + sanitized nprofile hints,
     // with PROGRESSIVE RESOLVE: onProfile fires on the FIRST hit (render immediately)
     // and again only for a strictly newer created_at (card upgrades in place).
     // Hits backfill _metaCache for the rest of the app; a full miss is NOT
-    // negative-cached — a re-search re-queries (the O3 outreach loop must work
-    // without a page reload). Resolves true if any profile was found.
+    // negative-cached — a re-search re-queries, so a just-completed profile shows
+    // up without a page reload. Resolves true if any profile was found.
     async function fetchSearchProfile(hex, hints = [], onProfile = () => {}) {
       if (_metaCache.has(hex)) { onProfile(_metaCache.get(hex)); return true; }
       const relays = [...new Set([...RELAYS, ...PROFILE_RELAYS, ...hints])];
@@ -2441,18 +2492,18 @@
         ? '<span class="member-badge verified">✓ Member</span>'
         : status === 'pending'
           ? '<span class="member-badge pending-badge">Pending</span>'
-          : '<span class="member-badge none-badge">Not yet a member</span>';
+          : '<span class="member-badge none-badge">Not a member</span>';
 
       // Vouch affordance: grid pending cards keep the existing rule; candidates need
-      // canVouch (verified member with a working signer) AND a visible profile (story
-      // O3: never vouch an identity you can't visually confirm) AND a non-verified status.
+      // canVouch (verified member with a working signer) and a non-verified status.
+      // Profile-less candidates ARE vouchable (PO rollback of O3, 2026-07-31) — the row
+      // shows the short npub in the name slot plus a trust warning (PO copy, 2026-07-31).
       const showVouch = isCandidate
-        ? (options.canVouch && options.hasProfile && status !== 'verified')
+        ? (options.canVouch && status !== 'verified')
         : (type === 'pending' && options.showAttestBtn);
 
-      // O3 view-only copy for profile-less candidates (PO-fixed intent, vouch vocabulary)
-      const noProfileHtml = isCandidate && !options.hasProfile
-        ? `<p class="member-bio candidate-noprofile">No profile found for this key. Vouching requires visible profile metadata so you can confirm you've found the right person — reach out and ask them to complete their Nostr profile (on a client like <a href="https://primal.net" target="_blank" rel="noopener" style="color:var(--orange);text-decoration:none">Primal</a>), then search again.</p>`
+      const warningHtml = isCandidate && options.noProfile
+        ? `<p class="member-bio candidate-warning">⚠️ This profile is missing visible profile metadata. Double check that you know and trust the owner of this pubkey.</p>`
         : '';
 
       const card = document.createElement('div');
@@ -2460,7 +2511,30 @@
         + (type === 'pending' ? ' pending' : '')
         + (isCandidate ? ' candidate' : '');
 
-      card.innerHTML = `
+      const vouchBtnHtml = showVouch
+        ? `<button class="attest-btn" data-target-hex="${escHtml(hex)}" data-target-name="${escHtml(tagName)}">Vouch</button>`
+        : '';
+
+      if (isCandidate) {
+        // Row format (PO amendment 2026-07-31, brainstorm.world reference): avatar |
+        // name + verification address | right-justified status cluster. Reduced detail —
+        // no bio, no npub row (the name falls back to the short npub when profile-less).
+        card.innerHTML = `
+          <div class="member-avatar">
+            <span class="member-avatar-fallback">${escHtml(initials)}</span>
+          </div>
+          <div class="candidate-id">
+            <div class="member-name" title="${escHtml(displayName)}">${escHtml(displayName)}</div>
+            ${nip05 ? `<div class="member-nip05">${escHtml(nip05)}</div>` : ''}
+            ${warningHtml}
+          </div>
+          <div class="member-footer candidate-right">
+            ${badgeHtml}
+            ${vouchBtnHtml}
+          </div>
+        `;
+      } else {
+        card.innerHTML = `
         <div class="member-card-top">
           <div class="member-avatar">
             <span class="member-avatar-fallback">${escHtml(initials)}</span>
@@ -2471,7 +2545,6 @@
           </div>
         </div>
         ${about ? `<p class="member-bio">${escHtml(about)}</p>` : ''}
-        ${noProfileHtml}
         <div class="member-npub-row">
           <span class="member-npub-text">${escHtml(npubShort)}</span>
           <button class="member-copy-btn" data-hex="${escHtml(hex)}" onclick="copyMemberNpub(this)" title="Copy npub">
@@ -2483,11 +2556,27 @@
           ${status === 'verified' && taggerHex && taggerHex !== SEED_PUBKEY
             ? `<span class="member-attested-by">by <strong>${escHtml(taggerLabel)}</strong></span>`
             : status === 'verified' ? `<span class="member-attested-by">Founding curator</span>` : ''}
-          ${showVouch
-            ? `<button class="attest-btn" data-target-hex="${escHtml(hex)}" data-target-name="${escHtml(tagName)}">Vouch</button>`
-            : ''}
+          ${vouchBtnHtml}
         </div>
       `;
+      }
+
+      // Candidates only: verify the NIP-05 claim against its domain; the ✓ is
+      // earned, never assumed (PO option-b decision, 2026-07-31). Note: verify with
+      // the RAW nip05 (an `_@domain` display-strips to bare domain but resolves as `_`).
+      if (isCandidate && m.nip05) {
+        verifyNip05(m.nip05, hex).then((ok) => {
+          if (!ok) return;
+          const el = card.querySelector('.member-nip05');
+          if (el && !el.querySelector('.candidate-nip05-check')) {
+            const check = document.createElement('span');
+            check.className = 'candidate-nip05-check';
+            check.textContent = '✓ ';
+            check.title = "Verified: this address's domain confirms this key";
+            el.prepend(check);
+          }
+        });
+      }
 
       // Wire up attest button (data attributes avoid inline handler scoping issues).
       // Grid cards run the pending-grid flow; candidates run the panel flow.
@@ -2658,11 +2747,11 @@
       const canVouch = _isVerifiedMember && window.LFOSigner.canSign();
       const taggerHex = status === 'verified' ? verifiedMap.get(decoded.hex) : null;
 
-      const renderCandidate = (metaMap, hasProfile) => {
+      const renderCandidate = (metaMap, noProfile = false) => {
         if (seq !== _searchSeq) return;   // a newer search or a dismissal won the race
         panelEl.innerHTML = '';
         panelEl.appendChild(
-          makeMemberCard(decoded.hex, metaMap, 'candidate', taggerHex, { status, canVouch, hasProfile })
+          makeMemberCard(decoded.hex, metaMap, 'candidate', taggerHex, { status, canVouch, noProfile })
         );
       };
 
@@ -2670,9 +2759,11 @@
       const found = await fetchSearchProfile(decoded.hex, decoded.hints, (meta) => {
         const metaMap = new Map([[decoded.hex, meta]]);
         if (taggerHex && _metaCache.has(taggerHex)) metaMap.set(taggerHex, _metaCache.get(taggerHex));
-        renderCandidate(metaMap, true);
+        renderCandidate(metaMap);
       });
-      if (!found) renderCandidate(new Map(), false);   // O3 view-only state
+      // Profile-less: render anyway — short npub in the name slot, trust warning,
+      // vouchable like any other valid key (PO rollback of O3 + warning copy, 2026-07-31).
+      if (!found) renderCandidate(new Map(), true);
     }
 
     // Vouch from the search panel: same publishVouch core as the pending grid, with

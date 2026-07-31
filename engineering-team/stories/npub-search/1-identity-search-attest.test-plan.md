@@ -53,6 +53,13 @@ outside.
 | T13 | Dismissal: `Escape` hides the panel; verified-grid DOM byte-identical before/after; panel is an absolute overlay (never reflows the grid) | Page integrity |
 | T14 | **Regression:** pending-grid Vouch still works end-to-end (publish fires, card moves pending → verified, counts update) — pins `applyLFOTag` behavior across the `publishVouch` extraction | ADR consequence: refactor touches live code |
 
+## Amendments
+- **2026-07-31 (PO row-format directive):** T4 re-pinned to the reduced-detail row contract — photo + name + verification address only, badge right-justified (geometric assertion), explicit absence of `.member-bio`/`.member-npub-row` on candidates. T3 dropped its npub-row assertion; T9 asserts the short-npub fallback via `.member-name`. All other cases unchanged.
+
+- **2026-07-31 (PO option-b, NIP-05 verification):** new **T4b** — routes `/.well-known/nostr.json` and pins ✓-on-confirm / no-✓-on-mismatch; T4 additionally asserts no ✓ for an unreachable domain. 15 cases total.
+
+- **2026-07-31 (PO O3 rollback):** T9 re-pinned — profile-less candidate = npub-only row, **vouchable**, no "no profile found" copy; no-negative-cache assertions unchanged.
+
 ## Expected initial state
 
 T1–T13 FAIL against the current build — `#member-search-input` doesn't exist, `decodeIdentity`
