@@ -19,7 +19,7 @@ for them directly, which is how vouching works in the physical world the Solutio
 The search UX repurposes the deployed brainstorm.world search page (reference in `tapestry/`).
 
 ## Stories
-- #1 — `1-identity-search-attest` — **Single-match search:** identity-string search (npub / hex / nprofile) on the Members page: resolve to a single candidate in a horizontal dropdown panel (profile, npub, membership status) and attest from the panel via the existing attestation flow. *(Draft)*
+- #1 — `1-identity-search-attest` — **Single-match search:** identity-string search (npub / hex / nprofile) on the Members page: resolve to a single candidate rendered as a brainstorm-style row (photo, name, domain-verified NIP-05 ✓, right-justified status badge) in the dropdown panel; vouch from the panel via the extracted `publishVouch` core. Metadata-less keys vouchable with a trust warning (O3 reversed). *(Done — review PASS 2026-07-31, ADR 0041; on `feat/npub-search`, merge to main pending PO call)*
 - #2 — `2-freetext-search-house-pov` — **Free-text search, house POV:** input that isn't an exact identity resolves as a name/text query returning multiple ranked candidates in the same panel, ranked from the **Brainstorm house/network point of view**. Search backend (Open Ranking vs NIP-50) is this story's Architecture decision. *(Queued — PO scope call 2026-07-30)*
 - #3 — `3-personalized-pov-ranking` — **Personalized POV:** users can **opt into trust-ranked npub search and member views** — profiles with the highest trust scores *from that user's own point of view* appear first in the search panel **and** on the existing member grids (verified **and pending** — PO amendment 2026-07-30). *(Queued — PO scope call 2026-07-30)*
 

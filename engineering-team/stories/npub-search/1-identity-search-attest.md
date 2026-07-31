@@ -1,6 +1,6 @@
 # Story 1: Npub search — find any Nostr identity from the Members page and attest from the panel
 
-**Status:** Approved (PO, 2026-07-30)
+**Status:** Done — review PASS 2026-07-31 (unmerged on `feat/npub-search` pending PO merge call)
 **Created:** 2026-07-30
 **Type:** Feature
 **Epic:** `npub-search` · **Book:** `npub-search`
