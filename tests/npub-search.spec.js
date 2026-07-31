@@ -317,9 +317,10 @@ test.describe('npub search — identity search + vouch from panel (npub-search #
     // Row format (2026-07-31 amendment): no npub row — the name slot carries the short
     // npub fallback so the member still sees which key they looked up.
     await expect(candidate(page).locator('.member-name')).toHaveText(shortNpub(GHOST));
-    // PO warning copy (2026-07-31) — verbatim, replaces the old view-only outreach copy.
+    // PO warning copy (2026-07-31) — verbatim incl. the ⚠️ prefix (PO hand-edit),
+    // replaces the old view-only outreach copy.
     await expect(candidate(page).locator('.candidate-warning'))
-      .toHaveText('This profile is missing visible profile metadata. Double check that you know and trust the owner of this pubkey.');
+      .toHaveText('⚠️ This profile is missing visible profile metadata. Double check that you know and trust the owner of this pubkey.');
     await expect(candidate(page), 'old view-only copy gone').not.toContainText(/no profile found/i);
     await expect(badge(page)).toHaveText(/Not a member/i);
     await expect(vouchBtn(page), 'profile-less candidates are vouchable').toHaveText(/Vouch/);
