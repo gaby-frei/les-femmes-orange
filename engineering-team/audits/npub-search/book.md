@@ -12,7 +12,7 @@ No PRD. Completion is *judged* against the acceptance frame below.
 
 - [ ] A signed-in member on the Members page can enter a Nostr identity as a string — npub, hex pubkey, or nprofile — into a search bar situated above the verified-members grid, and see the resolved identity presented as a candidate in a horizontal dropdown panel, rendered like the existing member cards (display name, verification address, picture, shortened npub, truncated bio — where available) plus current membership status.
 - [ ] A verified member can attest a candidate directly from that panel, with the same member-signed attestation semantics the pending grid already uses — removing the "self-tag first" prerequisite for being vouchable.
-- [ ] Input that is not an exact identity resolves as a free-text query returning multiple ranked candidates in the same panel, ranked from the **Brainstorm house/network POV** (backend decided in story #2's Architecture: Open Ranking vs NIP-50).
+- [ ] Input that is not an exact identity resolves as a free-text query returning up to 6 ranked candidates in the same panel — **highest trust first, numeric trust scores displayed**, computed from the perspective of a **designated house npub** (placeholder: the PO's provisioned pubkey; target: the official LFO account once provisioned as a Brainstorm customer). Backend decided in story #2's Architecture (Open Ranking vs NIP-50).
 - [ ] Users can **opt into personalized-POV trust ranking**: with the opt-in active, profiles with the highest trust scores from the user's own point of view appear first in the search panel and on the existing member grids (verified and pending).
 
 ## Epics in this book
