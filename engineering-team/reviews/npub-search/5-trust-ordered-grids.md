@@ -61,3 +61,18 @@ None.
 
 **PASS** — matches story, ADR 0044, and test plan; reviewer-run gates green (one
 pre-existing environmental unit failure, out of scope).
+
+## Addendum — vouch-placement amendment (2026-08-02, same day)
+
+PO amendment: vouched members must land in sorted position from both vouch paths. Audit of
+the delta (`patchGridTrustScores` optional-param default + `applyLFOTag` surgery calling it
+fire-and-forget; T33 red→green, T34 pin):
+
+- The panel path was already sorted (full re-render) — T34 confirmed green pre-change.
+- The grid path's `prepend` now gets a follow-up chip+sort pass; enhancement-only holds
+  (scores unreachable → the card stays where surgery put it, flow never blocks).
+- DOM-gathered default pubkey list is `filter(Boolean)`-guarded; no behavior change for
+  all existing `patchGridTrustScores(list)` call sites.
+- Gates re-run: **155/155 Playwright**, unit 106/107 (same pre-existing failure).
+
+**Verdict unchanged: PASS.**

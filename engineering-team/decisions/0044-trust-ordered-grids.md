@@ -57,6 +57,18 @@ visual row-major order in the CSS grid, so index 0 = upper-left.
 - Tests: `tests/npub-search.spec.js` describe block 3 — `openMembers` gains an
   `extraTagItems` option so a grid can hold enough members to have an order.
 
+## Amendments
+
+- **2026-08-02 — vouch placement (PO amendment to story #5).** Both vouch paths must leave
+  the verified grid sorted. The panel path (`vouchFromPanel` → `loadMembersPage`) already
+  re-sorts by re-render. The pending-grid path (`applyLFOTag`) does surgical card movement
+  (`verifiedGrid.prepend`) that bypassed the sort — fix: `patchGridTrustScores`'s
+  `pubkeys` parameter becomes optional (default: gather hexes from the rendered grids'
+  `.member-copy-btn[data-hex]`), and the surgery calls `patchGridTrustScores()`
+  fire-and-forget after moving the card. This also chips the freshly moved card (it is
+  rebuilt without a `trustScore`). Enhancement-only semantics unchanged: if scores can't
+  be fetched, the moved card simply stays where the surgery put it.
+
 ## Out of scope
 
 Personal-POV sourcing/opt-in (story #3); search-panel ordering (ADR 0042); cross-grid

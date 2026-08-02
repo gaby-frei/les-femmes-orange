@@ -953,4 +953,49 @@ test.describe('member-card trust scores — house POV via ORE batch (npub-search
       'insertion order preserved without scores').toEqual(['Mae Member', 'Vera Two', 'Vike Three', 'Vin Four']);
     expect(await gridNames(page, 'pending-members-grid')).toEqual(['Pat Pending', 'Pia Second']);
   });
+
+  const AMEND_SCORES = [
+    { pubkey: ME, rank: 0.50 },
+    { pubkey: V2, rank: 0.91 },
+    { pubkey: V3, rank: 0.73 },
+    // V4 unscored
+    { pubkey: PENDING, rank: 0.85 },
+    { pubkey: P2, rank: 0.60 },
+    { pubkey: FX.B, rank: 0.80 },
+  ];
+
+  // T33 — story #5 amendment (grid path): the pending-grid vouch's surgical card move
+  // must land the new member in SORTED position, chipped — not prepended upper-left.
+  test('pending-grid vouch → new verified card slots into rank order with its chip', async ({ page }) => {
+    await stubRankApi(page, () => ({ body: { results: AMEND_SCORES, ttl: 3600 } }));
+    await openMembers(page, bigGridSetup());
+    await expect.poll(() => gridNames(page, 'verified-members-grid'))
+      .toEqual(['Vera Two', 'Vike Three', 'Mae Member', 'Vin Four']);
+
+    await gridCard(page, 'pending-members-grid', 'Pat Pending').locator('.attest-btn').click();
+
+    // Pat (.85) belongs between Vera (.91) and Vike (.73) — never first-by-default.
+    await expect.poll(() => gridNames(page, 'verified-members-grid'),
+      { message: 'vouched member sorts into place instead of prepending' })
+      .toEqual(['Vera Two', 'Pat Pending', 'Vike Three', 'Mae Member', 'Vin Four']);
+    await expect(gridCard(page, 'verified-members-grid', 'Pat Pending').locator('.candidate-trust-score'),
+      'moved card carries its chip').toHaveText('🏅 85');
+  });
+
+  // T34 — story #5 amendment (panel path): pin that the search-panel vouch also lands
+  // the new member sorted (it re-renders via loadMembersPage — green before and after).
+  test('search-panel vouch → new verified card slots into rank order', async ({ page }) => {
+    await stubRankApi(page, () => ({ body: { results: AMEND_SCORES, ttl: 3600 } }));
+    await stubSearch(page, () => ({ body: searchResponse([mkHit(FX.B, 'Bea', 80, 10)]) }));
+    await openMembers(page, bigGridSetup());
+    await expect.poll(() => gridNames(page, 'verified-members-grid'))
+      .toEqual(['Vera Two', 'Vike Three', 'Mae Member', 'Vin Four']);
+
+    await search(page, 'liz');
+    await rowByName(page, 'Bea').locator('.attest-btn').click();
+
+    await expect.poll(() => gridNames(page, 'verified-members-grid'),
+      { message: 'panel-vouched member sorts into place (Bea .80 between Vera .91 and Vike .73)' })
+      .toEqual(['Vera Two', 'Bea', 'Vike Three', 'Mae Member', 'Vin Four']);
+  });
 });

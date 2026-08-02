@@ -30,6 +30,15 @@ first.
       visibly re-order when late scores arrive (accepted).
 - [ ] **Everything else intact.** Chips, badges, vouch flows, counts, and the search panel
       are unchanged; a vouch-triggered re-render re-applies the ordering.
+- [ ] **Vouched members slot in sorted.** *(PO amendment, 2026-08-02)* When a member is
+      vouched — from the search panel **or** the pending grid — their card appears in the
+      verified grid **in sorted position** (with its chip), not merely appended/prepended.
+
+## Amendments
+- **2026-08-02 (PO):** added the vouch-placement AC above. The panel path already re-sorted
+  (full re-render); the pending-grid path's surgical card move bypassed the sort — the gap
+  this amendment closes. Recorded in ADR 0044 amendments; tests T33 (grid path, red) /
+  T34 (panel path, pin).
 
 ## Out of scope
 - Personal-POV score sourcing and the opt-in toggle (story #3).

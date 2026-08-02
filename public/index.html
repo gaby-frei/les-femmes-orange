@@ -2383,6 +2383,10 @@
             const newCard   = makeMemberCard(targetHex, freshMeta, 'verified', currentPubkey, {});
             verifiedGrid.prepend(newCard);
             document.getElementById('verified-count').textContent = verifiedGrid.children.length;
+            // Story #5 amendment (ADR 0044): chip the moved card and re-sort the grids so
+            // the new member lands in rank position, not upper-left by default. Not
+            // awaited — placement is decoration, the vouch flow never blocks on it.
+            patchGridTrustScores();
           }
         } else {
           syncRow.innerHTML =
@@ -2944,7 +2948,14 @@
       return out;
     }
 
-    async function patchGridTrustScores(pubkeys) {
+    async function patchGridTrustScores(pubkeys = null) {
+      // No list given (story #5 amendment: post-vouch card surgery) → score whatever
+      // the grids currently hold.
+      if (!pubkeys) {
+        pubkeys = [...document.querySelectorAll(
+          '#verified-members-grid .member-copy-btn, #pending-members-grid .member-copy-btn'
+        )].map(btn => btn.dataset.hex).filter(Boolean);
+      }
       const scores = await fetchHouseTrustScores(pubkeys);
       if (!scores.size) return;
       const cards = document.querySelectorAll('#verified-members-grid .member-card, #pending-members-grid .member-card');

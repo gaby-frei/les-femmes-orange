@@ -27,3 +27,13 @@ rank-desc order not observed); T32 passes (guard); all prior 30 cases green.
   › … › grids render highest trust upper-left: rank-desc order, score-less last, per grid
 32 passed (51.1s)
 ```
+
+## Amendment (2026-08-02 — vouch placement)
+
+| # | Case | AC |
+|---|---|---|
+| T33 | Pending-grid vouch: Pat (.85) slots between Vera (.91) and Vike (.73) in the verified grid, chipped `🏅 85` — not prepended | Vouched members slot in sorted (grid path — was red: surgery prepended) |
+| T34 | Search-panel vouch: Bea (.80) slots into the same position — pin (green before and after; panel path re-renders) | Vouched members slot in sorted (panel path) |
+
+Amendment red run: T33 failed behaviorally (order `[Pat, Vera, …]` — prepended), T34 +
+all 33 prior green. Post-implementation: 155/155.
