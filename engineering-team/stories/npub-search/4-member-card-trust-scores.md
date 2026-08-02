@@ -1,6 +1,6 @@
 # Story 4 (mini): House-POV trust scores on the member cards
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-08-02
 **Type:** Feature (mini — extension of #2's trust-score surface)
 **Epic:** `npub-search` · **Book:** `npub-search`
@@ -42,4 +42,4 @@ same at-a-glance trust signal the search panel already does.
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0043-member-card-trust-scores-ore-batch.md`
 - Test plan: `engineering-team/stories/npub-search/4-member-card-trust-scores.test-plan.md`
-- Review: (after Review phase)
+- Review: `engineering-team/reviews/npub-search/4-member-card-trust-scores.md` — **PASS**, 2026-08-02 (151/151 Playwright; POV-keyed-cache caveat flagged to story #3)
