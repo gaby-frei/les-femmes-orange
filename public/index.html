@@ -935,6 +935,23 @@
       font-size: 0.85rem; color: var(--grey-text); padding: 0.6rem 0.55rem;
     }
 
+    /* Story #2 (ADR 0042) panel states + per-row trust score. */
+    .member-search-empty,
+    .member-search-unavailable {
+      font-size: 0.85rem; color: var(--grey-text);
+      padding: 0.6rem 0.55rem; line-height: 1.5;
+    }
+    .member-search-footnote {
+      font-size: 0.75rem; color: var(--grey-text);
+      padding: 0.5rem 0.55rem 0.25rem; margin-top: 0.2rem;
+      border-top: 1px solid var(--grey-mid); line-height: 1.5;
+    }
+    .candidate-trust-score {
+      font-size: 0.72rem; font-weight: 700; color: var(--orange-dark);
+      background: rgba(245,148,92,0.14); border-radius: 999px;
+      padding: 0.15rem 0.5rem; white-space: nowrap;
+    }
+
     /* Candidate = one row: avatar | name + verification address | right cluster. */
     .member-card.candidate {
       flex-direction: row; align-items: center; gap: 0.9rem;
@@ -1636,7 +1653,7 @@
         <input id="member-search-input" type="text" autocomplete="off" spellcheck="false"
                placeholder="Paste an npub, hex pubkey, or nprofile…"
                oninput="onMemberSearchInput(this.value)" onkeydown="onMemberSearchKeydown(event)">
-        <p class="member-search-hint" id="member-search-hint" style="display:none">Not a recognized identity — paste a full npub, a 64-character hex pubkey, or an nprofile.</p>
+        <p class="member-search-hint" id="member-search-hint" style="display:none">Keep typing — search by name (2+ characters), or paste a full npub, a 64-character hex pubkey, or an nprofile.</p>
         <div id="member-search-panel" class="member-search-panel" hidden></div>
       </div>
 
@@ -1924,6 +1941,18 @@
       'wss://purplepag.es',
       'wss://relay.damus.io',
     ];
+
+    // Free-text profile search (npub-search #2, ADR 0042): the brainstorm deployment's
+    // ranked-search proxy — profiles + house-POV trust scores in one GET. Contract
+    // snapshot: docs/meili-search-proxy-contract.md. Search-path only, like PROFILE_RELAYS.
+    const SEARCH_API = 'https://tags.brainstorm.world/api/search/profiles/meili';
+    // The designated house point of view the ranking is computed from. Swap to the
+    // official LFO account once it is provisioned (ADR 0042 swap runbook) — edit these
+    // two strings only, no logic changes.
+    const HOUSE_POV = {
+      pubkey: '6db8a13f0183828c44dc778af7e2689a810fc24317585f497ddad049b4dd2597', // placeholder: PO's account
+      expectedPovSuffix: '39945424', // its delegated rank author's first 8 hex chars
+    };
 
     // ── Community feed config (community-feed) ───────────────────────────────
     // Display list for the "Feed Source Relays" panel (the actual fetch now happens
@@ -2516,6 +2545,12 @@
         ? `<button class="attest-btn" data-target-hex="${escHtml(hex)}" data-target-name="${escHtml(tagName)}">Vouch</button>`
         : '';
 
+      // Story #2 (ADR 0042): free-text results display their numeric trust score
+      // (wot_rank from the house POV). Identity-search candidates pass no score → no chip.
+      const scoreHtml = isCandidate && options.trustScore != null
+        ? `<span class="candidate-trust-score" title="Trust score from the community's point of view">🏅 ${Number(options.trustScore)}</span>`
+        : '';
+
       if (isCandidate) {
         // Row format (PO amendment 2026-07-31, brainstorm.world reference): avatar |
         // name + verification address | right-justified status cluster. Reduced detail —
@@ -2530,6 +2565,7 @@
             ${warningHtml}
           </div>
           <div class="member-footer candidate-right">
+            ${scoreHtml}
             ${badgeHtml}
             ${vouchBtnHtml}
           </div>
@@ -2695,6 +2731,7 @@
     function hideMemberSearchPanel() {
       const { panelEl, hintEl } = _searchEls();
       _searchSeq++;             // invalidate any in-flight search
+      _abortFreetext();         // and cancel any in-flight free-text request (story #2)
       if (panelEl) { panelEl.hidden = true; panelEl.innerHTML = ''; }
       if (hintEl) hintEl.style.display = 'none';
     }
@@ -2729,11 +2766,17 @@
 
       const decoded = decodeIdentity(raw);
       if (!decoded) {
-        // Story #1 dead end — story #2 converts this to free-text fall-through.
-        panelEl.hidden = true;
-        panelEl.innerHTML = '';
-        hintEl.style.display = '';
-        return;
+        // Story #2 (ADR 0042): non-identity input falls through to free-text search
+        // at ≥2 chars; below the minimum we prompt gently and never touch the backend.
+        if (raw.length < 2) {
+          _abortFreetext();
+          panelEl.hidden = true;
+          panelEl.innerHTML = '';
+          hintEl.style.display = '';
+          return;
+        }
+        hintEl.style.display = 'none';
+        return runFreetextSearch(raw, seq);
       }
       hintEl.style.display = 'none';
 
@@ -2765,6 +2808,100 @@
       // Profile-less: render anyway — short npub in the name slot, trust warning,
       // vouchable like any other valid key (PO rollback of O3 + warning copy, 2026-07-31).
       if (!found) renderCandidate(new Map(), true);
+    }
+
+    // ── Free-text profile search (story #2, ADR 0042) ────────────────────────
+    // One GET to the brainstorm search proxy from the designated house POV, then a
+    // client-side re-sort by wot_rank so "highest trust first" is a property of our
+    // code, not of a mutable server-side pref (ADR probe P3/P14). POV is a parameter
+    // so story #3 can pass the signed-in member's pubkey with no reshaping.
+    let _freetextAbort = null;
+    function _abortFreetext() {
+      if (_freetextAbort) { _freetextAbort.abort(); _freetextAbort = null; }
+    }
+
+    async function runFreetextSearch(query, seq, povPubkey = HOUSE_POV.pubkey) {
+      const { panelEl } = _searchEls();
+      if (!panelEl) return;
+
+      // Loading state up immediately — never a blank panel while the search is in flight.
+      panelEl.hidden = false;
+      panelEl.innerHTML = '<div class="member-search-loading"><span class="syncing-mini-spinner"></span>Searching profiles…</div>';
+
+      _abortFreetext();
+      const ctrl = new AbortController();
+      _freetextAbort = ctrl;
+
+      let data;
+      try {
+        const url = `${SEARCH_API}?q=${encodeURIComponent(query)}&limit=24&offset=0&wotPov=user&userPubkey=${povPubkey}`;
+        const resp = await fetch(url, { signal: ctrl.signal });
+        if (!resp.ok) throw new Error(`search backend ${resp.status}`);
+        data = await resp.json();
+        if (data.success === false) throw new Error(data.error || 'search failed');
+      } catch (err) {
+        if (ctrl.signal.aborted || seq !== _searchSeq) return;   // superseded or dismissed
+        panelEl.innerHTML = '<div class="member-search-unavailable">Search is temporarily unavailable — keep typing to retry. Pasting an exact npub, hex pubkey, or nprofile still works.</div>';
+        return;
+      }
+      if (seq !== _searchSeq) return;
+
+      // POV audit (ADR 0042 sub-decision 3): the returned scores are real either way,
+      // but a silent fallback to the deployment's own house POV must be detectable.
+      const povSuffix = data.povSuffix || HOUSE_POV.expectedPovSuffix;
+      if (data.povResolution?.fellBackToHouse === true || data.povSuffix !== HOUSE_POV.expectedPovSuffix) {
+        console.warn(`[member-search] POV fallback: expected suffix ${HOUSE_POV.expectedPovSuffix}, response served ${data.povSuffix} (fellBackToHouse: ${data.povResolution?.fellBackToHouse ?? 'n/a'}) — ranking may not reflect the designated house POV.`);
+      }
+
+      const hits = Array.isArray(data.hits) ? data.hits : [];
+
+      // Seed the shared profile cache — absent-only, relay-fetched data may be fresher.
+      for (const h of hits) {
+        const hex = h.pubkey || h.id;
+        if (!hex || _metaCache.has(hex)) continue;
+        _metaCache.set(hex, {
+          name: h.name, display_name: h.display_name, picture: h.picture,
+          nip05: h.nip05, about: h.about, website: h.website, lud16: h.lud16,
+        });
+      }
+
+      // Highest trust first: sort by this POV's rank column (stable sort keeps served
+      // order for ties and score-less hits, which rank last), then cut to 6.
+      const rankOf = (h) => { const r = h[`wot_rank_${povSuffix}`]; return typeof r === 'number' ? r : -1; };
+      const top = hits.slice().sort((a, b) => rankOf(b) - rankOf(a)).slice(0, 6);
+
+      const { verifiedMap, pendingMap } = await getMemberSets();
+      if (seq !== _searchSeq) return;
+
+      panelEl.innerHTML = '';
+      if (!top.length) {
+        const empty = document.createElement('div');
+        empty.className = 'member-search-empty';
+        empty.textContent = 'No profiles matched that search.';
+        panelEl.appendChild(empty);
+      } else {
+        const canVouch = _isVerifiedMember && window.LFOSigner.canSign();
+        for (const h of top) {
+          const hex = h.pubkey || h.id;
+          if (!hex) continue;
+          const status = verifiedMap.has(hex) ? 'verified' : pendingMap.has(hex) ? 'pending' : 'none';
+          const taggerHex = status === 'verified' ? verifiedMap.get(hex) : null;
+          const metaMap = new Map([[hex, _metaCache.get(hex) || {
+            name: h.name, display_name: h.display_name, picture: h.picture, nip05: h.nip05,
+          }]]);
+          if (taggerHex && _metaCache.has(taggerHex)) metaMap.set(taggerHex, _metaCache.get(taggerHex));
+          const rank = h[`wot_rank_${povSuffix}`];
+          panelEl.appendChild(makeMemberCard(hex, metaMap, 'candidate', taggerHex, {
+            status, canVouch, trustScore: typeof rank === 'number' ? rank : null,
+          }));
+        }
+      }
+
+      // Identity-encouragement copy — under results AND in the empty state (story AC).
+      const foot = document.createElement('div');
+      foot.className = 'member-search-footnote';
+      foot.textContent = "Don't see who you're looking for? Search their exact npub, hex pubkey, or nprofile instead.";
+      panelEl.appendChild(foot);
     }
 
     // Vouch from the search panel: same publishVouch core as the pending grid, with

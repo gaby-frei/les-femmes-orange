@@ -695,7 +695,9 @@ test.describe('free-text search — ranked candidates from the house POV (npub-s
 
     await search(page, 'liz');
     await expect(ROW(page)).toHaveCount(1, { timeout: 10_000 });
-    await page.locator('#page-members h2').first().click();
+    // Click a target OUTSIDE .member-search that the dropdown never covers (the h2
+    // below the search block sits under the open overlay and intercepts the click).
+    await page.locator('#page-members .telegram-row').click();
     await expect(panel(page), 'click outside dismisses').toBeHidden();
 
     expect(await page.locator('#verified-members-grid').innerHTML(),
