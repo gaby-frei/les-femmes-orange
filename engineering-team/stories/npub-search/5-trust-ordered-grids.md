@@ -1,6 +1,6 @@
 # Story 5 (mini): Trust-ordered member grids
 
-**Status:** Approved
+**Status:** Done
 **Created:** 2026-08-02
 **Type:** Feature (mini — extends #4's score surface into ordering)
 **Epic:** `npub-search` · **Book:** `npub-search`
@@ -39,4 +39,4 @@ first.
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0044-trust-ordered-grids.md`
 - Test plan: `engineering-team/stories/npub-search/5-trust-ordered-grids.test-plan.md`
-- Review: (after Review phase)
+- Review: `engineering-team/reviews/npub-search/5-trust-ordered-grids.md` — **PASS**, 2026-08-02 (153/153 Playwright)
