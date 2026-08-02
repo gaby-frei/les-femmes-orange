@@ -130,6 +130,14 @@ function defaultProfiles() {
 // Boot the real page, install stubs BEFORE showView('members'), drive the real
 // buildMemberSets closure with synthetic tag items (SEED→ME verified; PENDING self-applied).
 async function openMembers(page, { profiles = defaultProfiles(), publishOk = true, signThrows = false } = {}) {
+  // Story #4: loadMembersPage now fires a batch POST to the ORE rank endpoint. The suite
+  // must never reach live hosts — default to an empty-results stub unless the test
+  // installed its own via stubRankApi (which sets the flag and must take precedence).
+  if (!page.__rankStubbed) {
+    await page.route('**/rank/pubkeys', (route) => route.fulfill({
+      status: 200, headers: { 'Access-Control-Allow-Origin': '*' }, json: { results: [], ttl: 3600 },
+    }));
+  }
   await page.goto('/');
   expect(await page.evaluate(() => typeof window.showView), 'app booted').toBe('function');
   await page.evaluate(({ profiles, publishOk, signThrows, me, seed, pending }) => {
@@ -804,8 +812,10 @@ test.describe('free-text search — ranked candidates from the house POV (npub-s
    fetch + patch land; T29 is the failure-mode guard (green before AND after). */
 
 // Stub the ORE batch-rank endpoint. `respond(body, nthCall)` → { body, status?, abort? }.
-// Returns the node-side call log (parsed POST bodies).
+// Returns the node-side call log (parsed POST bodies). Sets the flag openMembers checks
+// so its default empty stub is NOT layered on top of (and shadowing) this one.
 async function stubRankApi(page, respond) {
+  page.__rankStubbed = true;
   const calls = [];
   await page.route('**/rank/pubkeys', async (route) => {
     const body = route.request().postDataJSON();

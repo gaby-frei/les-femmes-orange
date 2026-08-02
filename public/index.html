@@ -1953,6 +1953,10 @@
       pubkey: '6db8a13f0183828c44dc778af7e2689a810fc24317585f497ddad049b4dd2597', // placeholder: PO's account
       expectedPovSuffix: '39945424', // its delegated rank author's first 8 hex chars
     };
+    // Member-card trust scores (npub-search #4, ADR 0043): ORE batch rank endpoint —
+    // one POST scores the whole grid from the house POV. Decoration only; search stays
+    // on SEARCH_API until it too adopts ORE (the drift between the two then closes).
+    const ORE_RANK_API = 'https://api.brainstorm.world/rank/pubkeys';
 
     // ── Community feed config (community-feed) ───────────────────────────────
     // Display list for the "Feed Source Relays" panel (the actual fetch now happens
@@ -2711,6 +2715,10 @@
       loadingEl.style.display   = 'none';
       verifiedSec.style.display = '';
       if (pendingPubkeys.length > 0) pendingSec.style.display = '';
+
+      // Story #4 (ADR 0043): decorate the freshly rendered cards with house-POV trust
+      // scores. Deliberately NOT awaited — rendering never waits on the score backend.
+      patchGridTrustScores([...verifiedPubkeys, ...pendingPubkeys]);
     }
 
     // ── Npub search controller (npub-search #1, ADR 0041) ───────────────────
@@ -2902,6 +2910,54 @@
       foot.className = 'member-search-footnote';
       foot.textContent = "Don't see who you're looking for? Search their exact npub, hex pubkey, or nprofile instead.";
       panelEl.appendChild(foot);
+    }
+
+    // ── Member-card trust scores (story #4, ADR 0043) ────────────────────────
+    // One ORE batch call per load scores every grid card from the house POV.
+    // Enhancement-only: cards render first; chips patch in when (and only when)
+    // scores arrive. Any failure = a chipless page, never an error state.
+    const _houseScoreCache = new Map();   // hex → 0..1 graperank (ttl 3600 ≫ a session)
+
+    async function fetchHouseTrustScores(pubkeys, povPubkey = HOUSE_POV.pubkey) {
+      const missing = pubkeys.filter(pk => !_houseScoreCache.has(pk));
+      if (missing.length) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 8000);
+        try {
+          const resp = await fetch(ORE_RANK_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pubkeys: missing, algorithm: 'graperank-pov', pov: povPubkey }),
+            signal: ctrl.signal,
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            for (const r of (data.results || [])) {
+              if (r && typeof r.rank === 'number' && r.pubkey) _houseScoreCache.set(r.pubkey, r.rank);
+            }
+          }
+        } catch { /* enhancement only — chipless load */ }
+        finally { clearTimeout(timer); }
+      }
+      const out = new Map();
+      for (const pk of pubkeys) if (_houseScoreCache.has(pk)) out.set(pk, _houseScoreCache.get(pk));
+      return out;
+    }
+
+    async function patchGridTrustScores(pubkeys) {
+      const scores = await fetchHouseTrustScores(pubkeys);
+      if (!scores.size) return;
+      const cards = document.querySelectorAll('#verified-members-grid .member-card, #pending-members-grid .member-card');
+      for (const card of cards) {
+        const hex = card.querySelector('.member-copy-btn')?.dataset?.hex;
+        if (!hex || !scores.has(hex) || card.querySelector('.candidate-trust-score')) continue;
+        const chip = document.createElement('span');
+        chip.className = 'candidate-trust-score';
+        chip.title = "Trust score from the community's point of view";
+        chip.textContent = `🏅 ${Math.round(scores.get(hex) * 100)}`;
+        const footer = card.querySelector('.member-footer');
+        if (footer) footer.prepend(chip);
+      }
     }
 
     // Vouch from the search panel: same publishVouch core as the pending grid, with
