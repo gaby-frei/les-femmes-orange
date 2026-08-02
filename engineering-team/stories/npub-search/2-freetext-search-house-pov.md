@@ -1,6 +1,6 @@
 # Story 2: Free-text profile search — ranked candidates from the Brainstorm house POV
 
-**Status:** Draft
+**Status:** Approved
 **Created:** 2026-07-31
 **Type:** Feature
 **Epic:** `npub-search` · **Book:** `npub-search`
@@ -67,6 +67,6 @@ designation, not a hardcoded account:
 - **O3 — Trigger & minimum length.** ~~Open~~ **Resolved (PO, 2026-08-01):** **live debounced trigger, minimum 2 characters** — same interaction as story #1, no Enter/button.
 
 ## Linked artifacts
-- ADR: (filled in after Architecture phase)
+- ADR: `engineering-team/decisions/0042-freetext-search-house-pov.md` (Accepted 2026-08-02) — supporting reference: `docs/meili-search-proxy-contract.md`, `docs/open-ranking-ore-algorithms.staging.json`
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)

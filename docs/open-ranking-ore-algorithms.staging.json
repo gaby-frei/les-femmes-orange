@@ -1,0 +1,61 @@
+{
+  "/stats/pubkey": [
+    {
+      "id": "graperank",
+      "name": "GrapeRank (global)",
+      "description": "GrapeRank from the provider's default observer. Higher is more reputable."
+    },
+    {
+      "id": "graperank-pov",
+      "name": "GrapeRank (personalized)",
+      "description": "GrapeRank computed from the provided pov pubkey.",
+      "pov": true
+    }
+  ],
+  "/rank/pubkeys": [
+    {
+      "id": "graperank",
+      "name": "GrapeRank (global)"
+    },
+    {
+      "id": "graperank-pov",
+      "name": "GrapeRank (personalized)",
+      "pov": true
+    }
+  ],
+  "/search/pubkeys": [
+    {
+      "id": "relevance",
+      "name": "Relevance (global)",
+      "description": "kind 0 profile text-matching score multiplied by a web-of-trust metric (default perspective)"
+    },
+    {
+      "id": "relevance-pov",
+      "name": "Relevance (personalized)",
+      "description": "kind 0 profile text-matching score multiplied by a web-of-trust metric (personalized)",
+      "pov": true
+    }
+  ],
+  "/followers": [
+    {
+      "id": "graperank",
+      "name": "GrapeRank (global)"
+    },
+    {
+      "id": "graperank-pov",
+      "name": "GrapeRank (personalized)",
+      "pov": true
+    }
+  ],
+  "/muters": [
+    {
+      "id": "graperank",
+      "name": "GrapeRank (global)"
+    },
+    {
+      "id": "graperank-pov",
+      "name": "GrapeRank (personalized)",
+      "pov": true
+    }
+  ]
+}
