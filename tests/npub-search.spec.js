@@ -795,3 +795,87 @@ test.describe('free-text search — ranked candidates from the house POV (npub-s
     expect(cached.mae.display_name, 'pre-existing cache entry not overwritten by a search hit').toBe('Mae Original');
   });
 });
+
+/* ═══════════════════════════ Story #4 mini (ADR 0043) ═══════════════════════════
+   House-POV trust scores on the member-grid cards, from ONE batch POST to ORE
+   /rank/pubkeys (graperank-pov, pov = HOUSE_POV.pubkey). Chips show
+   round(rank × 100) in the story-#2 format. Enhancement-only: any backend failure
+   leaves the page exactly as before this story. T28/T30 are RED until the batch
+   fetch + patch land; T29 is the failure-mode guard (green before AND after). */
+
+// Stub the ORE batch-rank endpoint. `respond(body, nthCall)` → { body, status?, abort? }.
+// Returns the node-side call log (parsed POST bodies).
+async function stubRankApi(page, respond) {
+  const calls = [];
+  await page.route('**/rank/pubkeys', async (route) => {
+    const body = route.request().postDataJSON();
+    calls.push(body);
+    const r = (typeof respond === 'function' ? await respond(body, calls.length) : respond) || {};
+    if (r.abort) return route.abort('failed');
+    return route.fulfill({
+      status: r.status ?? 200,
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      json: r.body ?? { results: [], ttl: 3600 },
+    });
+  });
+  return calls;
+}
+
+const gridCard = (page, grid, name) => page.locator(`#${grid} .member-card`, { hasText: name });
+const gridChips = (page) => page.locator('#verified-members-grid .candidate-trust-score, #pending-members-grid .candidate-trust-score');
+
+test.describe('member-card trust scores — house POV via ORE batch (npub-search #4)', () => {
+  // T28
+  test('one batch POST with the pinned contract; both grid cards chip round(rank*100)', async ({ page }) => {
+    const calls = await stubRankApi(page, () => ({
+      body: { results: [
+        { pubkey: ME, rank: 0.9647637273332996 },
+        { pubkey: PENDING, rank: 0.4512 },
+      ], ttl: 3600 },
+    }));
+    await openMembers(page);
+
+    await expect(gridCard(page, 'verified-members-grid', 'Mae Member').locator('.candidate-trust-score'),
+      'verified card chips the house score').toHaveText('🏅 96', { timeout: 10_000 });
+    await expect(gridCard(page, 'pending-members-grid', 'Pat Pending').locator('.candidate-trust-score'),
+      'pending card chips the house score').toHaveText('🏅 45');
+
+    expect(calls.length, 'exactly one batch request per load').toBe(1);
+    const body = calls[0];
+    expect(body.algorithm, 'personalized graperank algorithm').toBe('graperank-pov');
+    expect(body.pov, 'POV is the HOUSE_POV config pubkey').toBe(HOUSE_HEX);
+    expect(new Set(body.pubkeys), 'batch covers exactly the grid pubkeys').toEqual(new Set([ME, PENDING]));
+
+    // Display-only: the same two cards, nothing reordered or removed.
+    await expect(page.locator('#verified-members-grid .member-card')).toHaveCount(1);
+    await expect(page.locator('#pending-members-grid .member-card')).toHaveCount(1);
+  });
+
+  // T29 — failure-mode guard: green before AND after implementation.
+  test('score backend unreachable → page renders exactly as today: cards, vouch, zero chips', async ({ page }) => {
+    await stubRankApi(page, () => ({ abort: true }));
+    await openMembers(page);
+
+    await expect(gridCard(page, 'verified-members-grid', 'Mae Member'), 'verified card renders').toBeVisible();
+    await expect(gridCard(page, 'pending-members-grid', 'Pat Pending'), 'pending card renders').toBeVisible();
+    await expect(gridCard(page, 'pending-members-grid', 'Pat Pending').locator('.attest-btn'),
+      'vouch flow untouched by score failure').toBeVisible();
+    await page.waitForTimeout(600); // give a (wrong) late chip patch time to appear
+    await expect(gridChips(page), 'no chips and no error state — enhancement only').toHaveCount(0);
+  });
+
+  // T30
+  test('a pubkey missing from the results renders chipless; scored siblings still chip', async ({ page }) => {
+    await stubRankApi(page, () => ({
+      body: { results: [{ pubkey: ME, rank: 0.88 }], ttl: 3600 },
+    }));
+    await openMembers(page);
+
+    await expect(gridCard(page, 'verified-members-grid', 'Mae Member').locator('.candidate-trust-score'),
+      'scored member chips').toHaveText('🏅 88', { timeout: 10_000 });
+    await expect(gridCard(page, 'pending-members-grid', 'Pat Pending').locator('.candidate-trust-score'),
+      'unscored member stays chipless').toHaveCount(0);
+    await expect(gridCard(page, 'pending-members-grid', 'Pat Pending').locator('.member-badge'),
+      'rest of the chipless card intact').toHaveText(/Pending/i);
+  });
+});
