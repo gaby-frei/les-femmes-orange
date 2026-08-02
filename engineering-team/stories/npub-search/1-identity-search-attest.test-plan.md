@@ -60,6 +60,13 @@ outside.
 
 - **2026-07-31 (PO O3 rollback):** T9 re-pinned — profile-less candidate = npub-only row, **vouchable**, no "no profile found" copy; no-negative-cache assertions unchanged.
 
+- **2026-08-02 (story #2 test design):** T12 re-pinned — story #2 removes the non-identity
+  dead end by design (≥2 chars becomes free-text search), so T12's dead-end-hint assertion is
+  obsolete. Now asserts **below-minimum integrity**: a 1-char input fires zero relay fan-out
+  and zero search-backend requests, renders no candidates, and leaves the grids untouched.
+  Green before and after story #2. Free-text behavior is covered by T15–T27 in
+  `2-freetext-search-house-pov.test-plan.md`.
+
 ## Expected initial state
 
 T1–T13 FAIL against the current build — `#member-search-input` doesn't exist, `decodeIdentity`

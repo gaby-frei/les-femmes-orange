@@ -68,5 +68,5 @@ designation, not a hardcoded account:
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0042-freetext-search-house-pov.md` (Accepted 2026-08-02) — supporting reference: `docs/meili-search-proxy-contract.md`, `docs/open-ranking-ore-algorithms.staging.json`
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/npub-search/2-freetext-search-house-pov.test-plan.md` (T15–T27 red at `7888d52`; story-#1 T12 amended)
 - Review: (filled in after Review phase)

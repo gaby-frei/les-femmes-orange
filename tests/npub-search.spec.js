@@ -63,6 +63,60 @@ const PEND_NPUB  = nip19.npubEncode(PENDING);
 
 const shortNpub = (hex) => { const n = nip19.npubEncode(hex); return n.slice(0, 12) + '…' + n.slice(-6); };
 
+/* ── Story #2 (ADR 0042): free-text search fixtures ─────────────────────────────
+   Seam: GET <SEARCH_API> (route glob "api/search/profiles/meili") — the ONLY new
+   network surface. Fixtures mirror docs/meili-search-proxy-contract.md. Hits are served in
+   followers-desc order with rank deliberately disagreeing (probe P3/P14: served
+   order is a mutable server pref) so the client-side rank re-sort is actually
+   exercised, never accidentally satisfied. */
+
+const HOUSE_HEX    = '6db8a13f0183828c44dc778af7e2689a810fc24317585f497ddad049b4dd2597';
+const HOUSE_SUFFIX = '39945424';
+
+function mkHit(hex, name, rank, followers = 0, { suffix = HOUSE_SUFFIX, nip05 = '' } = {}) {
+  return {
+    name, display_name: name, displayName: name, username: '', nip05,
+    npub: nip19.npubEncode(hex), about: '', lud16: '', lud06: '', website: '',
+    id: hex, pubkey: hex, created_at: 1000, indexed_at: 2000, picture: '', banner: '',
+    ...(rank != null ? { [`wot_rank_${suffix}`]: rank } : {}),
+    [`wot_followers_${suffix}`]: followers,
+  };
+}
+
+function searchResponse(hits, overrides = {}) {
+  return {
+    success: true,
+    povSuffix: HOUSE_SUFFIX,
+    povResolution: { mode: 'unfiltered', fellBackToHouse: false, requested: 'user',
+                     delegateSource: 'user-prefs', povSuffix: HOUSE_SUFFIX, minRank: null, scoresExist: null },
+    nip05Result: null, _wotCount: hits.length, _filtered: false,
+    hits, query: 'q', processingTimeMs: 4, estimatedTotalHits: hits.length,
+    tagHits: [], tagHitsHasMore: false,
+    ...overrides,
+  };
+}
+
+// Install the search-API stub. `respond(params, nthCall)` returns
+// { body, status?, delayMs?, abort? }. Returns the node-side call log (parsed
+// query params per request) so specs can assert the request contract.
+async function stubSearch(page, respond) {
+  const calls = [];
+  await page.route('**/api/search/profiles/meili*', async (route) => {
+    const url = new URL(route.request().url());
+    const params = Object.fromEntries(url.searchParams.entries());
+    calls.push(params);
+    const r = (typeof respond === 'function' ? await respond(params, calls.length) : respond) || {};
+    if (r.abort) return route.abort('failed');
+    if (r.delayMs) await new Promise(res => setTimeout(res, r.delayMs));
+    return route.fulfill({
+      status: r.status ?? 200,
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      json: r.body ?? searchResponse([]),
+    });
+  });
+  return calls;
+}
+
 // Default per-pubkey kind-0 serving config. Entries: { meta, created_at, relay?, delayMs? }
 // (relay undefined = served by every relay). GHOST intentionally absent everywhere.
 function defaultProfiles() {
@@ -374,18 +428,22 @@ test.describe('npub search — identity search + vouch from panel (npub-search #
     await expect(badge(page), 'status unchanged').toHaveText(/Not a member/i);
   });
 
-  // T12
-  test('non-identity input → inline hint, zero profile fan-out, grids untouched', async ({ page }) => {
+  // T12 — AMENDED for story #2 (test plan 2-freetext-search-house-pov, 2026-08-02): the
+  // original assertion pinned the "not a recognized identity" dead-end hint for ANY
+  // non-identity input; story #2 removes that dead end by design (≥2 chars becomes free-text
+  // search — covered by T15–T27). Re-pinned as BELOW-MINIMUM integrity: a 1-char input fires
+  // no backend traffic of any kind and leaves the page untouched. Green before and after #2.
+  test('below-minimum input → zero relay fan-out, zero search requests, grids untouched', async ({ page }) => {
+    const searchCalls = await stubSearch(page, () => ({ body: searchResponse([]) }));
     await openMembers(page);
     const gridBefore = await page.locator('#verified-members-grid').innerHTML();
     await page.evaluate(() => { window.__relayCalls = []; });
-    await search(page, 'gigi');
-    await expect(page.locator('#page-members .member-search-hint'), 'inline not-an-identity hint').toBeVisible();
-    await expect(page.locator('#page-members .member-search-hint')).toContainText(/npub|identity|recognized/i);
-    await expect(candidate(page)).toHaveCount(0);
+    await search(page, 'g');
     await page.waitForTimeout(800); // outlast the debounce — nothing should have fired
+    await expect(candidate(page)).toHaveCount(0);
     const kind0Calls = await page.evaluate(() => window.__relayCalls.filter(c => c.filter.kinds?.includes(0)).length);
-    expect(kind0Calls, 'no relay traffic for a non-identity string').toBe(0);
+    expect(kind0Calls, 'no relay traffic below the minimum length').toBe(0);
+    expect(searchCalls.length, 'no search-backend traffic below the minimum length').toBe(0);
     expect(await page.locator('#verified-members-grid').innerHTML(), 'grid untouched').toBe(gridBefore);
   });
 
@@ -420,5 +478,318 @@ test.describe('npub search — identity search + vouch from panel (npub-search #
       .toHaveCount(verifiedBefore + 1, { timeout: 10_000 });
     await expect(page.locator('#verified-members-grid')).toContainText('Pat Pending');
     await expect(page.locator('#pending-members-grid .member-card', { hasText: 'Pat Pending' })).toHaveCount(0);
+  });
+});
+
+/* ═══════════════════════════════ Story #2 (ADR 0042) ═══════════════════════════════
+   Free-text profile search from the Brainstorm house POV. T15–T27 are RED until the
+   SEARCH_API fetch, client-side rank re-sort, and the new panel states land in
+   public/index.html.
+
+   Seam contract (test plan 2-freetext-search-house-pov, pinning what ADR 0042 left open):
+     Request: q, limit=24, offset=0, wotPov=user, userPubkey=<HOUSE_POV.pubkey>. Fires
+       live at ≥2 chars (no Enter); never below 2; never for decodable identities.
+     Rows: up to 6 × .member-card.candidate in #member-search-panel, rank-desc via the
+       response's own povSuffix; each scored row carries .candidate-trust-score whose
+       text contains the integer rank; score-less rows sort last, no score element.
+     States: .member-search-empty | .member-search-unavailable | .member-search-footnote
+       (encouragement copy naming npub, hex, and nprofile).
+     Guard: fellBackToHouse or foreign povSuffix → console.warn mentioning "POV".
+     Caches: hits seed _metaCache only when absent. Stale responses never paint. */
+
+const ROW = (page) => page.locator('#member-search-panel .member-card.candidate');
+const rowByName = (page, name) => ROW(page).filter({ hasText: name });
+const rowScores = (page) => page.$$eval(
+  '#member-search-panel .member-card.candidate .candidate-trust-score',
+  els => els.map(e => parseInt(e.textContent.match(/\d+/)?.[0] ?? 'NaN', 10)),
+);
+
+const FX = {
+  A: '55'.repeat(32), B: '66'.repeat(32), C: '77'.repeat(32), D: '88'.repeat(32),
+  E: '99'.repeat(32), F: 'aa'.repeat(32), G: 'bb'.repeat(32), H: 'cc'.repeat(32),
+};
+
+// 8 scored hits SERVED followers-desc (mutable server pref), ranks disagreeing.
+// Rank top-6 = Etta 100, Bea 92, Dot 75, Cleo 68, Ada 53, Fern 30; Hana 9 and the
+// score-less Gwen must be cut.
+function eightHits() {
+  return [
+    mkHit(FX.A, 'Ada',  53, 600),
+    mkHit(FX.B, 'Bea',  92, 500),
+    mkHit(FX.C, 'Cleo', 68, 400),
+    mkHit(FX.D, 'Dot',  75, 300),
+    mkHit(FX.G, 'Gwen', null, 250),
+    mkHit(FX.H, 'Hana',  9, 200),
+    mkHit(FX.E, 'Etta', 100, 100),   // highest trust, served near-last
+    mkHit(FX.F, 'Fern', 30,  50),
+  ];
+}
+
+test.describe('free-text search — ranked candidates from the house POV (npub-search #2)', () => {
+  // T15
+  test('one char never queries the backend; two chars fire live without Enter', async ({ page }) => {
+    const calls = await stubSearch(page, () => ({ body: searchResponse([mkHit(FX.A, 'Ada', 53)]) }));
+    await openMembers(page);
+
+    await search(page, 'l');
+    await page.waitForTimeout(800); // outlast the debounce
+    expect(calls.length, 'below-minimum input must never reach the backend').toBe(0);
+    await expect(ROW(page)).toHaveCount(0);
+
+    await search(page, 'li');       // no Enter, no button — live debounced trigger
+    await expect.poll(() => calls.length, { message: 'a 2-char query fires the search live' }).toBeGreaterThan(0);
+  });
+
+  // T16
+  test('fall-through fork: free text sends the pinned request contract; identities never touch the backend', async ({ page }) => {
+    const calls = await stubSearch(page, () => ({ body: searchResponse([mkHit(FX.A, 'Ada', 53)]) }));
+    await openMembers(page);
+
+    await search(page, 'liz');
+    await expect.poll(() => calls.length, { message: 'free text reaches the search backend' }).toBe(1);
+    const req = calls[0];
+    expect(req.q, 'q carries the raw query').toBe('liz');
+    expect(req.limit, 'limit=24 headroom (ADR sub-decision 2)').toBe('24');
+    expect(req.offset, 'offset=0 — no pagination').toBe('0');
+    expect(req.wotPov, 'wotPov=user selects the stored-prefs POV path').toBe('user');
+    expect(req.userPubkey, 'userPubkey is the HOUSE_POV placeholder (PO account)').toBe(HOUSE_HEX);
+    await expect(page.locator('#page-members .member-search-hint'),
+      'the story-#1 dead-end hint is gone for searchable input').toBeHidden();
+    await expect(ROW(page)).toHaveCount(1);
+
+    // Identity fast path: unchanged, and it must NOT consult the search backend.
+    await search(page, OUTSIDER_NPUB);
+    await expect(rowByName(page, 'Olive Outsider'), 'identity flow still renders its single candidate').toHaveCount(1);
+    expect(calls.length, 'no search-API request for a decodable identity').toBe(1);
+  });
+
+  // T17
+  test('six rows, highest trust first by the response povSuffix, regardless of served order', async ({ page }) => {
+    await stubSearch(page, () => ({ body: searchResponse(eightHits()) }));
+    await openMembers(page);
+    await search(page, 'liz');
+
+    await expect(ROW(page), 'panel caps at 6 rows').toHaveCount(6);
+    expect(await rowScores(page), 'rows ordered by wot_rank desc, not by served (followers) order')
+      .toEqual([100, 92, 75, 68, 53, 30]);
+    await expect(ROW(page).first().locator('.member-name'), 'late-served highest-trust hit is row 1').toHaveText('Etta');
+    await expect(rowByName(page, 'Hana'), 'lowest-rank hit cut by the top-6').toHaveCount(0);
+    await expect(rowByName(page, 'Gwen'), 'score-less hit cut when 6 scored hits exist').toHaveCount(0);
+  });
+
+  // T18
+  test('per-row membership: ✓ Member (no vouch) / Pending (vouch) / Not a member (vouch)', async ({ page }) => {
+    await stubSearch(page, () => ({
+      body: searchResponse([
+        mkHit(ME, 'Mae Member', 90, 300),
+        mkHit(PENDING, 'Pat Pending', 70, 200),
+        mkHit(FX.A, 'Ada', 50, 100),
+      ]),
+    }));
+    await openMembers(page);
+    await search(page, 'liz');
+    await expect(ROW(page)).toHaveCount(3);
+
+    await expect(rowByName(page, 'Mae Member').locator('.member-badge')).toHaveText(/✓ Member/);
+    await expect(rowByName(page, 'Mae Member').locator('.attest-btn'), 'no vouch action on a member').toHaveCount(0);
+    await expect(rowByName(page, 'Pat Pending').locator('.member-badge')).toHaveText(/Pending/i);
+    await expect(rowByName(page, 'Pat Pending').locator('.attest-btn')).toHaveText(/Vouch/);
+    await expect(rowByName(page, 'Ada').locator('.member-badge')).toHaveText(/Not a member/i);
+    await expect(rowByName(page, 'Ada').locator('.attest-btn')).toHaveText(/Vouch/);
+  });
+
+  // T19
+  test('a score-less hit sorts last and renders without a score element', async ({ page }) => {
+    await stubSearch(page, () => ({
+      body: searchResponse([
+        mkHit(FX.G, 'Gwen', null, 999),   // most followers, served first, but unscored
+        mkHit(FX.A, 'Ada', 80, 10),
+        mkHit(FX.B, 'Bea', 40, 5),
+      ]),
+    }));
+    await openMembers(page);
+    await search(page, 'liz');
+    await expect(ROW(page)).toHaveCount(3);
+    await expect(ROW(page).last().locator('.member-name'), 'unscored row sorts last').toHaveText('Gwen');
+    await expect(rowByName(page, 'Gwen').locator('.candidate-trust-score'), 'no score chip without a score').toHaveCount(0);
+    expect(await rowScores(page), 'scored rows keep rank order ahead of the unscored row').toEqual([80, 40]);
+  });
+
+  // T20
+  test('identity-search encouragement copy renders beneath results and in the empty state', async ({ page }) => {
+    let empty = false;
+    await stubSearch(page, () => ({ body: searchResponse(empty ? [] : [mkHit(FX.A, 'Ada', 53)]) }));
+    await openMembers(page);
+
+    await search(page, 'liz');
+    await expect(ROW(page)).toHaveCount(1);
+    const foot = page.locator('#member-search-panel .member-search-footnote');
+    await expect(foot, 'encouragement copy under results').toBeVisible();
+    for (const form of [/npub/i, /hex/i, /nprofile/i]) {
+      await expect(foot, `copy names ${form}`).toContainText(form);
+    }
+
+    empty = true;
+    await search(page, 'lizzz');
+    await expect(page.locator('#member-search-panel .member-search-empty')).toBeVisible();
+    await expect(page.locator('#member-search-panel .member-search-footnote'),
+      'encouragement copy also in the empty state').toBeVisible();
+  });
+
+  // T21
+  test('vouching one row publishes the story-#1 wire shape for that pubkey; sibling rows untouched', async ({ page }) => {
+    await stubSearch(page, () => ({
+      body: searchResponse([
+        mkHit(FX.A, 'Ada', 80, 300),
+        mkHit(FX.B, 'Bea', 60, 200),
+        mkHit(FX.C, 'Cleo', 40, 100),
+      ]),
+    }));
+    await openMembers(page);
+    const verifiedBefore = await page.locator('#verified-members-grid .member-card').count();
+    await search(page, 'liz');
+    await expect(ROW(page)).toHaveCount(3);
+    const adaBefore  = await rowByName(page, 'Ada').innerHTML();
+    const cleoBefore = await rowByName(page, 'Cleo').innerHTML();
+
+    await rowByName(page, 'Bea').locator('.attest-btn').click();
+    await expect(rowByName(page, 'Bea').locator('.member-badge'), 'vouched row flips to member').toHaveText(/✓ Member/, { timeout: 10_000 });
+
+    const signed = await page.evaluate(() => window.__signed);
+    expect(signed.length, 'exactly one event signed').toBe(1);
+    expect(signed[0].kind).toBe(39999);
+    expect(signed[0].tags).toContainEqual(['d', `profile-tag-lfo-${FX.B.slice(0, 8)}-${ME.slice(0, 8)}`]);
+    expect(signed[0].tags).toContainEqual(['e', LFO_TAG_EVENT_ID]);
+    expect(signed[0].tags).toContainEqual(['z', NOSTR_USER_TAG_ADDR]);
+    expect(signed[0].tags).toContainEqual(['p', FX.B]);
+    expect(signed[0].tags).toContainEqual(['polarity', '1']);
+    expect((await page.evaluate(() => window.__published)).map(p => p.relay),
+      'published with brainstorm among targets').toContain(MEMBERSHIP_RELAYS[0]);
+
+    expect(await rowByName(page, 'Ada').innerHTML(), 'row above the vouched one untouched').toBe(adaBefore);
+    expect(await rowByName(page, 'Cleo').innerHTML(), 'row below the vouched one untouched').toBe(cleoBefore);
+    await expect(page.locator('#verified-members-grid .member-card'), 'verified grid gains the vouched candidate')
+      .toHaveCount(verifiedBefore + 1, { timeout: 10_000 });
+    await expect(page.locator('#verified-members-grid')).toContainText('Bea');
+  });
+
+  // T22
+  test('loading state while in flight; Escape, clear, and click-outside dismiss; grid byte-identical', async ({ page }) => {
+    await stubSearch(page, () => ({ delayMs: 1200, body: searchResponse([mkHit(FX.A, 'Ada', 53)]) }));
+    await openMembers(page);
+    const gridBefore = await page.locator('#verified-members-grid').innerHTML();
+
+    await search(page, 'liz');
+    await expect(panel(page), 'panel opens before the response').toBeVisible();
+    await expect(panel(page).locator('.member-search-loading'), 'loading state — never a blank panel').toBeVisible();
+    await expect(ROW(page)).toHaveCount(1, { timeout: 10_000 });
+    expect(await panel(page).evaluate(el => getComputedStyle(el).position), 'panel is an overlay').toBe('absolute');
+
+    await input(page).press('Escape');
+    await expect(panel(page), 'Escape dismisses').toBeHidden();
+
+    await search(page, 'liz');
+    await expect(ROW(page)).toHaveCount(1, { timeout: 10_000 });
+    await search(page, '');
+    await expect(panel(page), 'clearing the input dismisses').toBeHidden();
+
+    await search(page, 'liz');
+    await expect(ROW(page)).toHaveCount(1, { timeout: 10_000 });
+    await page.locator('#page-members h2').first().click();
+    await expect(panel(page), 'click outside dismisses').toBeHidden();
+
+    expect(await page.locator('#verified-members-grid').innerHTML(),
+      'grid DOM byte-identical after searches and dismissals').toBe(gridBefore);
+  });
+
+  // T23
+  test('no matches → a real empty state, not a blank panel and not the identity dead-end hint', async ({ page }) => {
+    await stubSearch(page, () => ({ body: searchResponse([]) }));
+    await openMembers(page);
+    await search(page, 'zzq');
+    const emptyEl = page.locator('#member-search-panel .member-search-empty');
+    await expect(emptyEl, 'empty state rendered').toBeVisible();
+    expect((await emptyEl.textContent()).trim().length, 'empty state carries copy').toBeGreaterThan(0);
+    await expect(emptyEl).not.toContainText(/not a recognized identity/i);
+    await expect(ROW(page)).toHaveCount(0);
+  });
+
+  // T24
+  test('backend failure → unavailable state; retyping when healthy retries; nothing breaks', async ({ page }) => {
+    let healthy = false;
+    await stubSearch(page, () => healthy
+      ? { body: searchResponse([mkHit(FX.A, 'Ada', 53)]) }
+      : { status: 503, body: { success: false, error: 'Search service unavailable' } });
+    await openMembers(page);
+
+    await search(page, 'liz');
+    await expect(page.locator('#member-search-panel .member-search-unavailable'),
+      'unavailable state on backend failure').toBeVisible();
+    await expect(ROW(page)).toHaveCount(0);
+
+    healthy = true;
+    await search(page, 'lizz');   // retry = just typing
+    await expect(ROW(page), 'recovery on the next keystrokes').toHaveCount(1, { timeout: 10_000 });
+    await expect(page.locator('#member-search-panel .member-search-unavailable')).toHaveCount(0);
+  });
+
+  // T25
+  test('stale responses never paint: a slow query is superseded by a fast retype', async ({ page }) => {
+    await stubSearch(page, (params) => params.q === 'slow'
+      ? { delayMs: 2000, body: searchResponse([mkHit(FX.G, 'Slow Result', 99)]) }
+      : { body: searchResponse([mkHit(FX.A, 'Fast Result', 53)]) });
+    await openMembers(page);
+
+    await search(page, 'slow');
+    await page.waitForTimeout(600);          // let the slow request actually launch
+    await search(page, 'liz');
+    await expect(rowByName(page, 'Fast Result')).toHaveCount(1, { timeout: 10_000 });
+    await page.waitForTimeout(2500);         // outlast the slow response
+    await expect(rowByName(page, 'Slow Result'), 'the stale response must never overwrite').toHaveCount(0);
+    await expect(rowByName(page, 'Fast Result'), 'the latest query keeps the panel').toHaveCount(1);
+  });
+
+  // T26
+  test('POV fallback in the response → console.warn mentioning POV; rows still render from the returned namespace', async ({ page }) => {
+    const warnings = [];
+    page.on('console', (msg) => { if (msg.type() === 'warning') warnings.push(msg.text()); });
+    await stubSearch(page, () => ({
+      body: searchResponse(
+        [mkHit(FX.A, 'Ada', 61, 10, { suffix: '78ed0837' })],
+        { povSuffix: '78ed0837',
+          povResolution: { mode: 'filtered', fellBackToHouse: true, requested: 'user',
+                           delegateSource: 'house-prefs', povSuffix: '78ed0837', minRank: 2, scoresExist: true } },
+      ),
+    }));
+    await openMembers(page);
+    await search(page, 'liz');
+
+    await expect(ROW(page), 'fallback still renders results').toHaveCount(1);
+    expect(await rowScores(page), 'score read via the RETURNED povSuffix, not the expected one').toEqual([61]);
+    await expect.poll(() => warnings.filter(w => /pov/i.test(w)).length,
+      { message: 'a console.warn mentioning POV fires on fellBackToHouse/suffix mismatch' }).toBeGreaterThan(0);
+  });
+
+  // T27
+  test('hits seed _metaCache when absent; existing cache entries are never overwritten', async ({ page }) => {
+    await stubSearch(page, () => ({
+      body: searchResponse([
+        mkHit(FX.A, 'Ada Fresh', 80, 10, { nip05: 'ada@lfo.example' }),
+        mkHit(ME, 'Mae RENAMED BY SEARCH', 90, 300),
+      ]),
+    }));
+    await openMembers(page);
+    await page.evaluate((me) => { _metaCache.set(me, { display_name: 'Mae Original' }); }, ME);
+
+    await search(page, 'liz');
+    await expect(ROW(page)).toHaveCount(2);
+
+    const cached = await page.evaluate(({ a, me }) => ({
+      ada: _metaCache.get(a) || null,
+      mae: _metaCache.get(me) || null,
+    }), { a: FX.A, me: ME });
+    expect(cached.ada, 'absent hit seeded into _metaCache').not.toBeNull();
+    expect(cached.ada.display_name ?? cached.ada.name, 'seeded meta carries the profile fields').toBe('Ada Fresh');
+    expect(cached.mae.display_name, 'pre-existing cache entry not overwritten by a search hit').toBe('Mae Original');
   });
 });
