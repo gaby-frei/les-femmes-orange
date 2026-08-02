@@ -102,3 +102,9 @@ All in `public/index.html`.
 
 - Grid reordering by score (story #3); search-panel changes; 202 handling; any warn guard
   on the decorative path.
+
+## Amendments
+
+- **2026-08-02 — "display-only" superseded by ADR 0044** (story #5): the grids now
+  re-sort by descending score after the patch pass. The enhancement-only failure mode and
+  everything else in this ADR stand unchanged.
