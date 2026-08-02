@@ -129,7 +129,7 @@ function defaultProfiles() {
 
 // Boot the real page, install stubs BEFORE showView('members'), drive the real
 // buildMemberSets closure with synthetic tag items (SEED→ME verified; PENDING self-applied).
-async function openMembers(page, { profiles = defaultProfiles(), publishOk = true, signThrows = false } = {}) {
+async function openMembers(page, { profiles = defaultProfiles(), publishOk = true, signThrows = false, extraTagItems = [] } = {}) {
   // Story #4: loadMembersPage now fires a batch POST to the ORE rank endpoint. The suite
   // must never reach live hosts — default to an empty-results stub unless the test
   // installed its own via stubRankApi (which sets the flag and must take precedence).
@@ -140,12 +140,13 @@ async function openMembers(page, { profiles = defaultProfiles(), publishOk = tru
   }
   await page.goto('/');
   expect(await page.evaluate(() => typeof window.showView), 'app booted').toBe('function');
-  await page.evaluate(({ profiles, publishOk, signThrows, me, seed, pending }) => {
+  await page.evaluate(({ profiles, publishOk, signThrows, me, seed, pending, extraTagItems }) => {
     currentPubkey = me;
     _isVerifiedMember = true;
     _tagItemsCache = [
       { kind: 39999, pubkey: seed,    tags: [['p', me]],      created_at: 1, id: 'a1'.repeat(32) },
       { kind: 39999, pubkey: pending, tags: [['p', pending]], created_at: 2, id: 'a2'.repeat(32) },
+      ...extraTagItems,
     ];
     window.__relayCalls = [];
     window.__published  = [];
@@ -183,7 +184,7 @@ async function openMembers(page, { profiles = defaultProfiles(), publishOk = tru
       return { ok: publishOk, relay };
     };
     window.showView('members');
-  }, { profiles, publishOk, signThrows, me: ME, seed: SEED, pending: PENDING });
+  }, { profiles, publishOk, signThrows, me: ME, seed: SEED, pending: PENDING, extraTagItems });
   await expect(page.locator('#verified-members-grid .member-card').first(), 'members grid rendered').toBeVisible({ timeout: 10_000 });
 }
 
@@ -887,5 +888,69 @@ test.describe('member-card trust scores — house POV via ORE batch (npub-search
       'unscored member stays chipless').toHaveCount(0);
     await expect(gridCard(page, 'pending-members-grid', 'Pat Pending').locator('.member-badge'),
       'rest of the chipless card intact').toHaveText(/Pending/i);
+  });
+
+  /* Story #5 (ADR 0044): grids render highest-trust first (upper-left = DOM index 0),
+     score-less last in insertion order, POV-agnostic. T31 is RED until the re-sort
+     lands; T32 guards the no-scores path (insertion order preserved — green
+     before AND after). */
+
+  const V2 = 'dd'.repeat(32), V3 = 'ee'.repeat(32), V4 = 'f1'.repeat(32), P2 = 'ab'.repeat(32);
+
+  function bigGridSetup() {
+    const profiles = defaultProfiles();
+    profiles[V2] = [{ meta: { display_name: 'Vera Two' },   created_at: 1000 }];
+    profiles[V3] = [{ meta: { display_name: 'Vike Three' }, created_at: 1000 }];
+    profiles[V4] = [{ meta: { display_name: 'Vin Four' },   created_at: 1000 }];
+    profiles[P2] = [{ meta: { display_name: 'Pia Second' }, created_at: 1000 }];
+    const extraTagItems = [
+      { kind: 39999, pubkey: SEED, tags: [['p', V2]], created_at: 3, id: 'a3'.repeat(32) },
+      { kind: 39999, pubkey: SEED, tags: [['p', V3]], created_at: 4, id: 'a4'.repeat(32) },
+      { kind: 39999, pubkey: SEED, tags: [['p', V4]], created_at: 5, id: 'a5'.repeat(32) },
+      { kind: 39999, pubkey: P2,   tags: [['p', P2]], created_at: 6, id: 'a6'.repeat(32) },
+    ];
+    return { profiles, extraTagItems };
+  }
+
+  const gridNames = (page, grid) =>
+    page.$$eval(`#${grid} .member-card .member-name`, els => els.map(e => e.textContent));
+
+  // T31
+  test('grids render highest trust upper-left: rank-desc order, score-less last, per grid', async ({ page }) => {
+    await stubRankApi(page, () => ({
+      body: { results: [
+        { pubkey: ME, rank: 0.50 },
+        { pubkey: V2, rank: 0.91 },
+        { pubkey: V3, rank: 0.73 },
+        // V4 deliberately unscored
+        { pubkey: PENDING, rank: 0.20 },
+        { pubkey: P2, rank: 0.60 },
+      ], ttl: 3600 },
+    }));
+    await openMembers(page, bigGridSetup());
+
+    await expect.poll(() => gridNames(page, 'verified-members-grid'),
+      { message: 'verified grid sorts rank-desc with the score-less member last' })
+      .toEqual(['Vera Two', 'Vike Three', 'Mae Member', 'Vin Four']);
+    await expect.poll(() => gridNames(page, 'pending-members-grid'),
+      { message: 'pending grid sorts rank-desc independently' })
+      .toEqual(['Pia Second', 'Pat Pending']);
+
+    // Ordering decorated, nothing lost: same cards, chips on every scored member.
+    await expect(page.locator('#verified-members-grid .member-card')).toHaveCount(4);
+    await expect(gridCard(page, 'verified-members-grid', 'Vin Four').locator('.candidate-trust-score'),
+      'unscored member has no chip and sits last').toHaveCount(0);
+  });
+
+  // T32 — guard (green before AND after): no scores → insertion order untouched.
+  test('no scores → grids keep member-set insertion order', async ({ page }) => {
+    await stubRankApi(page, () => ({ body: { results: [], ttl: 3600 } }));
+    await openMembers(page, bigGridSetup());
+
+    await expect(page.locator('#verified-members-grid .member-card')).toHaveCount(4);
+    await page.waitForTimeout(400); // give a (wrong) late re-sort time to happen
+    expect(await gridNames(page, 'verified-members-grid'),
+      'insertion order preserved without scores').toEqual(['Mae Member', 'Vera Two', 'Vike Three', 'Vin Four']);
+    expect(await gridNames(page, 'pending-members-grid')).toEqual(['Pat Pending', 'Pia Second']);
   });
 });
