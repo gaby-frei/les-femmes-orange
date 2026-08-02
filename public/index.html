@@ -2958,6 +2958,22 @@
         const footer = card.querySelector('.member-footer');
         if (footer) footer.prepend(chip);
       }
+
+      // Story #5 (ADR 0044): highest trust first, upper-left. Stable per-grid re-sort by
+      // descending score — score-less cards compare as -1 and keep their relative order
+      // at the end. POV-agnostic: sorts whatever score set the active POV produced.
+      for (const gridId of ['verified-members-grid', 'pending-members-grid']) {
+        const grid = document.getElementById(gridId);
+        if (!grid) continue;
+        const gridCards = [...grid.querySelectorAll(':scope > .member-card')];
+        if (gridCards.length < 2) continue;
+        const scoreOf = (card) => {
+          const hex = card.querySelector('.member-copy-btn')?.dataset?.hex;
+          return (hex && scores.has(hex)) ? scores.get(hex) : -1;
+        };
+        gridCards.sort((a, b) => scoreOf(b) - scoreOf(a));   // Array.sort is stable
+        for (const card of gridCards) grid.appendChild(card);
+      }
     }
 
     // Vouch from the search panel: same publishVouch core as the pending grid, with
