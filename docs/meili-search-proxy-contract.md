@@ -1,5 +1,12 @@
 # API contract — Brainstorm profile-search proxy (as observed)
 
+ ## ⚠️ PRE-STORY-#6 DOCUMENT — describes the backend we are migrating OFF
+
+**This document was written on 2026-08-02, BEFORE story #6
+(`engineering-team/stories/npub-search/6-search-ore-migration.md`, Approved 2026-08-05),
+which migrates free-text search off this meili proxy and onto ORE
+`POST https://brainstormserver.nosfabrica.com/search/pubkeys` (`relevance-pov`).**
+
 ```
 GET https://tags.brainstorm.world/api/search/profiles/meili
 ```

@@ -87,6 +87,6 @@ see are consistent everywhere they appear.
   the shared score cache. The fused `/search/pubkeys` relevance float is never displayed.
 
 ## Linked artifacts
-- ADR: (Architecture phase)
+- ADR: `engineering-team/decisions/0045-search-ore-migration.md` (Accepted 2026-08-05)
 - Test plan: (Test Design phase)
 - Review: (Review phase)
