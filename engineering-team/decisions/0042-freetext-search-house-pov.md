@@ -1,13 +1,13 @@
 # ADR 0042: Free-text profile search — deployed ranked-search API, client-side trust ordering, house POV as a config constant
 
-**Status:** Accepted (PO, 2026-08-02)
-**Date:** 2026-08-01 (probes updated 2026-08-02)
+**Status:** Accepted (PO, 2026-08-02; ORE probe record consolidated 2026-08-05)
+**Date:** 2026-08-01 (Updated and rewritten after successful ORE probe on 2026-08-05, see version history for the earlier probe table)
 **Story:** `engineering-team/stories/npub-search/2-freetext-search-house-pov.md`
 
 ## Context
 
-Story #2 converts story #1's non-identity dead end (`public/index.html:2731`, the `!decoded`
-branch of `runMemberSearch`) into free-text profile search: up to 6 candidate rows, ordered
+Story #2 converts story #1's non-identity dead end (the `!decoded` branch of
+`runMemberSearch`) into free-text profile search: up to 6 candidate rows, ordered
 highest-trust first with the numeric trust score shown, ranked from the perspective of a
 **designated house npub** whose placeholder→LFO swap must be config-only. The identity fast
 path is untouched.
@@ -16,22 +16,25 @@ path is untouched.
 concept definitions change; no firmware impact. The LFO tag event, membership sets, and vouch
 write path are reused unchanged.
 
-**Candidate backend contracts** — all findings below are probe-verified; see the
-[Probe log](#probe-log):
+**Candidate backends** (all live-probed during this phase; contract references:
+`docs/meili-search-proxy-contract.md`, `docs/open-ranking-ore-algorithms.staging.json`, and
+the [ORE probe record](#ore-probe-record) below):
 
-- **Brainstorm meili proxy** (`GET tags.brainstorm.world/api/search/profiles/meili`, source
-  `tapestry/src/api/search/profiles/meili/index.js:91-235`): client sends only `q`, `limit`
-  (≤200), `offset`, `wotPov=house|user`, `userPubkey`. With `wotPov=user` the server resolves
-  the pubkey's stored prefs → `rankAuthor` → `povSuffix` (first 8 hex chars), which names the
-  score columns on each hit (`wot_rank_<povSuffix>`, `wot_followers_<povSuffix>`). No
-  `rankAuthor` → silent fallback to the nosfabrica house POV; the deployed proxy reports this
-  via a `povResolution` object (P1). Sort/filter come from stored prefs, never the client (P3).
-- **NIP-50** on `wss://tags.brainstorm.world/relay`: text search works, returns raw kind-0
-  events, no scores (P4).
-- **Open Ranking Engine (ORE)** `POST /search/pubkeys` (`relevance` / `relevance-pov`), per
-  the ORE-01/ORE-05 specs (`github.com/Open-Ranking/protocol`) and the discovery doc snapshot
-  `docs/open-ranking-ore-algorithms.staging.json`: `{query, algorithm?, pov?, limit?}` →
-  `{results: [{pubkey, rank}], ttl}` (P5–P12).
+- **Brainstorm meili proxy** (`GET tags.brainstorm.world/api/search/profiles/meili`,
+  reference source `tapestry/src/api/search/profiles/meili/index.js:91-235`): client sends
+  only `q`, `limit` (≤200), `offset`, `wotPov=house|user`, `userPubkey`. With
+  `wotPov=user` the server resolves the pubkey's stored prefs → `rankAuthor` →
+  `povSuffix` (first 8 hex chars), which names the score columns on each hit
+  (`wot_rank_<povSuffix>`, `wot_followers_<povSuffix>`). No `rankAuthor` → silent fallback
+  to the nosfabrica house POV; the deployed proxy reports resolution via a `povResolution`
+  object. Sort/filter come from the resolved account's stored prefs, never from the client.
+  CORS reflects arbitrary origins — direct browser calls work.
+- **NIP-50** on `wss://tags.brainstorm.world/relay`: text search works and returns raw
+  kind-0 events — no trust scores.
+- **Open Ranking Engine (ORE)** — `POST /search/pubkeys` (`relevance` / `relevance-pov`)
+  per the ORE-01/ORE-05 specs (`github.com/Open-Ranking/protocol`): `{query, algorithm?,
+  pov?, limit?}` → `{results: [{pubkey, rank}], ttl}`. Wildcard CORS. See the probe record
+  for live behavior.
 
 **Constraints:** JS-without-build; all-client Members page (ADR 0041). The panel, candidate
 row (`makeMemberCard` `'candidate'` mode), `publishVouch`, `getMemberSets`, `_searchSeq`
@@ -45,17 +48,20 @@ forked. Story #3 (personalized POV) will want the same search with a different P
 `fetch` with `wotPov=user&userPubkey=<house pubkey>`; read each row's score from
 `wot_rank_<povSuffix>` using the response's own `povSuffix`.
 
-Pros: the only backend returning profiles **and** house-POV scores in one round trip (P1);
-CORS open, no proxy needed (P2); the 6-suggestion / ≥2-char shape is brainstorm's own flow;
-POV is a request parameter, so the LFO swap and story #3 are parameter changes.
+Pros: profiles **and** house-POV scores in one round trip (every field a row renders plus
+the score columns, in the same documents); CORS open, no proxy needed; the 6-suggestion /
+≥2-char shape is brainstorm's own flow; POV is a request parameter, so the LFO swap and
+story #3 are parameter changes; the `povResolution` echo makes POV resolution auditable
+from the response.
 Cons: runtime dependency on the deployment's HTTP API (scoped to free-text; identity path
 stays relay-only); ranking correctness depends on the house account staying provisioned
-server-side, with a *silent* fallback to nosfabrica's POV (mitigated: sub-decision 3); served
-order follows a mutable stored pref, not trust (P3; mitigated: sub-decision 2).
+server-side, with a *silent* fallback to nosfabrica's POV (mitigated: sub-decision 3);
+served order follows the account's mutable stored sort pref, not necessarily trust
+(mitigated: sub-decision 2).
 
 ### Option B — NIP-50 search on the relay
 
-Pros: no HTTP dependency; reuses relay plumbing; returns the right profiles (P4).
+Pros: no HTTP dependency; reuses relay plumbing; returns the right profiles.
 Cons: **no trust scores** — ranking would need per-candidate kind-30382 fetches from
 `wss://nip85.nosfabrica.com` (a third relay) plus re-implementing the POV resolution the
 proxy already owns. More moving parts for strictly less. Documented fallback if the HTTP
@@ -64,41 +70,47 @@ API's CORS ever closes.
 ### Option C — Our own serverless proxy (`api/search.js` beside `api/feed.js`)
 
 Pros: shields the client from deployment API changes; a place to pin CORS.
-Cons: adds surface and a hop for a call the browser already makes (P2); breaks the Members
+Cons: adds surface and a hop for a call the browser already makes; breaks the Members
 page's all-client pattern; ADR 0041 already rejected this shape. Revisit only if CORS closes.
 
 ### Option D — ORE `/search/pubkeys` with `relevance-pov`
 
-Pros: the *architecturally right shape* — POV as a per-request parameter (no stored-prefs
-coupling); one fused text×WoT rank, already trust-ordered; published spec + OpenAPI; wildcard
-CORS; fast; production hosts exist (P5, P6).
-Cons — each independently disqualifying **today**:
-(a) no host serves a *personalized* ranking for our POVs — LFO gets a deliberate,
-spec-conformant "computed: zero results" (P8, P11), and the PO pubkey, though recognized, is
-served ranks byte-identical to the global observer (P9);
-(b) the response carries no echo of the resolved observer — by protocol design (P12) —
-so fallback and personalization are unverifiable from the response;
-(c) results are pubkey+rank only (P12) — rows would need a second batched kind-0 fetch.
-Migration path if revisited: contained inside `runFreetextSearch`, POV seam unchanged.
+`POST https://brainstormserver.nosfabrica.com/search/pubkeys` (also served at
+`api.brainstorm.world`) with `{query, algorithm: 'relevance-pov', pov: <house hex>, limit}`.
+
+Pros: the architecturally cleanest shape — POV as a per-request parameter (no stored-prefs
+coupling, no silent-fallback hazard); one fused text-match × WoT rank, already
+trust-ordered, so no client-side re-sort; published spec + OpenAPI contract; wildcard CORS;
+fast (~250–450 ms, `ttl: 300`); **personalized ranking confirmed live for the placeholder
+house POV** (probe of 2026-08-05, below).
+Trade-offs: the response is `{pubkey, rank}` only — profile metadata for the rows requires
+a second, batched kind-0 fetch; the ORE-05 response schema carries no echo of the resolved
+observer, so which perspective served the ranks isn't verifiable from the response (Option
+A's `povResolution` has no counterpart); the LFO target POV's behavior should be verified
+once that account is provisioned. Migration path when adopted: contained inside
+`runFreetextSearch` (swap the fetch + join metadata), POV-as-parameter seam unchanged.
 
 ## Decision
 
-**Option A.** Option D is the likely successor — it fixes Option A's two structural warts
-(server-side POV resolution, pref-governed ordering) — but today it cannot serve a
-personalized house-POV ranking, cannot prove whose perspective it served, and cannot draw a
-row without a second fetch. Option A satisfies every AC with one call now.
+**Option A** — it satisfies every AC with a single call (profiles + scores + auditable POV
+resolution in one response). **Option D is the planned successor**: ADR 0043 already adopts
+ORE for the member-card batch scores on the explicit rationale that search converges on ORE
+too, at which point chips, cards, and search rows share one source. The POV-as-parameter
+seam below is deliberately shaped so the A→D migration touches only the inside of
+`runFreetextSearch`.
 
 Four sub-decisions:
 
 1. **Trust score = the `rank` metric** (`wot_rank_<povSuffix>`, brainstorm's "Verification
-   Score", 0–100). Displayed on each row and used as the ordering key. `followers` is ignored
-   for ordering (it's the stored pref currently governing server order — P3).
+   Score", 0–100). Displayed on each row and used as the ordering key. `followers` is
+   ignored for ordering.
 2. **Client-side re-sort with headroom.** Request `limit=24`, sort by `wot_rank_<povSuffix>`
-   desc client-side (score-less hits last, in served order), take 6. "Highest trust first"
-   becomes a property of our code, not of a mutable server pref, at zero extra request cost.
-   (As of P14 the PO account's stored sort is rank-desc, so served order already agrees —
-   the re-sort stays as defense against pref drift, not as the primary mechanism.)
-3. **House POV is one config constant block** in `public/index.html`, beside `RELAYS` (~1914):
+   desc client-side (score-less hits last, in served order), take 6. Served order follows
+   the designated account's stored sort pref — externally mutable — so "highest trust
+   first" is made a property of our code, at zero extra request cost. (The placeholder
+   account's pref is currently rank-desc, so served order already agrees; the re-sort is
+   defense against pref drift, and equal-rank ties have no specified secondary order.)
+3. **House POV is one config constant block** in `public/index.html`, beside `RELAYS`:
 
    ```js
    // House point of view for free-text search ranking (story #2, ADR 0042).
@@ -121,10 +133,10 @@ Four sub-decisions:
    delegating `30382:rank`; (c) deployment-side prefs for the LFO pubkey with `rankAuthor` —
    established by one sign-in to the brainstorm search UI as LFO after (b). Then the swap is
    editing `HOUSE_POV.pubkey` + `HOUSE_POV.expectedPovSuffix` — two strings, no logic.
-   **Settings-panel checks for whichever account is house** (P13): `rank` ticked in
-   Available Trust Metrics (else its scores may stop refreshing on re-load while we display
-   them); filters off unless intentional; Sort by → `rank` desc preferred (aligns the
-   server-side cut with the metric we rank by; our re-sort remains the defense either way).
+   **Settings-panel checks for whichever account is house:** `rank` ticked in Available
+   Trust Metrics (else its scores may stop refreshing on re-load while we display them);
+   filters off unless intentional; Sort by → `rank` desc preferred (aligns the server-side
+   cut with the metric we rank by; our re-sort remains the defense either way).
 
 **Flow:** `runMemberSearch` keeps its decode-first fork. The `!decoded` branch becomes —
 length < 2: gentle below-minimum prompt, never a request; length ≥ 2: loading state (reused),
@@ -157,29 +169,27 @@ not the server's `_notice`).
 
 ## Implementation notes
 
-All in `public/index.html` unless noted. Line numbers as of `206f1a0`.
+All in `public/index.html` unless noted.
 
-- **Constants** (~1914): `SEARCH_API` + `HOUSE_POV` per sub-decision 3.
-- **`runMemberSearch`** (~2725): in the `!decoded` branch (~2731), replace the dead-end hint
-  with the length fork (< 2 → prompt via `member-search-hint`; ≥ 2 →
-  `runFreetextSearch(raw, seq)`). Identity branch byte-identical.
+- **Constants:** `SEARCH_API` + `HOUSE_POV` per sub-decision 3.
+- **`runMemberSearch`:** in the `!decoded` branch, the length fork (< 2 → prompt via
+  `member-search-hint`; ≥ 2 → `runFreetextSearch(raw, seq)`). Identity branch byte-identical.
 - **`runFreetextSearch(query, seq, povPubkey = HOUSE_POV.pubkey)`** (new): loading state;
   abort prior request; fetch; `seq === _searchSeq` check after every await; fallback-guard
   warn; sort `hit['wot_rank_'+povSuffix] ?? -1` desc, slice 6; seed `_metaCache`
   (absent-only); `getMemberSets()` for status/taggerHex; render rows + encouragement footer;
   error → unavailable state; zero hits → empty state.
-- **`makeMemberCard`** (~2471): candidate mode takes `options.trustScore` (number | null);
-  non-null renders the score element (right side near the badge; placement/copy are Test
-  Design + implementation detail, LFO palette).
-- **Panel** (`#member-search-panel`, ~1640): already a vertical list; add an
-  encouragement-footer element class used under results and in the empty state.
+- **`makeMemberCard`:** candidate mode takes `options.trustScore` (number | null);
+  non-null renders the score element (right side near the badge, LFO palette).
+- **Panel** (`#member-search-panel`): vertical list; encouragement-footer element class
+  used under results and in the empty state.
 - **Copy** (Tester pins exact strings, vouch vocabulary): below-minimum prompt, empty state,
   unavailable state, identity-encouragement footer (npub / hex / nprofile).
-- **Vouch/dismiss/integrity:** no new paths — story-#1 panel vouch handler (~2770-2812);
+- **Vouch/dismiss/integrity:** no new paths — story-#1 panel vouch handler;
   `hideMemberSearchPanel` additionally aborts the in-flight free-text request.
 - **Tests** (`tests/npub-search.spec.js`): stub via `page.route(SEARCH_API + '*', …)`;
-  fixtures carry `povSuffix` + namespaced score fields to exercise ordering (incl. the
-  served-order ≠ rank-order case, P3), score-less hits, povSuffix mismatch, empty, error,
+  fixtures carry `povSuffix` + namespaced score fields to exercise ordering (including a
+  served-order ≠ rank-order case), score-less hits, povSuffix mismatch, empty, error,
   and below-minimum no-request assertions (route call-count). Identity fast-path regression:
   no search-API request when input decodes.
 
@@ -191,34 +201,68 @@ All in `public/index.html` unless noted. Line numbers as of `206f1a0`.
 - The response's `tagHits` and `nip05Result` fields — explicitly ignored.
 - Executing the LFO swap runbook (external; the PO is driving it).
 - Our own proxy (Option C) — revisit only on a CORS/contract change.
-- Migrating to ORE (Option D) — revisit when a host serves a genuinely personalized
-  (≠ global) `relevance-pov` for the house pubkey and it's verifiable; a **202 +
-  `Retry-After`** on a POV request (ORE-05's compute-pending signal, unused today) would
-  signal changed provisioning semantics. Re-probe per the Probe log's differential checks.
+- Migrating search to ORE `/search/pubkeys` (Option D) — the planned successor, per the
+  convergence rationale in ADR 0043. When picked up: verify the LFO POV, and join profile
+  metadata client-side (the ORE response is pubkey+rank only).
 
-## Probe log
+## ORE probe record
 
-All probes live against running services. 2026-08-01 (P1–P4) and 2026-08-02 (P5–P12).
-Query used throughout: `"liz"`. Pubkeys: **PO** = `6db8a13f…` (placeholder house POV),
-**LFO** = `5f0d66ba…` (target house POV), **TA** = `39945424…` (PO's delegated rank author /
-Brainstorm assistant). ORE hosts: **stg** = `brainstormserver-staging.nosfabrica.com`,
-**prod** = `api.brainstorm.world` and `brainstormserver.nosfabrica.com` (same backend or
-close mirrors; ranks match to data-age drift).
+The two load-bearing live probes of the Open Ranking Engine. (This section supersedes the
+earlier P1–P16 probe log; meili-proxy behavior is documented in
+`docs/meili-search-proxy-contract.md`.)
 
-| # | Target | Probe | Result | Implication |
-|---|--------|-------|--------|-------------|
-| P1 | meili proxy | `wotPov=user&userPubkey=<PO>` | 6 hits, all with `wot_rank_39945424` + `wot_followers_39945424`, full profile fields; `povSuffix: "39945424"`; `povResolution: { fellBackToHouse: false, delegateSource: "user-prefs", … }` | One GET returns profiles + scores + auditable POV resolution; deployed proxy is newer than the `tapestry/` checkout |
-| P2 | meili proxy | Request with foreign `Origin`; POST preflight | Origin reflected in `Access-Control-Allow-Origin`, `Vary: Origin` | Direct browser fetch works; no proxy of ours needed |
-| P3 | meili proxy | Inspect hit order vs scores | Order is `followers`-desc (rank 68 above rank 75), per the PO account's stored `sortConfig`; client cannot send sort | Served order ≠ trust order → client-side re-sort (sub-decision 2) |
-| P4 | relay (NIP-50) | `{kinds:[0], search:"liz", limit:6}` | EOSE, same 6 profiles, raw kind-0, no scores | Text search alone can't satisfy the score/ordering ACs (Option B cons) |
-| P5 | ORE stg | `/.well-known/open-ranking.json` + OpenAPI | `/search/pubkeys` advertises `relevance` + `relevance-pov`; wildcard CORS, preflight passes | Contract snapshot: `docs/open-ranking-ore-algorithms.staging.json`; browser-callable |
-| P6 | ORE stg + prod | `relevance` (global) | 6 genuine matches everywhere, ~250–450 ms, `ttl: 300` | ORE text+WoT fusion works; global observer only |
-| P7 | ORE stg | `relevance-pov`, pov = PO or LFO | `{"results": []}`, HTTP 200 | Staging has no WoT for our POVs |
-| P8 | ORE prod | `relevance-pov`, pov = LFO or bogus | `{"results": []}`, HTTP 200, no `Retry-After`, repeatedly | Deliberate "computed: zero results", not "pending" — won't heal by waiting (see P11) |
-| P9 | ORE prod | `relevance-pov`, pov = PO, vs global | 6 results **byte-identical to global** (pubkeys + ranks, full float precision) | Recognized POV served the default observer — not personalized; matches PO's npub.world observation |
-| P10 | ORE prod | `relevance-pov`, pov = TA | `{"results": []}` | `pov` = perspective *owner*, not score author; delegate has no standing as a POV |
-| P11 | ORE prod | ORE-01/05 conformance battery | `relevance-pov` w/o `pov` → 422; empty query → 422; unknown algorithm → 422; `pov` on global → ignored; hex-only `pov` enforced (npub → validation error) | Host is spec-conformant → its 200-empties are deliberate semantics; a 202 would be the on-demand-compute signal |
-| P12 | ORE spec + prod | Response shape | `{results: [{pubkey, rank}], ttl}` only — no profile fields, no observer echo (none defined in ORE-05) | Un-audit-able by design + needs a second kind-0 fetch to draw rows (Option D cons b, c) |
-| P13 | meili proxy | `wotPov=house` vs `wotPov=user&userPubkey=<PO>` differential; PO's settings-panel screenshot | House: delegate `78ed0837`, `mode: "filtered"`, `minRank: 2`. PO: delegate `39945424`, unfiltered, sort `followers` desc, `selectedMetrics` = followers only (rank unchecked) | PO prefs fully reconstructed (see `docs/meili-search-proxy-contract.md` § Observed prefs); rank-metric staleness risk + "tick rank / sort by rank" recommendation added to the swap-runbook checks |
-| P14 | meili proxy | Re-probe after PO applied the P13 recommendation (settings saved: `rank` ticked, `followers` unticked, sort → rank desc, filter still off) | Served order now strictly rank-desc (75 above 68), `mode: "unfiltered"`, delegate unchanged | Runbook checks satisfied for the placeholder account; server cut now aligns with the displayed metric. Client re-sort **retained** as defense (prefs remain externally mutable; rank ties have unspecified secondary order) |
-| P15 | ORE prod | `POST /rank/pubkeys` `graperank-pov` pov = PO, vs global `graperank` (2026-08-02, story #4) | **Genuinely personalized** — values differ from global (0.96476 vs 0.96447; 0.92409 vs 0.91738); meili `wot_rank` = `round(rank × 100)` exactly (0.9647→96, 0.9240→92); `ttl: 3600` | Revises Option D con (a): the recognized-but-global behavior (P9) is **`/search/pubkeys`-specific**, not provider-wide. Batch POV ranking is usable today — adopted for member-card chips in ADR 0043 |
+### 2026-08-05 — `/search/pubkeys`, personalized search *(most recent; formerly P16)*
+
+Outbound request:
+
+```
+POST https://brainstormserver.nosfabrica.com/search/pubkeys
+Content-Type: application/json
+
+{"query":"rando","algorithm":"relevance-pov","pov":"6db8a13f0183828c44dc778af7e2689a810fc24317585f497ddad049b4dd2597","limit":6}
+```
+
+Differential baseline (same host, same query, global algorithm, no `pov`):
+
+```
+POST https://brainstormserver.nosfabrica.com/search/pubkeys
+Content-Type: application/json
+
+{"query":"rando","algorithm":"relevance","limit":6}
+```
+
+Response shape (both): `{"results":[{"pubkey":"<64-hex>","rank":<float>}, …],"ttl":300}`.
+
+Findings: **personalization confirmed live for the placeholder house POV.** The POV
+response's #1 hit (`16ea2a43c7b6e4f582ce3e06330b2b3ecaca13be7b654f96df13f6ca3b1d5eee`,
+profile display-name "rando", rank ≈ 10037 — nearly double the global top) appears **only**
+under the POV; the global response does not contain it. A re-run of the earlier "liz"
+differential (same two request shapes with `"query":"liz"`) returned the same six pubkeys
+in the same order but with **per-profile rank values differing from global** on three of
+six — a genuine per-POV computation. (Probes on 2026-08-02 had shown POV responses
+byte-identical to global; the change is server-side provisioning of this POV in the
+interim, not a client-side variable.) Algorithm IDs verified against the host's own
+discovery doc: `GET https://brainstormserver.nosfabrica.com/.well-known/open-ranking.json`
+advertises `relevance` and `relevance-pov` for `/search/pubkeys`, matching the staging
+snapshot in `docs/open-ranking-ore-algorithms.staging.json`.
+
+### 2026-08-02 — `/rank/pubkeys`, batch personalized rank *(adopted in ADR 0043; formerly P15)*
+
+Outbound request:
+
+```
+POST https://api.brainstorm.world/rank/pubkeys
+Content-Type: application/json
+
+{"pubkeys":["b8a9df8218084e490d888342a9d488b7cf0fb20b1a19b963becd68ed6ab5cbbd","0edc2f474484769bc9bf6d471d180e4e280b0bcd719b6da791001beb730cff1b"],"algorithm":"graperank-pov","pov":"6db8a13f0183828c44dc778af7e2689a810fc24317585f497ddad049b4dd2597"}
+```
+
+Differential baseline (same host and body, `"algorithm":"graperank"`, no `pov`).
+
+Response shape: `{"results":[{"pubkey":"<64-hex>","rank":<float 0–1>}, …],"ttl":3600}`.
+
+Findings: **genuinely personalized** — POV values differ from global (0.96476 vs 0.96447;
+0.92409 vs 0.91738). The meili proxy's `wot_rank_<suffix>` columns are exactly
+`round(rank × 100)` of these values (0.9647 → 96; 0.9240 → 92), so both surfaces speak the
+same number after conversion. This endpoint powers the member-card chips (ADR 0043) with
+`pov` = `HOUSE_POV.pubkey`.
