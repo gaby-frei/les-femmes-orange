@@ -1942,21 +1942,19 @@
       'wss://relay.damus.io',
     ];
 
-    // Free-text profile search (npub-search #2, ADR 0042): the brainstorm deployment's
-    // ranked-search proxy — profiles + house-POV trust scores in one GET. Contract
-    // snapshot: docs/meili-search-proxy-contract.md. Search-path only, like PROFILE_RELAYS.
-    const SEARCH_API = 'https://tags.brainstorm.world/api/search/profiles/meili';
-    // The designated house point of view the ranking is computed from. Swap to the
-    // official LFO account once it is provisioned (ADR 0042 swap runbook) — edit these
-    // two strings only, no logic changes.
+    // Open Ranking Engine (npub-search #6, ADR 0045): ONE host serves both ORE calls —
+    // free-text search (relevance-pov, ordering) and the batch trust ranks
+    // (graperank-pov) that score search rows and member cards alike.
+    // api.brainstorm.world is a verified equivalent mirror (ADR 0042 → ORE probe
+    // record) if this host ever moves.
+    const ORE_HOST       = 'https://brainstormserver.nosfabrica.com';
+    const ORE_SEARCH_API = ORE_HOST + '/search/pubkeys';
+    const ORE_RANK_API   = ORE_HOST + '/rank/pubkeys';
+    // The designated house point of view rankings are computed from. Swap to the
+    // official LFO account once it is provisioned (ADR 0042 swap runbook) — one string.
     const HOUSE_POV = {
       pubkey: '6db8a13f0183828c44dc778af7e2689a810fc24317585f497ddad049b4dd2597', // placeholder: PO's account
-      expectedPovSuffix: '39945424', // its delegated rank author's first 8 hex chars
     };
-    // Member-card trust scores (npub-search #4, ADR 0043): ORE batch rank endpoint —
-    // one POST scores the whole grid from the house POV. Decoration only; search stays
-    // on SEARCH_API until it too adopts ORE (the drift between the two then closes).
-    const ORE_RANK_API = 'https://api.brainstorm.world/rank/pubkeys';
 
     // ── Community feed config (community-feed) ───────────────────────────────
     // Display list for the "Feed Source Relays" panel (the actual fetch now happens
@@ -2822,11 +2820,33 @@
       if (!found) renderCandidate(new Map(), true);
     }
 
-    // ── Free-text profile search (story #2, ADR 0042) ────────────────────────
-    // One GET to the brainstorm search proxy from the designated house POV, then a
-    // client-side re-sort by wot_rank so "highest trust first" is a property of our
-    // code, not of a mutable server-side pref (ADR probe P3/P14). POV is a parameter
-    // so story #3 can pass the signed-in member's pubkey with no reshaping.
+    // ── Free-text profile search (story #2, re-based on ORE by story #6 / ADR 0045) ──
+    // Three calls: POST ORE search (relevance-pov — served order IS render order), then
+    // in parallel a batched wide-set kind-0 join for row profiles and the shared
+    // /rank/pubkeys batch for the displayed trust chips. POV is a parameter so story #3
+    // can pass the signed-in member's pubkey with no reshaping.
+
+    // Batched kind-0 join: one filter carrying all result pubkeys per wide-set relay.
+    // Newest-wins against _metaCache (relay data is authoritative); misses are NOT
+    // negative-cached — a re-search re-queries. Returns Map<hex, meta> for resolvers.
+    async function fetchSearchProfilesBatch(pubkeys) {
+      if (!pubkeys.length) return new Map();
+      const relays = [...new Set([...RELAYS, ...PROFILE_RELAYS])];
+      const perRelay = await Promise.all(relays.map(r =>
+        queryRelay(r, { kinds: [0], authors: pubkeys, limit: pubkeys.length * 4 }, 6000).catch(() => [])
+      ));
+      for (const ev of perRelay.flat()) {
+        const existing = _metaCache.get(ev.pubkey);
+        if (existing && existing._ts >= ev.created_at) continue;
+        try {
+          _metaCache.set(ev.pubkey, { ...JSON.parse(ev.content), _ts: ev.created_at });
+        } catch {}
+      }
+      const meta = new Map();
+      for (const pk of pubkeys) if (_metaCache.has(pk)) meta.set(pk, _metaCache.get(pk));
+      return meta;
+    }
+
     let _freetextAbort = null;
     function _abortFreetext() {
       if (_freetextAbort) { _freetextAbort.abort(); _freetextAbort = null; }
@@ -2844,67 +2864,58 @@
       const ctrl = new AbortController();
       _freetextAbort = ctrl;
 
-      let data;
+      let results;
       try {
-        const url = `${SEARCH_API}?q=${encodeURIComponent(query)}&limit=24&offset=0&wotPov=user&userPubkey=${povPubkey}`;
-        const resp = await fetch(url, { signal: ctrl.signal });
+        const resp = await fetch(ORE_SEARCH_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, algorithm: 'relevance-pov', pov: povPubkey, limit: 6 }),
+          signal: ctrl.signal,
+        });
         if (!resp.ok) throw new Error(`search backend ${resp.status}`);
-        data = await resp.json();
-        if (data.success === false) throw new Error(data.error || 'search failed');
+        const data = await resp.json();
+        results = Array.isArray(data.results) ? data.results : [];
       } catch (err) {
         if (ctrl.signal.aborted || seq !== _searchSeq) return;   // superseded or dismissed
-        panelEl.innerHTML = '<div class="member-search-unavailable">Search is temporarily unavailable — keep typing to retry. Pasting an exact npub, hex pubkey, or nprofile still works.</div>';
+        panelEl.innerHTML = '<div class="member-search-unavailable">Search is temporarily unavailable — keep typing to retry, or paste an exact npub, 64-character hex pubkey, or nprofile (identity search still works).</div>';
         return;
       }
       if (seq !== _searchSeq) return;
 
-      // POV audit (ADR 0042 sub-decision 3): the returned scores are real either way,
-      // but a silent fallback to the deployment's own house POV must be detectable.
-      const povSuffix = data.povSuffix || HOUSE_POV.expectedPovSuffix;
-      if (data.povResolution?.fellBackToHouse === true || data.povSuffix !== HOUSE_POV.expectedPovSuffix) {
-        console.warn(`[member-search] POV fallback: expected suffix ${HOUSE_POV.expectedPovSuffix}, response served ${data.povSuffix} (fellBackToHouse: ${data.povResolution?.fellBackToHouse ?? 'n/a'}) — ranking may not reflect the designated house POV.`);
+      // Served order IS the render order — the fused text×WoT search rank is an
+      // ordering signal only, never displayed. Row profiles and the displayable trust
+      // ranks join in parallel; either failing degrades the rows, never the search.
+      const pubkeys = results.map(r => r.pubkey).filter(pk => /^[0-9a-f]{64}$/.test(pk || ''));
+      let metaMapAll = new Map(), scores = new Map();
+      if (pubkeys.length) {
+        [metaMapAll, scores] = await Promise.all([
+          fetchSearchProfilesBatch(pubkeys),
+          fetchHouseTrustScores(pubkeys, povPubkey),
+        ]);
       }
-
-      const hits = Array.isArray(data.hits) ? data.hits : [];
-
-      // Seed the shared profile cache — absent-only, relay-fetched data may be fresher.
-      for (const h of hits) {
-        const hex = h.pubkey || h.id;
-        if (!hex || _metaCache.has(hex)) continue;
-        _metaCache.set(hex, {
-          name: h.name, display_name: h.display_name, picture: h.picture,
-          nip05: h.nip05, about: h.about, website: h.website, lud16: h.lud16,
-        });
-      }
-
-      // Highest trust first: sort by this POV's rank column (stable sort keeps served
-      // order for ties and score-less hits, which rank last), then cut to 6.
-      const rankOf = (h) => { const r = h[`wot_rank_${povSuffix}`]; return typeof r === 'number' ? r : -1; };
-      const top = hits.slice().sort((a, b) => rankOf(b) - rankOf(a)).slice(0, 6);
+      if (seq !== _searchSeq) return;
 
       const { verifiedMap, pendingMap } = await getMemberSets();
       if (seq !== _searchSeq) return;
 
       panelEl.innerHTML = '';
-      if (!top.length) {
+      if (!pubkeys.length) {
         const empty = document.createElement('div');
         empty.className = 'member-search-empty';
         empty.textContent = 'No profiles matched that search.';
         panelEl.appendChild(empty);
       } else {
         const canVouch = _isVerifiedMember && window.LFOSigner.canSign();
-        for (const h of top) {
-          const hex = h.pubkey || h.id;
-          if (!hex) continue;
+        for (const hex of pubkeys) {
           const status = verifiedMap.has(hex) ? 'verified' : pendingMap.has(hex) ? 'pending' : 'none';
           const taggerHex = status === 'verified' ? verifiedMap.get(hex) : null;
-          const metaMap = new Map([[hex, _metaCache.get(hex) || {
-            name: h.name, display_name: h.display_name, picture: h.picture, nip05: h.nip05,
-          }]]);
+          const meta = metaMapAll.get(hex);
+          const metaMap = new Map(meta ? [[hex, meta]] : []);
           if (taggerHex && _metaCache.has(taggerHex)) metaMap.set(taggerHex, _metaCache.get(taggerHex));
-          const rank = h[`wot_rank_${povSuffix}`];
+          const rank = scores.get(hex);
           panelEl.appendChild(makeMemberCard(hex, metaMap, 'candidate', taggerHex, {
-            status, canVouch, trustScore: typeof rank === 'number' ? rank : null,
+            status, canVouch, noProfile: !meta,
+            trustScore: typeof rank === 'number' ? Math.round(rank * 100) : null,
           }));
         }
       }
