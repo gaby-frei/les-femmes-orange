@@ -1,4 +1,6 @@
 {
+  "_comment": "STAGING SNAPSHOT — NOT PRODUCTION. Captured from GET https://brainstormserver.nosfabrica.com/.well-known/open-ranking.json (the staging ORE host). The production host api.brainstorm.world may advertise a different algorithm set; do not treat this file as the production contract. Re-fetch before relying on it.",
+
   "/stats/pubkey": [
     {
       "id": "graperank",

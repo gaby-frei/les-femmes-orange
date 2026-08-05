@@ -88,5 +88,5 @@ see are consistent everywhere they appear.
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0045-search-ore-migration.md` (Accepted 2026-08-05)
-- Test plan: (Test Design phase)
+- Test plan: `engineering-team/stories/npub-search/6-search-ore-migration.test-plan.md` (15 red at `6020463`; T12/T34 re-pointed, #2/#5 plans amended)
 - Review: (Review phase)
