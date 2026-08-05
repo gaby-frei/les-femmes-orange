@@ -37,3 +37,7 @@ rank-desc order not observed); T32 passes (guard); all prior 30 cases green.
 
 Amendment red run: T33 failed behaviorally (order `[Pat, Vera, …]` — prepended), T34 +
 all 33 prior green. Post-implementation: 155/155.
+
+**Amendment (2026-08-05, story #6):** T34 re-pointed from the meili search stub to the ORE
+search stub (Bea's profile now served by the relay join); assertions unchanged. Red until
+story #6's implementation lands.

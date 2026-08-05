@@ -60,6 +60,10 @@ Relay/vouch/membership stubs are unchanged from story #1 (`queryRelay`, `publish
 | T26 | Response with `fellBackToHouse: true` + foreign `povSuffix` → `console.warn` mentioning POV; rows still render with the returned-namespace scores | ADR fallback guard |
 | T27 | Hit pubkeys seeded into `_metaCache` when absent; a pre-existing `_metaCache` entry is not overwritten by a search hit | ADR meta seeding |
 
+**Amendment (2026-08-05, story #6):** T15–T27 were re-pinned in place to the ORE backend by
+`6-search-ore-migration.test-plan.md` — the meili stubs, `povSuffix`/`povResolution`
+fixtures, and the client-re-sort assertions described below are historical from that date.
+
 **Amendment to story #1:** T12 ("non-identity input → inline hint, zero fan-out") asserted
 the dead-end hint that this story removes by design. Re-pinned as **below-minimum
 integrity**: 1-char input → zero relay fan-out, zero search requests, no candidates, grids

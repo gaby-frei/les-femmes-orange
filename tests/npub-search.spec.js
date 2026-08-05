@@ -63,55 +63,41 @@ const PEND_NPUB  = nip19.npubEncode(PENDING);
 
 const shortNpub = (hex) => { const n = nip19.npubEncode(hex); return n.slice(0, 12) + '…' + n.slice(-6); };
 
-/* ── Story #2 (ADR 0042): free-text search fixtures ─────────────────────────────
-   Seam: GET <SEARCH_API> (route glob "api/search/profiles/meili") — the ONLY new
-   network surface. Fixtures mirror docs/meili-search-proxy-contract.md. Hits are served in
-   followers-desc order with rank deliberately disagreeing (probe P3/P14: served
-   order is a mutable server pref) so the client-side rank re-sort is actually
-   exercised, never accidentally satisfied. */
+/* ── Free-text search fixtures — re-pinned to the ORE backend by story #6 (ADR 0045).
+   The free-text path's network surface is three independently stubbed calls:
+     1. POST <ORE_HOST>/search/pubkeys → stubOreSearch. Fixture ranks are fused text×WoT
+        floats (thousands scale) — an ordering signal only, never displayed; fixtures
+        deliberately make fused order disagree with chip values so a client re-sort
+        would FAIL T17.
+     2. kind-0 metadata join over the wide relay set → the existing queryRelay stub
+        (profiles option on openMembers).
+     3. POST <ORE_HOST>/rank/pubkeys (chips) → stubRankApi (0–1 floats; chip = round(×100)).
+   openMembers aborts AND counts any call to the retired meili proxy (page.__meiliCalls). */
 
-const HOUSE_HEX    = '6db8a13f0183828c44dc778af7e2689a810fc24317585f497ddad049b4dd2597';
-const HOUSE_SUFFIX = '39945424';
+const HOUSE_HEX = '6db8a13f0183828c44dc778af7e2689a810fc24317585f497ddad049b4dd2597';
+const ORE_HOST  = 'https://brainstormserver.nosfabrica.com';
 
-function mkHit(hex, name, rank, followers = 0, { suffix = HOUSE_SUFFIX, nip05 = '' } = {}) {
-  return {
-    name, display_name: name, displayName: name, username: '', nip05,
-    npub: nip19.npubEncode(hex), about: '', lud16: '', lud06: '', website: '',
-    id: hex, pubkey: hex, created_at: 1000, indexed_at: 2000, picture: '', banner: '',
-    ...(rank != null ? { [`wot_rank_${suffix}`]: rank } : {}),
-    [`wot_followers_${suffix}`]: followers,
-  };
+function oreSearchResponse(pairs) {
+  // pairs: [hex, fusedRank][] — served order IS the expected render order.
+  return { results: pairs.map(([pubkey, rank]) => ({ pubkey, rank })), ttl: 300 };
 }
 
-function searchResponse(hits, overrides = {}) {
-  return {
-    success: true,
-    povSuffix: HOUSE_SUFFIX,
-    povResolution: { mode: 'unfiltered', fellBackToHouse: false, requested: 'user',
-                     delegateSource: 'user-prefs', povSuffix: HOUSE_SUFFIX, minRank: null, scoresExist: null },
-    nip05Result: null, _wotCount: hits.length, _filtered: false,
-    hits, query: 'q', processingTimeMs: 4, estimatedTotalHits: hits.length,
-    tagHits: [], tagHitsHasMore: false,
-    ...overrides,
-  };
-}
-
-// Install the search-API stub. `respond(params, nthCall)` returns
-// { body, status?, delayMs?, abort? }. Returns the node-side call log (parsed
-// query params per request) so specs can assert the request contract.
-async function stubSearch(page, respond) {
+// Stub the ORE search endpoint. `respond(body, nthCall)` returns
+// { body, status?, delayMs?, abort? }. Returns the node-side call log — the parsed
+// POST bodies plus `_url` — so specs can assert the request contract and the host.
+async function stubOreSearch(page, respond) {
+  page.__oreSearchStubbed = true;
   const calls = [];
-  await page.route('**/api/search/profiles/meili*', async (route) => {
-    const url = new URL(route.request().url());
-    const params = Object.fromEntries(url.searchParams.entries());
-    calls.push(params);
-    const r = (typeof respond === 'function' ? await respond(params, calls.length) : respond) || {};
+  await page.route('**/search/pubkeys', async (route) => {
+    const body = route.request().postDataJSON();
+    calls.push({ ...body, _url: route.request().url() });
+    const r = (typeof respond === 'function' ? await respond(body, calls.length) : respond) || {};
     if (r.abort) return route.abort('failed');
     if (r.delayMs) await new Promise(res => setTimeout(res, r.delayMs));
     return route.fulfill({
       status: r.status ?? 200,
       headers: { 'Access-Control-Allow-Origin': '*' },
-      json: r.body ?? searchResponse([]),
+      json: r.body ?? oreSearchResponse([]),
     });
   });
   return calls;
@@ -138,6 +124,19 @@ async function openMembers(page, { profiles = defaultProfiles(), publishOk = tru
       status: 200, headers: { 'Access-Control-Allow-Origin': '*' }, json: { results: [], ttl: 3600 },
     }));
   }
+  // Story #6: same default-stub pattern for ORE search, so no test can leak to the live host.
+  if (!page.__oreSearchStubbed) {
+    await page.route('**/search/pubkeys', (route) => route.fulfill({
+      status: 200, headers: { 'Access-Control-Allow-Origin': '*' }, json: { results: [], ttl: 300 },
+    }));
+  }
+  // Story #6: the meili proxy is retired from the free-text path. Abort AND count any
+  // call that still reaches it — T16 asserts the count stays zero.
+  page.__meiliCalls = [];
+  await page.route('**/api/search/profiles/meili*', (route) => {
+    page.__meiliCalls.push(route.request().url());
+    return route.abort('failed');
+  });
   await page.goto('/');
   expect(await page.evaluate(() => typeof window.showView), 'app booted').toBe('function');
   await page.evaluate(({ profiles, publishOk, signThrows, me, seed, pending, extraTagItems }) => {
@@ -443,7 +442,7 @@ test.describe('npub search — identity search + vouch from panel (npub-search #
   // search — covered by T15–T27). Re-pinned as BELOW-MINIMUM integrity: a 1-char input fires
   // no backend traffic of any kind and leaves the page untouched. Green before and after #2.
   test('below-minimum input → zero relay fan-out, zero search requests, grids untouched', async ({ page }) => {
-    const searchCalls = await stubSearch(page, () => ({ body: searchResponse([]) }));
+    const searchCalls = await stubOreSearch(page, () => ({ body: oreSearchResponse([]) }));
     await openMembers(page);
     const gridBefore = await page.locator('#verified-members-grid').innerHTML();
     await page.evaluate(() => { window.__relayCalls = []; });
@@ -490,21 +489,18 @@ test.describe('npub search — identity search + vouch from panel (npub-search #
   });
 });
 
-/* ═══════════════════════════════ Story #2 (ADR 0042) ═══════════════════════════════
-   Free-text profile search from the Brainstorm house POV. T15–T27 are RED until the
-   SEARCH_API fetch, client-side rank re-sort, and the new panel states land in
-   public/index.html.
-
-   Seam contract (test plan 2-freetext-search-house-pov, pinning what ADR 0042 left open):
-     Request: q, limit=24, offset=0, wotPov=user, userPubkey=<HOUSE_POV.pubkey>. Fires
-       live at ≥2 chars (no Enter); never below 2; never for decodable identities.
-     Rows: up to 6 × .member-card.candidate in #member-search-panel, rank-desc via the
-       response's own povSuffix; each scored row carries .candidate-trust-score whose
-       text contains the integer rank; score-less rows sort last, no score element.
-     States: .member-search-empty | .member-search-unavailable | .member-search-footnote
-       (encouragement copy naming npub, hex, and nprofile).
-     Guard: fellBackToHouse or foreign povSuffix → console.warn mentioning "POV".
-     Caches: hits seed _metaCache only when absent. Stale responses never paint. */
+/* ═══════ Story #2 free-text panel — re-pinned to the ORE backend by story #6 (ADR 0045) ═══════
+   Seam contract (test plan 6-search-ore-migration):
+     Request: POST ORE_HOST/search/pubkeys {query, algorithm:'relevance-pov',
+       pov:<HOUSE_POV.pubkey>, limit:6}. Fires live at ≥2 chars (no Enter); never below 2;
+       never for decodable identities; the retired meili proxy is never called.
+     Rows: up to 6 × .member-card.candidate in SERVED order (no client re-sort); profile
+       fields joined from the wide relay set (newest-wins, no negative cache); chips from
+       the /rank/pubkeys batch as round(rank×100); rank-less rows chipless IN PLACE;
+       profile-less rows render per story-#1 rules (short npub, ⚠️ warning, vouchable).
+     States: .member-search-empty | .member-search-unavailable (copy prompts npub / hex /
+       nprofile — PO O2) | .member-search-footnote. Rank-batch failure → chipless rows,
+       never the unavailable state. Stale responses never paint. */
 
 const ROW = (page) => page.locator('#member-search-panel .member-card.candidate');
 const rowByName = (page, name) => ROW(page).filter({ hasText: name });
@@ -518,27 +514,24 @@ const FX = {
   E: '99'.repeat(32), F: 'aa'.repeat(32), G: 'bb'.repeat(32), H: 'cc'.repeat(32),
 };
 
-// 8 scored hits SERVED followers-desc (mutable server pref), ranks disagreeing.
-// Rank top-6 = Etta 100, Bea 92, Dot 75, Cleo 68, Ada 53, Fern 30; Hana 9 and the
-// score-less Gwen must be cut.
-function eightHits() {
-  return [
-    mkHit(FX.A, 'Ada',  53, 600),
-    mkHit(FX.B, 'Bea',  92, 500),
-    mkHit(FX.C, 'Cleo', 68, 400),
-    mkHit(FX.D, 'Dot',  75, 300),
-    mkHit(FX.G, 'Gwen', null, 250),
-    mkHit(FX.H, 'Hana',  9, 200),
-    mkHit(FX.E, 'Etta', 100, 100),   // highest trust, served near-last
-    mkHit(FX.F, 'Fern', 30,  50),
-  ];
+// Profiles for FX pubkeys, served by the openMembers queryRelay stub — post-#6 the
+// panel's profile fields come from the relay join, not from the search response.
+function fxProfiles(names) {
+  const profiles = defaultProfiles();
+  for (const [key, name] of Object.entries(names)) {
+    profiles[FX[key]] = [{ meta: { display_name: name }, created_at: 1000 }];
+  }
+  return profiles;
 }
+
+const rowNames = (page) =>
+  page.$$eval('#member-search-panel .member-card.candidate .member-name', els => els.map(e => e.textContent));
 
 test.describe('free-text search — ranked candidates from the house POV (npub-search #2)', () => {
   // T15
   test('one char never queries the backend; two chars fire live without Enter', async ({ page }) => {
-    const calls = await stubSearch(page, () => ({ body: searchResponse([mkHit(FX.A, 'Ada', 53)]) }));
-    await openMembers(page);
+    const calls = await stubOreSearch(page, () => ({ body: oreSearchResponse([[FX.A, 9000]]) }));
+    await openMembers(page, { profiles: fxProfiles({ A: 'Ada' }) });
 
     await search(page, 'l');
     await page.waitForTimeout(800); // outlast the debounce
@@ -549,53 +542,70 @@ test.describe('free-text search — ranked candidates from the house POV (npub-s
     await expect.poll(() => calls.length, { message: 'a 2-char query fires the search live' }).toBeGreaterThan(0);
   });
 
-  // T16
-  test('fall-through fork: free text sends the pinned request contract; identities never touch the backend', async ({ page }) => {
-    const calls = await stubSearch(page, () => ({ body: searchResponse([mkHit(FX.A, 'Ada', 53)]) }));
-    await openMembers(page);
+  // T16 — re-pinned by #6: the ORE request contract, the shared host, and the no-meili guard.
+  test('fall-through fork: free text sends the pinned ORE contract; identities and meili never involved', async ({ page }) => {
+    const calls = await stubOreSearch(page, () => ({ body: oreSearchResponse([[FX.A, 9000]]) }));
+    const rankCalls = await stubRankApi(page, () => ({
+      body: { results: [{ pubkey: FX.A, rank: 0.53 }], ttl: 3600 },
+    }));
+    await openMembers(page, { profiles: fxProfiles({ A: 'Ada' }) });
 
     await search(page, 'liz');
-    await expect.poll(() => calls.length, { message: 'free text reaches the search backend' }).toBe(1);
+    await expect.poll(() => calls.length, { message: 'free text reaches ORE search' }).toBe(1);
     const req = calls[0];
-    expect(req.q, 'q carries the raw query').toBe('liz');
-    expect(req.limit, 'limit=24 headroom (ADR sub-decision 2)').toBe('24');
-    expect(req.offset, 'offset=0 — no pagination').toBe('0');
-    expect(req.wotPov, 'wotPov=user selects the stored-prefs POV path').toBe('user');
-    expect(req.userPubkey, 'userPubkey is the HOUSE_POV placeholder (PO account)').toBe(HOUSE_HEX);
-    await expect(page.locator('#page-members .member-search-hint'),
-      'the story-#1 dead-end hint is gone for searchable input').toBeHidden();
+    expect(req.query, 'query carries the raw input').toBe('liz');
+    expect(req.algorithm, 'personalized relevance algorithm').toBe('relevance-pov');
+    expect(req.pov, 'pov is the HOUSE_POV pubkey, in the JSON body').toBe(HOUSE_HEX);
+    expect(req.limit, 'limit=6 exactly — served order is trusted, no headroom').toBe(6);
+    expect(req._url.startsWith(ORE_HOST + '/'), `search served from ${ORE_HOST}`).toBe(true);
     await expect(ROW(page)).toHaveCount(1);
 
-    // Identity fast path: unchanged, and it must NOT consult the search backend.
+    // Chips ride the shared rank batch — and it must live on the same host (PO O3;
+    // this is the assertion that moves story #4's shipped URL).
+    await expect.poll(() => rankCalls.length, { message: 'rank batch fired' }).toBeGreaterThan(0);
+    expect(rankCalls[rankCalls.length - 1]._url.startsWith(ORE_HOST + '/'),
+      `rank batch served from ${ORE_HOST}`).toBe(true);
+
+    await expect(page.locator('#page-members .member-search-hint'),
+      'the dead-end hint stays gone for searchable input').toBeHidden();
+
+    // Identity fast path: unchanged, and it must NOT consult ORE search.
     await search(page, OUTSIDER_NPUB);
     await expect(rowByName(page, 'Olive Outsider'), 'identity flow still renders its single candidate').toHaveCount(1);
-    expect(calls.length, 'no search-API request for a decodable identity').toBe(1);
+    expect(calls.length, 'no ORE-search request for a decodable identity').toBe(1);
+
+    expect(page.__meiliCalls.length, 'the retired meili proxy is never called').toBe(0);
   });
 
-  // T17
-  test('six rows, highest trust first by the response povSuffix, regardless of served order', async ({ page }) => {
-    await stubSearch(page, () => ({ body: searchResponse(eightHits()) }));
-    await openMembers(page);
+  // T17 — re-pinned by #6: SERVED order is render order. Chip values are deliberately
+  // non-monotonic (fused search order ≠ graperank chip order) so any surviving client
+  // re-sort would break this test.
+  test('six rows in ORE served order; chips from the rank batch, never from search ranks', async ({ page }) => {
+    await stubOreSearch(page, () => ({
+      body: oreSearchResponse([[FX.A, 18000], [FX.B, 12000], [FX.C, 9000], [FX.D, 7000], [FX.E, 5000], [FX.F, 2000]]),
+    }));
+    await stubRankApi(page, () => ({
+      body: { results: [
+        { pubkey: FX.A, rank: 0.72 }, { pubkey: FX.B, rank: 0.95 }, { pubkey: FX.C, rank: 0.31 },
+        { pubkey: FX.D, rank: 0.88 }, { pubkey: FX.E, rank: 0.05 }, { pubkey: FX.F, rank: 0.60 },
+      ], ttl: 3600 },
+    }));
+    await openMembers(page, { profiles: fxProfiles({ A: 'Ada', B: 'Bea', C: 'Cleo', D: 'Dot', E: 'Etta', F: 'Fern' }) });
     await search(page, 'liz');
 
-    await expect(ROW(page), 'panel caps at 6 rows').toHaveCount(6);
-    expect(await rowScores(page), 'rows ordered by wot_rank desc, not by served (followers) order')
-      .toEqual([100, 92, 75, 68, 53, 30]);
-    await expect(ROW(page).first().locator('.member-name'), 'late-served highest-trust hit is row 1').toHaveText('Etta');
-    await expect(rowByName(page, 'Hana'), 'lowest-rank hit cut by the top-6').toHaveCount(0);
-    await expect(rowByName(page, 'Gwen'), 'score-less hit cut when 6 scored hits exist').toHaveCount(0);
+    await expect(ROW(page), 'six rows').toHaveCount(6);
+    expect(await rowNames(page), 'rows follow ORE served order even though chips are non-monotonic')
+      .toEqual(['Ada', 'Bea', 'Cleo', 'Dot', 'Etta', 'Fern']);
+    expect(await rowScores(page), 'chips are round(rank×100) from the rank batch, in served order')
+      .toEqual([72, 95, 31, 88, 5, 60]);
   });
 
   // T18
   test('per-row membership: ✓ Member (no vouch) / Pending (vouch) / Not a member (vouch)', async ({ page }) => {
-    await stubSearch(page, () => ({
-      body: searchResponse([
-        mkHit(ME, 'Mae Member', 90, 300),
-        mkHit(PENDING, 'Pat Pending', 70, 200),
-        mkHit(FX.A, 'Ada', 50, 100),
-      ]),
+    await stubOreSearch(page, () => ({
+      body: oreSearchResponse([[ME, 9000], [PENDING, 8000], [FX.A, 7000]]),
     }));
-    await openMembers(page);
+    await openMembers(page, { profiles: fxProfiles({ A: 'Ada' }) });
     await search(page, 'liz');
     await expect(ROW(page)).toHaveCount(3);
 
@@ -607,28 +617,29 @@ test.describe('free-text search — ranked candidates from the house POV (npub-s
     await expect(rowByName(page, 'Ada').locator('.attest-btn')).toHaveText(/Vouch/);
   });
 
-  // T19
-  test('a score-less hit sorts last and renders without a score element', async ({ page }) => {
-    await stubSearch(page, () => ({
-      body: searchResponse([
-        mkHit(FX.G, 'Gwen', null, 999),   // most followers, served first, but unscored
-        mkHit(FX.A, 'Ada', 80, 10),
-        mkHit(FX.B, 'Bea', 40, 5),
-      ]),
+  // T19 — re-pinned by #6: rank-less ≠ reordered. Ordering belongs to ORE; a hit the
+  // rank batch doesn't know keeps its served position and simply has no chip.
+  test('a hit missing from the rank batch renders chipless in its served position', async ({ page }) => {
+    await stubOreSearch(page, () => ({
+      body: oreSearchResponse([[FX.A, 9000], [FX.G, 8000], [FX.B, 7000]]),
     }));
-    await openMembers(page);
+    await stubRankApi(page, () => ({
+      body: { results: [{ pubkey: FX.A, rank: 0.80 }, { pubkey: FX.B, rank: 0.40 }], ttl: 3600 },
+    }));
+    await openMembers(page, { profiles: fxProfiles({ A: 'Ada', B: 'Bea', G: 'Gwen' }) });
     await search(page, 'liz');
     await expect(ROW(page)).toHaveCount(3);
-    await expect(ROW(page).last().locator('.member-name'), 'unscored row sorts last').toHaveText('Gwen');
-    await expect(rowByName(page, 'Gwen').locator('.candidate-trust-score'), 'no score chip without a score').toHaveCount(0);
-    expect(await rowScores(page), 'scored rows keep rank order ahead of the unscored row').toEqual([80, 40]);
+    expect(await rowNames(page), 'served order kept — the rank-less row is NOT pushed last')
+      .toEqual(['Ada', 'Gwen', 'Bea']);
+    await expect(rowByName(page, 'Gwen').locator('.candidate-trust-score'), 'no chip without a rank').toHaveCount(0);
+    expect(await rowScores(page), 'scored rows chip in served order').toEqual([80, 40]);
   });
 
   // T20
   test('identity-search encouragement copy renders beneath results and in the empty state', async ({ page }) => {
     let empty = false;
-    await stubSearch(page, () => ({ body: searchResponse(empty ? [] : [mkHit(FX.A, 'Ada', 53)]) }));
-    await openMembers(page);
+    await stubOreSearch(page, () => ({ body: oreSearchResponse(empty ? [] : [[FX.A, 9000]]) }));
+    await openMembers(page, { profiles: fxProfiles({ A: 'Ada' }) });
 
     await search(page, 'liz');
     await expect(ROW(page)).toHaveCount(1);
@@ -647,14 +658,10 @@ test.describe('free-text search — ranked candidates from the house POV (npub-s
 
   // T21
   test('vouching one row publishes the story-#1 wire shape for that pubkey; sibling rows untouched', async ({ page }) => {
-    await stubSearch(page, () => ({
-      body: searchResponse([
-        mkHit(FX.A, 'Ada', 80, 300),
-        mkHit(FX.B, 'Bea', 60, 200),
-        mkHit(FX.C, 'Cleo', 40, 100),
-      ]),
+    await stubOreSearch(page, () => ({
+      body: oreSearchResponse([[FX.A, 9000], [FX.B, 8000], [FX.C, 7000]]),
     }));
-    await openMembers(page);
+    await openMembers(page, { profiles: fxProfiles({ A: 'Ada', B: 'Bea', C: 'Cleo' }) });
     const verifiedBefore = await page.locator('#verified-members-grid .member-card').count();
     await search(page, 'liz');
     await expect(ROW(page)).toHaveCount(3);
@@ -684,8 +691,8 @@ test.describe('free-text search — ranked candidates from the house POV (npub-s
 
   // T22
   test('loading state while in flight; Escape, clear, and click-outside dismiss; grid byte-identical', async ({ page }) => {
-    await stubSearch(page, () => ({ delayMs: 1200, body: searchResponse([mkHit(FX.A, 'Ada', 53)]) }));
-    await openMembers(page);
+    await stubOreSearch(page, () => ({ delayMs: 1200, body: oreSearchResponse([[FX.A, 9000]]) }));
+    await openMembers(page, { profiles: fxProfiles({ A: 'Ada' }) });
     const gridBefore = await page.locator('#verified-members-grid').innerHTML();
 
     await search(page, 'liz');
@@ -715,7 +722,7 @@ test.describe('free-text search — ranked candidates from the house POV (npub-s
 
   // T23
   test('no matches → a real empty state, not a blank panel and not the identity dead-end hint', async ({ page }) => {
-    await stubSearch(page, () => ({ body: searchResponse([]) }));
+    await stubOreSearch(page, () => ({ body: oreSearchResponse([]) }));
     await openMembers(page);
     await search(page, 'zzq');
     const emptyEl = page.locator('#member-search-panel .member-search-empty');
@@ -725,17 +732,20 @@ test.describe('free-text search — ranked candidates from the house POV (npub-s
     await expect(ROW(page)).toHaveCount(0);
   });
 
-  // T24
-  test('backend failure → unavailable state; retyping when healthy retries; nothing breaks', async ({ page }) => {
+  // T24 — re-pinned by #6: the unavailable copy must prompt identity search (PO O2).
+  test('backend failure → unavailable state prompting npub/hex/nprofile; retyping when healthy retries', async ({ page }) => {
     let healthy = false;
-    await stubSearch(page, () => healthy
-      ? { body: searchResponse([mkHit(FX.A, 'Ada', 53)]) }
-      : { status: 503, body: { success: false, error: 'Search service unavailable' } });
-    await openMembers(page);
+    await stubOreSearch(page, () => healthy
+      ? { body: oreSearchResponse([[FX.A, 9000]]) }
+      : { status: 503, body: { detail: 'unavailable' } });
+    await openMembers(page, { profiles: fxProfiles({ A: 'Ada' }) });
 
     await search(page, 'liz');
-    await expect(page.locator('#member-search-panel .member-search-unavailable'),
-      'unavailable state on backend failure').toBeVisible();
+    const unavailable = page.locator('#member-search-panel .member-search-unavailable');
+    await expect(unavailable, 'unavailable state on backend failure').toBeVisible();
+    for (const form of [/npub/i, /hex/i, /nprofile/i]) {
+      await expect(unavailable, `unavailable copy prompts ${form}`).toContainText(form);
+    }
     await expect(ROW(page)).toHaveCount(0);
 
     healthy = true;
@@ -746,10 +756,10 @@ test.describe('free-text search — ranked candidates from the house POV (npub-s
 
   // T25
   test('stale responses never paint: a slow query is superseded by a fast retype', async ({ page }) => {
-    await stubSearch(page, (params) => params.q === 'slow'
-      ? { delayMs: 2000, body: searchResponse([mkHit(FX.G, 'Slow Result', 99)]) }
-      : { body: searchResponse([mkHit(FX.A, 'Fast Result', 53)]) });
-    await openMembers(page);
+    await stubOreSearch(page, (body) => body.query === 'slow'
+      ? { delayMs: 2000, body: oreSearchResponse([[FX.G, 9000]]) }
+      : { body: oreSearchResponse([[FX.A, 8000]]) });
+    await openMembers(page, { profiles: fxProfiles({ A: 'Fast Result', G: 'Slow Result' }) });
 
     await search(page, 'slow');
     await page.waitForTimeout(600);          // let the slow request actually launch
@@ -760,48 +770,71 @@ test.describe('free-text search — ranked candidates from the house POV (npub-s
     await expect(rowByName(page, 'Fast Result'), 'the latest query keeps the panel').toHaveCount(1);
   });
 
-  // T26
-  test('POV fallback in the response → console.warn mentioning POV; rows still render from the returned namespace', async ({ page }) => {
-    const warnings = [];
-    page.on('console', (msg) => { if (msg.type() === 'warning') warnings.push(msg.text()); });
-    await stubSearch(page, () => ({
-      body: searchResponse(
-        [mkHit(FX.A, 'Ada', 61, 10, { suffix: '78ed0837' })],
-        { povSuffix: '78ed0837',
-          povResolution: { mode: 'filtered', fellBackToHouse: true, requested: 'user',
-                           delegateSource: 'house-prefs', povSuffix: '78ed0837', minRank: 2, scoresExist: true } },
-      ),
-    }));
-    await openMembers(page);
+  // T26 — REPLACED by #6. The old povResolution-warn case is obsolete: ORE carries no
+  // observer echo to guard on (ADR 0045 consciously gives that auditability up). What
+  // needs pinning instead: chips are decoration — a rank-batch failure degrades to
+  // chipless rows, never to the unavailable state.
+  test('rank-batch failure during search → rows render chipless, search unaffected', async ({ page }) => {
+    await stubOreSearch(page, () => ({ body: oreSearchResponse([[FX.A, 9000], [FX.B, 8000]]) }));
+    await stubRankApi(page, () => ({ abort: true }));
+    await openMembers(page, { profiles: fxProfiles({ A: 'Ada', B: 'Bea' }) });
     await search(page, 'liz');
 
-    await expect(ROW(page), 'fallback still renders results').toHaveCount(1);
-    expect(await rowScores(page), 'score read via the RETURNED povSuffix, not the expected one').toEqual([61]);
-    await expect.poll(() => warnings.filter(w => /pov/i.test(w)).length,
-      { message: 'a console.warn mentioning POV fires on fellBackToHouse/suffix mismatch' }).toBeGreaterThan(0);
+    await expect(ROW(page), 'rows render despite the rank failure').toHaveCount(2);
+    expect(await rowNames(page), 'served order intact').toEqual(['Ada', 'Bea']);
+    await expect(page.locator('#member-search-panel .candidate-trust-score'), 'no chips').toHaveCount(0);
+    await expect(page.locator('#member-search-panel .member-search-unavailable'),
+      'a chip failure is not a search failure').toHaveCount(0);
   });
 
-  // T27
-  test('hits seed _metaCache when absent; existing cache entries are never overwritten', async ({ page }) => {
-    await stubSearch(page, () => ({
-      body: searchResponse([
-        mkHit(FX.A, 'Ada Fresh', 80, 10, { nip05: 'ada@lfo.example' }),
-        mkHit(ME, 'Mae RENAMED BY SEARCH', 90, 300),
-      ]),
-    }));
-    await openMembers(page);
-    await page.evaluate((me) => { _metaCache.set(me, { display_name: 'Mae Original' }); }, ME);
+  // T27 — re-pinned by #6: metadata-join semantics. The join seeds the shared cache and
+  // is newest-wins — an OLDER relay event never clobbers a newer cached profile.
+  // (Supersedes the meili path's absent-only rule.)
+  test('metadata join seeds _metaCache newest-wins; newer cached profiles survive the join', async ({ page }) => {
+    await stubOreSearch(page, () => ({ body: oreSearchResponse([[FX.A, 9000], [ME, 8000]]) }));
+    await openMembers(page, { profiles: fxProfiles({ A: 'Ada Fresh' }) });
+    // ME's cached profile is NEWER than anything the relay stub serves (created_at 1000).
+    await page.evaluate((me) => { _metaCache.set(me, { display_name: 'Mae Newer', _ts: 5000 }); }, ME);
 
     await search(page, 'liz');
     await expect(ROW(page)).toHaveCount(2);
+    await expect(rowByName(page, 'Mae Newer'), 'row renders the newer cached profile').toHaveCount(1);
 
     const cached = await page.evaluate(({ a, me }) => ({
       ada: _metaCache.get(a) || null,
       mae: _metaCache.get(me) || null,
     }), { a: FX.A, me: ME });
-    expect(cached.ada, 'absent hit seeded into _metaCache').not.toBeNull();
-    expect(cached.ada.display_name ?? cached.ada.name, 'seeded meta carries the profile fields').toBe('Ada Fresh');
-    expect(cached.mae.display_name, 'pre-existing cache entry not overwritten by a search hit').toBe('Mae Original');
+    expect(cached.ada?.display_name, 'join seeded the fresh profile into _metaCache').toBe('Ada Fresh');
+    expect(cached.mae?.display_name, 'older relay event did not clobber the newer cache entry').toBe('Mae Newer');
+  });
+
+  // T27b — NEW in #6: a profile-less ORE result is not dropped — it renders per the
+  // story-#1 rules — and the join fans out to the full wide relay set without
+  // negative-caching misses.
+  test('profile-less result → npub row, warning, vouchable; wide fan-out; re-search re-queries', async ({ page }) => {
+    await stubOreSearch(page, () => ({ body: oreSearchResponse([[FX.A, 9000], [GHOST, 8000]]) }));
+    await openMembers(page, { profiles: fxProfiles({ A: 'Ada' }) });   // GHOST: no kind-0 anywhere
+    await page.evaluate(() => { window.__relayCalls = []; });
+    await search(page, 'liz');
+
+    await expect(ROW(page), 'both rows render — profile-less is not dropped').toHaveCount(2, { timeout: 15_000 });
+    const ghostRow = rowByName(page, shortNpub(GHOST));
+    await expect(ghostRow.locator('.member-name'), 'short npub in the name slot').toHaveText(shortNpub(GHOST));
+    await expect(ghostRow.locator('.candidate-warning'))
+      .toHaveText('⚠️ This profile is missing visible profile metadata. Double check that you know and trust the owner of this pubkey.');
+    await expect(ghostRow.locator('.attest-btn'), 'profile-less candidates stay vouchable').toHaveText(/Vouch/);
+
+    const calls = await profileCallsFor(page, GHOST);
+    const relaysHit = [...new Set(calls.map(c => c.relay))];
+    for (const r of [...MEMBERSHIP_RELAYS, ...PROFILE_RELAY_URLS]) {
+      expect(relaysHit, `join contacted ${r}`).toContain(r);
+    }
+    const first = calls.length;
+    await search(page, '');
+    await search(page, 'liz');
+    await expect(ROW(page)).toHaveCount(2, { timeout: 15_000 });
+    expect((await profileCallsFor(page, GHOST)).length, 'misses are not negative-cached — re-search re-queries')
+      .toBeGreaterThan(first);
   });
 });
 
@@ -820,7 +853,7 @@ async function stubRankApi(page, respond) {
   const calls = [];
   await page.route('**/rank/pubkeys', async (route) => {
     const body = route.request().postDataJSON();
-    calls.push(body);
+    calls.push({ ...body, _url: route.request().url() });
     const r = (typeof respond === 'function' ? await respond(body, calls.length) : respond) || {};
     if (r.abort) return route.abort('failed');
     return route.fulfill({
@@ -986,8 +1019,10 @@ test.describe('member-card trust scores — house POV via ORE batch (npub-search
   // the new member sorted (it re-renders via loadMembersPage — green before and after).
   test('search-panel vouch → new verified card slots into rank order', async ({ page }) => {
     await stubRankApi(page, () => ({ body: { results: AMEND_SCORES, ttl: 3600 } }));
-    await stubSearch(page, () => ({ body: searchResponse([mkHit(FX.B, 'Bea', 80, 10)]) }));
-    await openMembers(page, bigGridSetup());
+    await stubOreSearch(page, () => ({ body: oreSearchResponse([[FX.B, 9000]]) }));
+    const setup = bigGridSetup();   // story #6 re-point: Bea's profile now comes from the relay join
+    setup.profiles[FX.B] = [{ meta: { display_name: 'Bea' }, created_at: 1000 }];
+    await openMembers(page, setup);
     await expect.poll(() => gridNames(page, 'verified-members-grid'))
       .toEqual(['Vera Two', 'Vike Three', 'Mae Member', 'Vin Four']);
 
