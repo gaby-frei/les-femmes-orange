@@ -1,6 +1,6 @@
 # Story 6: Migrate free-text search from the meili proxy to ORE `/search/pubkeys`
 
-**Status:** Approved (PO, 2026-08-05 — O1–O4 determinations recorded)
+**Status:** Done
 **Created:** 2026-08-05
 **Type:** Refactor (backend swap behind an existing, test-pinned surface)
 **Epic:** `npub-search` · **Book:** `npub-search`
@@ -89,4 +89,4 @@ see are consistent everywhere they appear.
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0045-search-ore-migration.md` (Accepted 2026-08-05)
 - Test plan: `engineering-team/stories/npub-search/6-search-ore-migration.test-plan.md` (15 red at `6020463`; T12/T34 re-pointed, #2/#5 plans amended)
-- Review: (Review phase)
+- Review: `engineering-team/reviews/npub-search/6-search-ore-migration.md` — **PASS**, 2026-08-05 (156/156 Playwright; 4 non-blocking notes, #2 and #3 flagged forward to story #3)
