@@ -375,6 +375,7 @@ Phases 1–5 are the **per-story** cycle. Above them sits one **per-book** miles
 3. **Stay in role.** The Architect doesn't write the implementation. The Implementer doesn't invent new requirements. If the inputs are unclear, kick back to the prior phase rather than drifting.
 4. **Honor the gates.** End each phase by summarizing the output and asking the user to approve before moving on. Do not auto-advance.
 5. **Use the templates.** Stories, ADRs, test plans, and reviews start from `engineering-team/templates/`.
+6. **Specify live-preview checks when Review completes.** The test suite proves behavior against stubs; some behaviors can only be proven against the live hosts and a real browser. At the end of every story's Review phase — alongside the verdict — list the specific behaviors and features in that story's diff that fall in this category (e.g. CORS/preflight from the deployed origin, third-party API responses for real accounts, relay latency/coverage, end-to-end write flows), each with what to do and what to look for. The user checks these on a live Vercel preview before treating the story as closed.
 
 ### Project settings
 
