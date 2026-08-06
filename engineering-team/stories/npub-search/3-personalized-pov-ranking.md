@@ -1,6 +1,6 @@
 # Story 3: Personalized ranking — "Community view" / "My view" toggle
 
-**Status:** Approved (PO, 2026-08-06 — determinations 1–4 + O1–O3 resolved)
+**Status:** Done
 **Created:** 2026-08-06
 **Type:** Feature
 **Epic:** `npub-search` · **Book:** `npub-search`
@@ -165,4 +165,4 @@ decrowding pass (standalone commit, tests re-pinned in the same change):
 
 - ADR: `engineering-team/decisions/0046-personalized-pov-toggle.md` (Accepted 2026-08-06 — readiness predicate `any rank > 0`, source-informed)
 - Test plan: `engineering-team/stories/npub-search/3-personalized-pov-ranking.test-plan.md` (T35–T43 red at `4d078d8`; #4's T28 amended for the probe)
-- Review: (Review phase)
+- Review: `engineering-team/reviews/npub-search/3-personalized-pov-ranking.md` — **PASS**, 2026-08-06 (165/165 Playwright; live-preview checklist issued; pending PO live verification)
