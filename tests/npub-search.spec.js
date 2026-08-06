@@ -1077,7 +1077,10 @@ const isProbeCall = (c) => c.pov === ME && (c.pubkeys || []).includes(CURATOR);
 // house ordering under My view fails loudly. CURATOR .9 makes ME "ready".
 function povScores() {
   return {
-    [HOUSE_HEX]: { [ME]: 0.50, [V2]: 0.91, [V3]: 0.73, [PENDING]: 0.20, [P2]: 0.60, [FX.A]: 0.53 },
+    // V4 carries a low house score (not absent): T41's zero-refetch assertion needs
+    // every grid pubkey cacheable under the house key — an absent pubkey re-fetches
+    // on every patch by design (#4 miss semantics), which isn't what T41 measures.
+    [HOUSE_HEX]: { [ME]: 0.50, [V2]: 0.91, [V3]: 0.73, [V4]: 0.40, [PENDING]: 0.20, [P2]: 0.60, [FX.A]: 0.53 },
     [ME]:        { [ME]: 0.88, [V2]: 0.10, [V3]: 0.95, [V4]: 0.70, [PENDING]: 0.50, [P2]: 0.30, [CURATOR]: 0.90, [FX.A]: 0.77 },
   };
 }

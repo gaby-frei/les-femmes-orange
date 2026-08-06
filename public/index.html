@@ -891,6 +891,47 @@
     .member-attested-by { font-size: 0.72rem; color: var(--grey-text); }
     .member-attested-by strong { color: var(--dark-mid); font-weight: 600; }
 
+    /* ── COMMUNITY VIEW / MY VIEW (npub-search #3, ADR 0046) ── */
+
+    .pov-toggle {
+      display: inline-flex; align-items: center; gap: 0.25rem;
+      background: #f2f2f4; border: 1px solid var(--grey-mid);
+      border-radius: 999px; padding: 0.25rem; margin-bottom: 0.6rem;
+    }
+    .pov-segment {
+      display: inline-flex; align-items: center; gap: 0.45rem;
+      border: none; background: transparent; border-radius: 999px;
+      padding: 0.45rem 1rem; font-size: 0.85rem; font-weight: 600;
+      color: var(--grey-text); cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .pov-segment[aria-checked="true"] {
+      background: var(--white); color: var(--dark);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+    }
+    .pov-segment:disabled { opacity: 0.55; cursor: not-allowed; }
+    .pov-segment-icon { font-size: 0.9rem; line-height: 1; }
+    .pov-segment-avatar {
+      width: 20px; height: 20px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+      background: var(--orange); color: var(--white); font-size: 0.6rem; font-weight: 700;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .pov-segment-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+    .pov-disabled-note {
+      font-size: 0.75rem; color: var(--grey-text); margin: 0 0 1.5rem 0.4rem;
+    }
+
+    /* Orange perspective indicators under the two section headers (determination 3). */
+    .pov-indicator {
+      font-size: 0.75rem; font-weight: 600; color: var(--orange);
+      margin: -0.9rem 0 1rem;   /* tucks up under the bordered header row */
+    }
+
+    /* Header parity (determination 4): the search label lives in the same bordered
+       .members-section-header row as "Verified Members"; kill its standalone margin. */
+    .members-section-header .member-search-label { margin-bottom: 0; }
+
     /* ── NPUB SEARCH (npub-search #1, ADR 0041) ─────────────── */
 
     .member-search { position: relative; margin-bottom: 2.25rem; }
@@ -1646,10 +1687,28 @@
     <!-- Members grid -->
     <div class="members-page">
 
+      <!-- Community view / My view (npub-search #3, ADR 0046): perspective control for
+           every trust surface on this page. My view enables only when the readiness
+           probe finds personal scores; community view is the default every session. -->
+      <div class="pov-toggle" role="radiogroup" aria-label="Ranking perspective">
+        <button type="button" class="pov-segment" role="radio" aria-checked="true"
+                id="pov-segment-community" onclick="setActiveView('community')">
+          <span class="pov-segment-icon">🍊</span>Community view
+        </button>
+        <button type="button" class="pov-segment" role="radio" aria-checked="false"
+                id="pov-segment-mine" disabled onclick="setActiveView('mine')">
+          <span class="pov-segment-avatar" id="pov-my-avatar">•</span>My view
+        </button>
+      </div>
+      <p class="pov-disabled-note" id="pov-disabled-note">My view isn't available for your account yet.</p>
+
       <!-- Npub search (npub-search #1, ADR 0041): identity-string lookup + vouch from panel.
            Inherits the page's verified-members-only gate; all decoding is client-side. -->
       <div class="member-search">
-        <label class="member-search-label" for="member-search-input">Find someone on Nostr</label>
+        <div class="members-section-header">
+          <label class="member-search-label" for="member-search-input">Find someone on Nostr</label>
+        </div>
+        <p class="pov-indicator" id="pov-indicator-search">searching as Les Femmes Orange</p>
         <input id="member-search-input" type="text" autocomplete="off" spellcheck="false"
                placeholder="Paste an npub, hex pubkey, or nprofile…"
                oninput="onMemberSearchInput(this.value)" onkeydown="onMemberSearchKeydown(event)">
@@ -1667,6 +1726,7 @@
           <h2>Verified Members</h2>
           <span class="members-count" id="verified-count"></span>
         </div>
+        <p class="pov-indicator" id="pov-indicator-grid">viewing as Les Femmes Orange</p>
         <div class="members-grid" id="verified-members-grid"></div>
       </div>
 
@@ -1955,6 +2015,9 @@
     const HOUSE_POV = {
       pubkey: '6db8a13f0183828c44dc778af7e2689a810fc24317585f497ddad049b4dd2597', // placeholder: PO's account
     };
+    // Primary curator — readiness-probe target (npub-search #3, ADR 0046): the pubkey
+    // every member's trust chain reaches, so a computed personal WoT scores her > 0.
+    const CURATOR_HEX = 'b8a9df8218084e490d888342a9d488b7cf0fb20b1a19b963becd68ed6ab5cbbd';
 
     // ── Community feed config (community-feed) ───────────────────────────────
     // Display list for the "Feed Source Relays" panel (the actual fetch now happens
@@ -2030,6 +2093,10 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
       if (name === 'members' && !_membersLoaded) { _membersLoaded = true; loadMembersPage(); }
+      // Story #3 (ADR 0046, PO O2): re-probe My-view readiness on EVERY visit to the
+      // Members page — a member provisioned mid-session sees the toggle enable on
+      // their next visit, no reload needed.
+      else if (name === 'members') { updatePovUi(); probeMyViewReadiness(); }
       if (name === 'feed'    && !_feedLoaded)    { _feedLoaded    = true; loadFeedPage(); }
     }
 
@@ -2718,9 +2785,14 @@
       verifiedSec.style.display = '';
       if (pendingPubkeys.length > 0) pendingSec.style.display = '';
 
-      // Story #4 (ADR 0043): decorate the freshly rendered cards with house-POV trust
+      // Story #4 (ADR 0043): decorate the freshly rendered cards with active-POV trust
       // scores. Deliberately NOT awaited — rendering never waits on the score backend.
       patchGridTrustScores([...verifiedPubkeys, ...pendingPubkeys]);
+
+      // Story #3 (ADR 0046): sync the view UI and re-probe readiness on every
+      // Members-page visit (PO O2). Fire-and-forget — never blocks rendering.
+      updatePovUi();
+      probeMyViewReadiness();
     }
 
     // ── Npub search controller (npub-search #1, ADR 0041) ───────────────────
@@ -2852,7 +2924,7 @@
       if (_freetextAbort) { _freetextAbort.abort(); _freetextAbort = null; }
     }
 
-    async function runFreetextSearch(query, seq, povPubkey = HOUSE_POV.pubkey) {
+    async function runFreetextSearch(query, seq, povPubkey = activePovPubkey()) {
       const { panelEl } = _searchEls();
       if (!panelEl) return;
 
@@ -2890,7 +2962,7 @@
       if (pubkeys.length) {
         [metaMapAll, scores] = await Promise.all([
           fetchSearchProfilesBatch(pubkeys),
-          fetchHouseTrustScores(pubkeys, povPubkey),
+          fetchTrustScores(pubkeys, povPubkey),
         ]);
       }
       if (seq !== _searchSeq) return;
@@ -2927,14 +2999,16 @@
       panelEl.appendChild(foot);
     }
 
-    // ── Member-card trust scores (story #4, ADR 0043) ────────────────────────
-    // One ORE batch call per load scores every grid card from the house POV.
-    // Enhancement-only: cards render first; chips patch in when (and only when)
-    // scores arrive. Any failure = a chipless page, never an error state.
-    const _houseScoreCache = new Map();   // hex → 0..1 graperank (ttl 3600 ≫ a session)
+    // ── Trust scores (story #4, ADR 0043; POV-keyed by story #3, ADR 0046) ──
+    // One ORE batch call scores a page of pubkeys from the ACTIVE point of view.
+    // Cache key is (povPubkey, pubkey) — both views stay warm, so switching views
+    // never re-fetches and never serves one perspective's numbers under the other.
+    // Enhancement-only: any failure = a chipless page, never an error state.
+    const _scoreCache = new Map();   // `${povPubkey}:${pubkey}` → 0..1 graperank
 
-    async function fetchHouseTrustScores(pubkeys, povPubkey = HOUSE_POV.pubkey) {
-      const missing = pubkeys.filter(pk => !_houseScoreCache.has(pk));
+    async function fetchTrustScores(pubkeys, povPubkey = activePovPubkey()) {
+      const keyOf = (pk) => `${povPubkey}:${pk}`;
+      const missing = pubkeys.filter(pk => !_scoreCache.has(keyOf(pk)));
       if (missing.length) {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 8000);
@@ -2948,15 +3022,97 @@
           if (resp.ok) {
             const data = await resp.json();
             for (const r of (data.results || [])) {
-              if (r && typeof r.rank === 'number' && r.pubkey) _houseScoreCache.set(r.pubkey, r.rank);
+              if (r && typeof r.rank === 'number' && r.pubkey) _scoreCache.set(keyOf(r.pubkey), r.rank);
             }
           }
         } catch { /* enhancement only — chipless load */ }
         finally { clearTimeout(timer); }
       }
       const out = new Map();
-      for (const pk of pubkeys) if (_houseScoreCache.has(pk)) out.set(pk, _houseScoreCache.get(pk));
+      for (const pk of pubkeys) if (_scoreCache.has(keyOf(pk))) out.set(pk, _scoreCache.get(keyOf(pk)));
       return out;
+    }
+
+    // ── Community view / My view (story #3, ADR 0046) ────────────────────────
+    let _activeView = 'community';   // per-tab; never persisted (PO determination 2)
+    let _myViewReady = false;
+
+    function activePovPubkey() {
+      return _activeView === 'mine' && currentPubkey ? currentPubkey : HOUSE_POV.pubkey;
+    }
+
+    // One code path applies view state to the UI — segments, disabled note, avatar,
+    // and both orange indicator lines — so state and labels can never drift.
+    function updatePovUi() {
+      const community = document.getElementById('pov-segment-community');
+      const mine      = document.getElementById('pov-segment-mine');
+      if (!community || !mine) return;
+      community.setAttribute('aria-checked', _activeView === 'community' ? 'true' : 'false');
+      mine.setAttribute('aria-checked', _activeView === 'mine' ? 'true' : 'false');
+      mine.disabled = !_myViewReady;
+      // The disabled note exists in the DOM only while My view is unavailable.
+      let note = document.getElementById('pov-disabled-note');
+      if (_myViewReady) {
+        if (note) note.remove();
+      } else if (!note) {
+        note = document.createElement('p');
+        note.className = 'pov-disabled-note';
+        note.id = 'pov-disabled-note';
+        note.textContent = "My view isn't available for your account yet.";
+        const toggle = document.querySelector('.pov-toggle');
+        if (toggle) toggle.insertAdjacentElement('afterend', note);
+      }
+      const avatarEl = document.getElementById('pov-my-avatar');
+      if (avatarEl && currentPubkey && !avatarEl.querySelector('img')) {
+        const meta = _metaCache.get(currentPubkey) || {};
+        const pic = safePicUrl(meta.picture);
+        if (pic) {
+          const img = document.createElement('img');
+          img.alt = ''; img.src = pic;
+          img.onerror = () => img.remove();
+          avatarEl.textContent = '';
+          avatarEl.appendChild(img);
+        } else {
+          avatarEl.textContent = getInitials(meta.display_name || meta.name || '') || '•';
+        }
+      }
+      const who = _activeView === 'mine' ? 'you' : 'Les Femmes Orange';
+      const s = document.getElementById('pov-indicator-search');
+      const g = document.getElementById('pov-indicator-grid');
+      if (s) s.textContent = `searching as ${who}`;
+      if (g) g.textContent = `viewing as ${who}`;
+    }
+
+    function setActiveView(view) {
+      if (view === _activeView) return;
+      if (view === 'mine' && !_myViewReady) return;
+      _activeView = view;
+      hideMemberSearchPanel();   // no stale-POV rows can survive a switch
+      updatePovUi();
+      loadMembersPage();         // grids re-render + re-rank under the new POV
+    }
+
+    // Readiness (ADR 0046 Decision 3): ask the rank endpoint for the member's own
+    // perspective on themselves + the curator. Ready ⟺ any rank > 0 — robust across
+    // server generations (the deployed host answers [] for unknown POVs; main answers
+    // zero-filled entries). Deliberately NOT routed through fetchTrustScores: the
+    // probe must hit the network on every Members-page visit (PO O2), never a cache.
+    async function probeMyViewReadiness() {
+      if (!currentPubkey) { _myViewReady = false; updatePovUi(); return; }
+      let ready = false;
+      try {
+        const resp = await fetch(ORE_RANK_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pubkeys: [currentPubkey, CURATOR_HEX], algorithm: 'graperank-pov', pov: currentPubkey }),
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          ready = (data.results || []).some(r => r && typeof r.rank === 'number' && r.rank > 0);
+        }
+      } catch { /* enhancement only — segment stays disabled */ }
+      _myViewReady = ready;
+      updatePovUi();
     }
 
     async function patchGridTrustScores(pubkeys = null) {
@@ -2967,7 +3123,7 @@
           '#verified-members-grid .member-copy-btn, #pending-members-grid .member-copy-btn'
         )].map(btn => btn.dataset.hex).filter(Boolean);
       }
-      const scores = await fetchHouseTrustScores(pubkeys);
+      const scores = await fetchTrustScores(pubkeys, activePovPubkey());
       if (!scores.size) return;
       const cards = document.querySelectorAll('#verified-members-grid .member-card, #pending-members-grid .member-card');
       for (const card of cards) {
