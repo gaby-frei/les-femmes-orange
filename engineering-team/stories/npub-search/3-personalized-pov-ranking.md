@@ -144,6 +144,6 @@ Testable from the outside. "Toggle" = the Community view / My view control.
 
 ## Linked artifacts
 
-- ADR: (Architecture phase)
+- ADR: `engineering-team/decisions/0046-personalized-pov-toggle.md` (Accepted 2026-08-06 — readiness predicate `any rank > 0`, source-informed)
 - Test plan: (Test Design phase)
 - Review: (Review phase)
