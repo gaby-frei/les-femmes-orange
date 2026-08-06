@@ -36,20 +36,22 @@ Product direction settled in the 2026-08-06 advisory discussion (Product Advisor
 2. **Community view is the default, every session.** The choice does not persist across
    sessions: each visit starts in Community view; "My view" lasts until the session ends
    or the member switches back.
-3. **Perspective indicator copy (PO UI spec, 2026-08-06).** Small **orange** copy under
-   two existing headers, switching with the active view:
-   - under **"Find someone on Nostr"**: "searching as **you**" / "searching as
-     **Les Femmes Orange**";
-   - under **"Verified Members"**: "viewing as **you**" / "viewing as
-     **Les Femmes Orange**".
-   The community label reads "Les Femmes Orange" regardless of which pubkey currently
-   backs the house designation (the placeholder swap never changes this copy). These two
-   lines are the mechanism satisfying the "active view is always evident" criterion.
-4. **Header parity (PO UI spec, 2026-08-06; clarified at the Test Design gate).** The
-   "Find someone on Nostr" and "Verified Members" headers render in the same font, text
-   size, and alignment (already true — story-#1 styling), **and the search header gains
-   the same bordered-row treatment as the members section header** (the underlined
-   header row the "Verified Members" heading sits in).
+3. **Perspective indicator copy (PO UI spec, 2026-08-06; revised in the decrowding
+   pass, same day).** One small **orange** inline indicator, rendered directly after
+   the "Find someone on Nostr" header following an **em dash**, switching with the
+   active view: "— searching as **you**" / "— searching as **Les Femmes Orange**".
+   The header keeps its font/size; the indicator keeps its own smaller orange style.
+   *(As originally specified there was a second line — "viewing as …" under the
+   "Verified Members" header — removed in the decrowding pass as redundant with the
+   toggle.)* The community label reads "Les Femmes Orange" regardless of which pubkey
+   currently backs the house designation. The toggle state plus this inline indicator
+   are the mechanism satisfying the "active view is always evident" criterion.
+4. **Header treatment (PO UI spec, 2026-08-06; clarified at the Test Design gate,
+   revised in the decrowding pass).** The "Find someone on Nostr" and "Verified
+   Members" headers render as typographic siblings (same font, text size, weight,
+   alignment — already true from story-#1 styling), and the search header sits in the
+   same header-row structure — but the **underline stays on the grid section headers
+   only** (Verified Members and Pending); the search header row is borderless.
 
 ## User-facing description
 
@@ -78,12 +80,13 @@ Testable from the outside. "Toggle" = the Community view / My view control.
 - [ ] **Switching back restores.** Returning to Community view restores exactly the
       house-ranked experience shipped by #2/#4/#5/#6 (byte-equivalent behavior, same
       fallback states).
-- [ ] **Active view is always evident.** Small orange indicator copy renders under the
-      "Find someone on Nostr" header ("searching as you" / "searching as Les Femmes
-      Orange") and under the "Verified Members" header ("viewing as you" / "viewing as
-      Les Femmes Orange"), switching immediately with the active view (determination 3).
-- [ ] **Header parity.** The "Find someone on Nostr" and "Verified Members" headers
-      render with identical font, text size, and alignment (determination 4).
+- [ ] **Active view is always evident.** The inline orange indicator after the
+      "Find someone on Nostr" header ("— searching as you" / "— searching as Les
+      Femmes Orange") switches immediately with the active view, and the toggle's
+      active segment shows the state (determination 3 as revised).
+- [ ] **Header treatment.** The two headers are typographic siblings; the underline
+      renders on the grid section headers only, not the search header
+      (determination 4 as revised).
 - [ ] **My-view search behaves.** Free-text search in My view uses the member's
       perspective end-to-end (ranking and chips). Sparse results are acceptable; the
       story-#2/#6 empty and unavailable states apply unchanged. The identity fast path
@@ -143,6 +146,20 @@ Testable from the outside. "Toggle" = the Community view / My view control.
     reference screenshot's "What is this?" explainer link is **not** part of this story.
   - **Placement:** after the Telegram banner, before the search bar and members grids.
   - Disabled state (determination 1 + O1 copy) applies to the "My view" segment.
+
+## Amendments — decrowding pass (PO, 2026-08-06, post-implementation preview)
+
+After previewing the implemented UI on the dev server, the PO directed a visual
+decrowding pass (standalone commit, tests re-pinned in the same change):
+
+- Grid section headers keep their underline; the search header row is borderless
+  (determination 4 final form — initially all underlines were removed, then restored
+  for the grid sections only).
+- "viewing as …" indicator removed (redundant with the toggle); "searching as …" moved
+  inline after the search header with an em dash (determination 3 final form).
+- View toggle centered on the page; the disabled note centered beneath it.
+- Community-view segment icon changed from the 🍊 emoji to the nav-logo bitcoin mark
+  (orange circle, white B), avatar-sized — refines O3's "community mark".
 
 ## Linked artifacts
 

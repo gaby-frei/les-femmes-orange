@@ -74,6 +74,16 @@ Red run confirmed 2026-08-06 at `4d078d8` (`npx playwright test tests/npub-searc
 Failures behavioral (no `.pov-toggle` in the DOM, no probe traffic recorded, order
 unchanged). T1–T34 green, including amended T28.
 
+## Amendment — decrowding pass (PO, 2026-08-06, post-implementation preview)
+
+The PO's visual decrowding pass re-pinned four cases in the same standalone change:
+**T35** now asserts the single inline indicator (`— searching as …`, header-level,
+exact-match with the em dash), the **absence** of any grid-side indicator, and the
+toggle's horizontal centering; **T39/T42** drop the grid-indicator assertions and pin
+the inline copy; **T43** (retitled) pins the final asymmetric header spec — typographic
+siblings, 1px underline on the verified AND pending header rows, `0px` on the search
+header row. Suite green post-pass (45/45 spec, 165/165 full).
+
 **T43 finding + gate resolution:** the original font/size/weight/alignment check passed
 against the current build — those properties already matched (story-#1 styling per the
 PO's 2026-07-31 directive). Flagged at the gate; **PO clarified determination 4: the

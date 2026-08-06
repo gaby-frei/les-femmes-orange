@@ -1086,8 +1086,9 @@ function povScores() {
 }
 
 const segment = (page, label) => page.locator('.pov-toggle .pov-segment', { hasText: label });
+// PO decrowding pass (2026-08-06): ONE indicator, inline with the search header after an
+// em dash; the grid-side "viewing as" line was removed as redundant with the toggle.
 const searchIndicator = (page) => page.locator('#page-members .member-search .pov-indicator');
-const gridIndicator = (page) => page.locator('#verified-members-section .pov-indicator');
 
 test.describe('Community view / My view toggle (npub-search #3)', () => {
   // T35
@@ -1104,8 +1105,22 @@ test.describe('Community view / My view toggle (npub-search #3)', () => {
 
     await expect(segment(page, 'Community view'), 'community segment active by default').toHaveAttribute('aria-checked', 'true');
     await expect(segment(page, 'My view')).toHaveAttribute('aria-checked', 'false');
-    await expect(searchIndicator(page)).toHaveText(/searching as Les Femmes Orange/i);
-    await expect(gridIndicator(page)).toHaveText(/viewing as Les Femmes Orange/i);
+    await expect(searchIndicator(page), 'inline indicator follows the header after an em dash')
+      .toHaveText(/^— searching as Les Femmes Orange$/);
+    await expect(searchIndicator(page), 'indicator lives inside the header row')
+      .toHaveCount(1);
+    expect(await page.locator('#page-members .member-search .members-section-header .pov-indicator').count(),
+      'indicator sits at header level').toBe(1);
+    await expect(page.locator('#verified-members-section .pov-indicator'),
+      'no grid-side indicator (redundant with the toggle — PO decrowding pass)').toHaveCount(0);
+    // Toggle centered on the page (PO decrowding pass).
+    const centering = await page.evaluate(() => {
+      const t = document.querySelector('.pov-toggle');
+      const parent = t.parentElement;
+      const tb = t.getBoundingClientRect(), pb = parent.getBoundingClientRect();
+      return { left: tb.left - pb.left, right: pb.right - tb.right };
+    });
+    expect(Math.abs(centering.left - centering.right), 'toggle horizontally centered').toBeLessThan(2);
   });
 
   // T36
@@ -1182,8 +1197,7 @@ test.describe('Community view / My view toggle (npub-search #3)', () => {
     await expect(gridCard(page, 'verified-members-grid', 'Vera Two').locator('.candidate-trust-score'))
       .toHaveText('🏅 10');
     await expect(segment(page, 'My view')).toHaveAttribute('aria-checked', 'true');
-    await expect(searchIndicator(page)).toHaveText(/searching as you/i);
-    await expect(gridIndicator(page)).toHaveText(/viewing as you/i);
+    await expect(searchIndicator(page)).toHaveText(/^— searching as you$/);
   });
 
   // T40
@@ -1239,38 +1253,39 @@ test.describe('Community view / My view toggle (npub-search #3)', () => {
 
     await openMembers(page, bigGridSetup());   // full reload + re-seed
     await expect(segment(page, 'Community view'), 'fresh session starts in Community view').toHaveAttribute('aria-checked', 'true');
-    await expect(gridIndicator(page)).toHaveText(/viewing as Les Femmes Orange/i);
+    await expect(searchIndicator(page)).toHaveText(/searching as Les Femmes Orange/i);
   });
 
-  // T43 — AMENDED at the Test Design gate (PO, 2026-08-06): font/size/weight/alignment
-  // already matched (story-#1 styling). The real target is the full header treatment —
-  // the search header sits in the same bordered row (.members-section-header) as the
-  // "Verified Members" heading.
-  test('search header carries the same bordered-row treatment as the members header', async ({ page }) => {
+  // T43 — twice AMENDED by the PO (2026-08-06). Final spec after the decrowding pass:
+  // the headers are typographic siblings (same font/size/weight/alignment) and the
+  // search header sits in a .members-section-header row — but the underline is
+  // grid-sections-only: verified AND pending header rows keep the 1px border, the
+  // search header row has none.
+  test('headers are typographic siblings; underline on grid headers only, not search', async ({ page }) => {
     await stubPovRankApi(page, povScores());
     await openMembers(page, bigGridSetup());
     const styles = await page.evaluate(() => {
       const row = (el) => {
         const s = getComputedStyle(el);
-        return { borderBottomWidth: s.borderBottomWidth, borderBottomStyle: s.borderBottomStyle,
-                 borderBottomColor: s.borderBottomColor, paddingBottom: s.paddingBottom,
-                 marginBottom: s.marginBottom };
+        return { borderBottomWidth: s.borderBottomWidth, borderBottomStyle: s.borderBottomStyle };
       };
       const font = (el) => {
         const s = getComputedStyle(el);
         return { family: s.fontFamily, size: s.fontSize, weight: s.fontWeight, align: s.textAlign };
       };
-      const searchRow  = document.querySelector('#page-members .member-search .members-section-header');
-      const membersRow = document.querySelector('#verified-members-section .members-section-header');
       return {
-        searchRowExists: !!searchRow,
-        rows: searchRow && membersRow ? { search: row(searchRow), members: row(membersRow) } : null,
+        searchRowExists: !!document.querySelector('#page-members .member-search .members-section-header'),
+        searchRow:  row(document.querySelector('#page-members .member-search .members-section-header')),
+        membersRow: row(document.querySelector('#verified-members-section .members-section-header')),
+        pendingRow: row(document.querySelector('#pending-members-section .members-section-header')),
         fonts: { search: font(document.querySelector('.member-search-label')),
                  members: font(document.querySelector('#verified-members-section h2')) },
       };
     });
     expect(styles.searchRowExists, 'search header sits in a .members-section-header row').toBe(true);
-    expect(styles.rows.search, 'bordered-row treatment matches the members header').toEqual(styles.rows.members);
-    expect(styles.fonts.search, 'headers remain typographic siblings').toEqual(styles.fonts.members);
+    expect(styles.fonts.search, 'headers are typographic siblings').toEqual(styles.fonts.members);
+    expect(styles.membersRow.borderBottomWidth, 'verified header keeps its underline').toBe('1px');
+    expect(styles.pendingRow.borderBottomWidth, 'pending header keeps its underline').toBe('1px');
+    expect(styles.searchRow.borderBottomWidth, 'search header has no underline').toBe('0px');
   });
 });

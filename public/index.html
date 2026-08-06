@@ -569,6 +569,9 @@
       margin-bottom: 1.5rem; padding-bottom: 0.75rem;
       border-bottom: 1px solid var(--grey-mid);
     }
+    /* Story-#3 decrowding pass (PO, 2026-08-06): the SEARCH header row is borderless;
+       the grid section headers keep their underline. */
+    .member-search .members-section-header { border-bottom: none; padding-bottom: 0; }
 
     .members-section-header h2 {
       font-size: 1.05rem; font-weight: 700; color: var(--dark); letter-spacing: -0.01em;
@@ -894,9 +897,10 @@
     /* ── COMMUNITY VIEW / MY VIEW (npub-search #3, ADR 0046) ── */
 
     .pov-toggle {
-      display: inline-flex; align-items: center; gap: 0.25rem;
+      display: flex; width: max-content; align-items: center; gap: 0.25rem;
       background: #f2f2f4; border: 1px solid var(--grey-mid);
-      border-radius: 999px; padding: 0.25rem; margin-bottom: 0.6rem;
+      border-radius: 999px; padding: 0.25rem;
+      margin: 0 auto 0.6rem;   /* centered on the page (PO decrowding pass) */
     }
     .pov-segment {
       display: inline-flex; align-items: center; gap: 0.45rem;
@@ -910,7 +914,13 @@
       box-shadow: 0 1px 4px rgba(0,0,0,0.12);
     }
     .pov-segment:disabled { opacity: 0.55; cursor: not-allowed; }
-    .pov-segment-icon { font-size: 0.9rem; line-height: 1; }
+    /* Community mark = the nav-logo bitcoin mark, avatar-sized. */
+    .pov-segment-mark {
+      width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+      background: var(--orange);
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .pov-segment-mark svg { width: 12px; height: 12px; fill: var(--white); }
     .pov-segment-avatar {
       width: 20px; height: 20px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
       background: var(--orange); color: var(--white); font-size: 0.6rem; font-weight: 700;
@@ -919,13 +929,15 @@
     .pov-segment-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
     .pov-disabled-note {
-      font-size: 0.75rem; color: var(--grey-text); margin: 0 0 1.5rem 0.4rem;
+      font-size: 0.75rem; color: var(--grey-text); text-align: center;
+      margin: 0 0 1.5rem;
     }
 
-    /* Orange perspective indicators under the two section headers (determination 3). */
+    /* Orange perspective indicator — inline with the search header after an em dash
+       (PO decrowding pass; the grid-side "viewing as" line was removed as redundant
+       with the toggle). */
     .pov-indicator {
-      font-size: 0.75rem; font-weight: 600; color: var(--orange);
-      margin: -0.9rem 0 1rem;   /* tucks up under the bordered header row */
+      font-size: 0.75rem; font-weight: 600; color: var(--orange); margin: 0;
     }
 
     /* Header parity (determination 4): the search label lives in the same bordered
@@ -1693,7 +1705,7 @@
       <div class="pov-toggle" role="radiogroup" aria-label="Ranking perspective">
         <button type="button" class="pov-segment" role="radio" aria-checked="true"
                 id="pov-segment-community" onclick="setActiveView('community')">
-          <span class="pov-segment-icon">🍊</span>Community view
+          <span class="pov-segment-mark"><svg viewBox="0 0 24 24"><path d="M14.5 10.5c.8-.4 1.5-1.1 1.5-2.2C16 6.5 14.8 5.5 13 5.3V4h-1.5v1.2H10V4H8.5v1.3H6.5V17h2V7.3h3c1.4 0 2 .6 2 1.5s-.7 1.5-2 1.5H10v1.5h1.5c1.7 0 2.5.7 2.5 1.8 0 1.2-.9 1.9-2.5 1.9H8.5V17h2v1.3H12V17h1c2 0 3.5-1 3.5-2.8 0-1.3-.7-2.3-2-2.7z"/></svg></span>Community view
         </button>
         <button type="button" class="pov-segment" role="radio" aria-checked="false"
                 id="pov-segment-mine" disabled onclick="setActiveView('mine')">
@@ -1707,8 +1719,8 @@
       <div class="member-search">
         <div class="members-section-header">
           <label class="member-search-label" for="member-search-input">Find someone on Nostr</label>
+          <span class="pov-indicator" id="pov-indicator-search">— searching as Les Femmes Orange</span>
         </div>
-        <p class="pov-indicator" id="pov-indicator-search">searching as Les Femmes Orange</p>
         <input id="member-search-input" type="text" autocomplete="off" spellcheck="false"
                placeholder="Paste an npub, hex pubkey, or nprofile…"
                oninput="onMemberSearchInput(this.value)" onkeydown="onMemberSearchKeydown(event)">
@@ -1726,7 +1738,6 @@
           <h2>Verified Members</h2>
           <span class="members-count" id="verified-count"></span>
         </div>
-        <p class="pov-indicator" id="pov-indicator-grid">viewing as Les Femmes Orange</p>
         <div class="members-grid" id="verified-members-grid"></div>
       </div>
 
@@ -3078,9 +3089,7 @@
       }
       const who = _activeView === 'mine' ? 'you' : 'Les Femmes Orange';
       const s = document.getElementById('pov-indicator-search');
-      const g = document.getElementById('pov-indicator-grid');
-      if (s) s.textContent = `searching as ${who}`;
-      if (g) g.textContent = `viewing as ${who}`;
+      if (s) s.textContent = `— searching as ${who}`;
     }
 
     function setActiveView(view) {
