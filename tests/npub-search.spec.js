@@ -838,6 +838,28 @@ test.describe('free-text search — ranked candidates from the house POV (npub-s
   });
 });
 
+// Grid fixtures shared by blocks 3 and 4 (hoisted by story #3's test plan):
+// 4 verified (ME, V2, V3, V4) + 2 pending (PENDING, P2) members.
+const V2 = 'dd'.repeat(32), V3 = 'ee'.repeat(32), V4 = 'f1'.repeat(32), P2 = 'ab'.repeat(32);
+
+function bigGridSetup() {
+  const profiles = defaultProfiles();
+  profiles[V2] = [{ meta: { display_name: 'Vera Two' },   created_at: 1000 }];
+  profiles[V3] = [{ meta: { display_name: 'Vike Three' }, created_at: 1000 }];
+  profiles[V4] = [{ meta: { display_name: 'Vin Four' },   created_at: 1000 }];
+  profiles[P2] = [{ meta: { display_name: 'Pia Second' }, created_at: 1000 }];
+  const extraTagItems = [
+    { kind: 39999, pubkey: SEED, tags: [['p', V2]], created_at: 3, id: 'a3'.repeat(32) },
+    { kind: 39999, pubkey: SEED, tags: [['p', V3]], created_at: 4, id: 'a4'.repeat(32) },
+    { kind: 39999, pubkey: SEED, tags: [['p', V4]], created_at: 5, id: 'a5'.repeat(32) },
+    { kind: 39999, pubkey: P2,   tags: [['p', P2]], created_at: 6, id: 'a6'.repeat(32) },
+  ];
+  return { profiles, extraTagItems };
+}
+
+const gridNames = (page, grid) =>
+  page.$$eval(`#${grid} .member-card .member-name`, els => els.map(e => e.textContent));
+
 /* ═══════════════════════════ Story #4 mini (ADR 0043) ═══════════════════════════
    House-POV trust scores on the member-grid cards, from ONE batch POST to ORE
    /rank/pubkeys (graperank-pov, pov = HOUSE_POV.pubkey). Chips show
@@ -884,8 +906,12 @@ test.describe('member-card trust scores — house POV via ORE batch (npub-search
     await expect(gridCard(page, 'pending-members-grid', 'Pat Pending').locator('.candidate-trust-score'),
       'pending card chips the house score').toHaveText('🏅 45');
 
-    expect(calls.length, 'exactly one batch request per load').toBe(1);
-    const body = calls[0];
+    // AMENDED by story #3 (test plan 3-personalized-pov-ranking): the readiness probe
+    // shares this glob — count only chip-shaped batches (probe = member pov + curator
+    // in the target set). Green before AND after #3's implementation.
+    const chipCalls = calls.filter(c => !(c.pov === ME && (c.pubkeys || []).includes(CURATOR)));
+    expect(chipCalls.length, 'exactly one chip batch request per load').toBe(1);
+    const body = chipCalls[0];
     expect(body.algorithm, 'personalized graperank algorithm').toBe('graperank-pov');
     expect(body.pov, 'POV is the HOUSE_POV config pubkey').toBe(HOUSE_HEX);
     expect(new Set(body.pubkeys), 'batch covers exactly the grid pubkeys').toEqual(new Set([ME, PENDING]));
@@ -926,27 +952,8 @@ test.describe('member-card trust scores — house POV via ORE batch (npub-search
   /* Story #5 (ADR 0044): grids render highest-trust first (upper-left = DOM index 0),
      score-less last in insertion order, POV-agnostic. T31 is RED until the re-sort
      lands; T32 guards the no-scores path (insertion order preserved — green
-     before AND after). */
-
-  const V2 = 'dd'.repeat(32), V3 = 'ee'.repeat(32), V4 = 'f1'.repeat(32), P2 = 'ab'.repeat(32);
-
-  function bigGridSetup() {
-    const profiles = defaultProfiles();
-    profiles[V2] = [{ meta: { display_name: 'Vera Two' },   created_at: 1000 }];
-    profiles[V3] = [{ meta: { display_name: 'Vike Three' }, created_at: 1000 }];
-    profiles[V4] = [{ meta: { display_name: 'Vin Four' },   created_at: 1000 }];
-    profiles[P2] = [{ meta: { display_name: 'Pia Second' }, created_at: 1000 }];
-    const extraTagItems = [
-      { kind: 39999, pubkey: SEED, tags: [['p', V2]], created_at: 3, id: 'a3'.repeat(32) },
-      { kind: 39999, pubkey: SEED, tags: [['p', V3]], created_at: 4, id: 'a4'.repeat(32) },
-      { kind: 39999, pubkey: SEED, tags: [['p', V4]], created_at: 5, id: 'a5'.repeat(32) },
-      { kind: 39999, pubkey: P2,   tags: [['p', P2]], created_at: 6, id: 'a6'.repeat(32) },
-    ];
-    return { profiles, extraTagItems };
-  }
-
-  const gridNames = (page, grid) =>
-    page.$$eval(`#${grid} .member-card .member-name`, els => els.map(e => e.textContent));
+     before AND after). bigGridSetup/gridNames live at module scope (hoisted by
+     story #3's test plan for reuse in the view-toggle block). */
 
   // T31
   test('grids render highest trust upper-left: rank-desc order, score-less last, per grid', async ({ page }) => {
@@ -1032,5 +1039,235 @@ test.describe('member-card trust scores — house POV via ORE batch (npub-search
     await expect.poll(() => gridNames(page, 'verified-members-grid'),
       { message: 'panel-vouched member sorts into place (Bea .80 between Vera .91 and Vike .73)' })
       .toEqual(['Vera Two', 'Bea', 'Vike Three', 'Mae Member', 'Vin Four']);
+  });
+});
+
+/* ═══════════════ Story #3 (ADR 0046): Community view / My view toggle ═══════════════
+   T35–T43 are RED until the pov-toggle, readiness probe, indicator lines, and view
+   switch land. All /rank/pubkeys traffic (chip batches AND the readiness probe) shares
+   one stub; fixtures answer BY POV: byPov[pov][pubkey] → rank. An explicit 0 entry IS
+   returned (simulates the main-generation server's zero-fill); an absent pubkey is
+   omitted (simulates the deployed generation's empties). Probe shape: pov === ME with
+   the curator in the target set.
+
+   DOM contract (ADR 0046 Decisions 5–7): .pov-toggle between .telegram-row and
+   .member-search; two role="radio" .pov-segment buttons "Community view" / "My view"
+   (active = aria-checked); .pov-disabled-note carries the O1 string verbatim;
+   .pov-indicator lines under the search label and in the verified-members header. */
+
+const CURATOR = 'b8a9df8218084e490d888342a9d488b7cf0fb20b1a19b963becd68ed6ab5cbbd';
+
+function povResults(map, pubkeys) {
+  return (pubkeys || [])
+    .filter(pk => map && Object.prototype.hasOwnProperty.call(map, pk))
+    .map(pk => ({ pubkey: pk, rank: map[pk] }));
+}
+
+async function stubPovRankApi(page, byPov, opts = {}) {
+  return stubRankApi(page, (body) => {
+    if (opts.failProbe && body.pov === ME && (body.pubkeys || []).includes(CURATOR)) return { abort: true };
+    return { body: { results: povResults(byPov[body.pov], body.pubkeys), ttl: 3600 } };
+  });
+}
+
+const isProbeCall = (c) => c.pov === ME && (c.pubkeys || []).includes(CURATOR);
+
+// Shared POV fixture: house order [Vera, Vike, Mae, Vin] / [Pia, Pat]; member order
+// [Vike, Mae, Vin, Vera] / [Pat, Pia] — different in BOTH grids, so any lingering
+// house ordering under My view fails loudly. CURATOR .9 makes ME "ready".
+function povScores() {
+  return {
+    [HOUSE_HEX]: { [ME]: 0.50, [V2]: 0.91, [V3]: 0.73, [PENDING]: 0.20, [P2]: 0.60, [FX.A]: 0.53 },
+    [ME]:        { [ME]: 0.88, [V2]: 0.10, [V3]: 0.95, [V4]: 0.70, [PENDING]: 0.50, [P2]: 0.30, [CURATOR]: 0.90, [FX.A]: 0.77 },
+  };
+}
+
+const segment = (page, label) => page.locator('.pov-toggle .pov-segment', { hasText: label });
+const searchIndicator = (page) => page.locator('#page-members .member-search .pov-indicator');
+const gridIndicator = (page) => page.locator('#verified-members-section .pov-indicator');
+
+test.describe('Community view / My view toggle (npub-search #3)', () => {
+  // T35
+  test('toggle renders after the Telegram banner; community default; indicators say Les Femmes Orange', async ({ page }) => {
+    await stubPovRankApi(page, povScores());
+    await openMembers(page, bigGridSetup());
+
+    const order = await page.evaluate(() => {
+      const kids = [...document.querySelectorAll('.telegram-row, .pov-toggle, .member-search, #verified-members-section')];
+      return kids.map(el => el.id || el.className.split(' ')[0]);
+    });
+    expect(order, 'toggle sits between the Telegram banner and the search bar')
+      .toEqual(['telegram-row', 'pov-toggle', 'member-search', 'verified-members-section']);
+
+    await expect(segment(page, 'Community view'), 'community segment active by default').toHaveAttribute('aria-checked', 'true');
+    await expect(segment(page, 'My view')).toHaveAttribute('aria-checked', 'false');
+    await expect(searchIndicator(page)).toHaveText(/searching as Les Femmes Orange/i);
+    await expect(gridIndicator(page)).toHaveText(/viewing as Les Femmes Orange/i);
+  });
+
+  // T36
+  test('ready member: My view enabled; probe request contract pinned', async ({ page }) => {
+    const calls = await stubPovRankApi(page, povScores());
+    await openMembers(page, bigGridSetup());
+
+    await expect(segment(page, 'My view'), 'probe found rank > 0 → segment enabled').toBeEnabled({ timeout: 10_000 });
+    await expect(page.locator('.pov-disabled-note'), 'no disabled note when ready').toHaveCount(0);
+
+    const probe = calls.find(isProbeCall);
+    expect(probe, 'readiness probe fired').toBeTruthy();
+    expect(probe.algorithm, 'probe uses personalized graperank').toBe('graperank-pov');
+    expect(probe.pov, 'probe pov is the signed-in member').toBe(ME);
+    const targets = new Set(probe.pubkeys);
+    expect(targets.has(ME) && targets.has(CURATOR), 'probe targets include the member and the curator').toBe(true);
+  });
+
+  // T37 — the robust readiness predicate: empty (deployed server), all-zero (main
+  // server), and network failure ALL read as not-ready. Page stays fully functional.
+  test('not ready — empty, all-zero, or probe failure → disabled segment + verbatim copy; page intact', async ({ page }) => {
+    // (a) deployed generation: unknown POV → empty results
+    await stubPovRankApi(page, { [HOUSE_HEX]: povScores()[HOUSE_HEX] });
+    await openMembers(page, bigGridSetup());
+    await expect(segment(page, 'My view'), 'empty probe → disabled').toBeDisabled();
+    await expect(page.locator('.pov-disabled-note'))
+      .toHaveText("My view isn't available for your account yet.");
+
+    // (b) main generation: one entry per requested pubkey, all rank 0.0
+    await stubPovRankApi(page, { ...povScores(), [ME]: { [ME]: 0, [CURATOR]: 0 } });
+    await openMembers(page, bigGridSetup());
+    await expect(segment(page, 'My view'), 'all-zero probe → disabled (any-rank>0 predicate)').toBeDisabled();
+    await expect(page.locator('.pov-disabled-note'))
+      .toHaveText("My view isn't available for your account yet.");
+
+    // (c) probe network failure — enhancement-only: everything else untouched
+    await stubPovRankApi(page, povScores(), { failProbe: true });
+    await openMembers(page, bigGridSetup());
+    await expect(segment(page, 'My view'), 'probe failure → disabled').toBeDisabled();
+    await expect(gridCard(page, 'verified-members-grid', 'Vera Two'), 'grids render normally').toBeVisible();
+    await expect(gridCard(page, 'pending-members-grid', 'Pat Pending').locator('.attest-btn'),
+      'vouch flow untouched by probe failure').toBeVisible();
+  });
+
+  // T38
+  test('readiness probe fires on every Members-page visit', async ({ page }) => {
+    const calls = await stubPovRankApi(page, povScores());
+    await openMembers(page, bigGridSetup());
+    await expect.poll(() => calls.filter(isProbeCall).length, { message: 'probe on first visit' }).toBe(1);
+
+    await page.evaluate(() => { showView('home'); showView('members'); });
+    await expect(page.locator('#verified-members-grid .member-card').first()).toBeVisible({ timeout: 10_000 });
+    await expect.poll(() => calls.filter(isProbeCall).length, { message: 'probe again on revisit' }).toBe(2);
+  });
+
+  // T39
+  test('switching to My view re-ranks both grids, swaps chips, and flips the indicators', async ({ page }) => {
+    await stubPovRankApi(page, povScores());
+    await openMembers(page, bigGridSetup());
+    await expect.poll(() => gridNames(page, 'verified-members-grid'))
+      .toEqual(['Vera Two', 'Vike Three', 'Mae Member', 'Vin Four']);
+    await expect(segment(page, 'My view')).toBeEnabled({ timeout: 10_000 });
+
+    await segment(page, 'My view').click();
+
+    await expect.poll(() => gridNames(page, 'verified-members-grid'),
+      { message: 'verified grid re-ranks under the member POV' })
+      .toEqual(['Vike Three', 'Mae Member', 'Vin Four', 'Vera Two']);
+    await expect.poll(() => gridNames(page, 'pending-members-grid'),
+      { message: 'pending grid re-ranks under the member POV' })
+      .toEqual(['Pat Pending', 'Pia Second']);
+    await expect(gridCard(page, 'verified-members-grid', 'Vike Three').locator('.candidate-trust-score'),
+      'chips show member-POV values').toHaveText('🏅 95');
+    await expect(gridCard(page, 'verified-members-grid', 'Vera Two').locator('.candidate-trust-score'))
+      .toHaveText('🏅 10');
+    await expect(segment(page, 'My view')).toHaveAttribute('aria-checked', 'true');
+    await expect(searchIndicator(page)).toHaveText(/searching as you/i);
+    await expect(gridIndicator(page)).toHaveText(/viewing as you/i);
+  });
+
+  // T40
+  test('switch dismisses an open panel; searches then run from the member POV', async ({ page }) => {
+    await stubPovRankApi(page, povScores());
+    const searchCalls = await stubOreSearch(page, () => ({ body: oreSearchResponse([[FX.A, 9000]]) }));
+    const setup = bigGridSetup();
+    setup.profiles[FX.A] = [{ meta: { display_name: 'Ada' }, created_at: 1000 }];
+    await openMembers(page, setup);
+    await expect(segment(page, 'My view')).toBeEnabled({ timeout: 10_000 });
+
+    await search(page, 'liz');
+    await expect(ROW(page)).toHaveCount(1);
+    expect(searchCalls[0].pov, 'community search runs from the house POV').toBe(HOUSE_HEX);
+
+    await segment(page, 'My view').click();
+    await expect(panel(page), 'open panel dismissed on switch — no stale-POV rows').toBeHidden();
+
+    await search(page, 'liz');
+    await expect(ROW(page)).toHaveCount(1, { timeout: 10_000 });
+    expect(searchCalls[searchCalls.length - 1].pov, 'My-view search runs from the member POV').toBe(ME);
+    await expect(ROW(page).locator('.candidate-trust-score'), 'row chip from the member-POV rank batch').toHaveText('🏅 77');
+  });
+
+  // T41
+  test('switching back restores the house view; composite cache keeps house scores warm', async ({ page }) => {
+    const calls = await stubPovRankApi(page, povScores());
+    await openMembers(page, bigGridSetup());
+    await expect(segment(page, 'My view')).toBeEnabled({ timeout: 10_000 });
+    const houseCalls = () => calls.filter(c => c.pov === HOUSE_HEX).length;
+    const baseline = houseCalls();
+
+    await segment(page, 'My view').click();
+    await expect.poll(() => gridNames(page, 'verified-members-grid'))
+      .toEqual(['Vike Three', 'Mae Member', 'Vin Four', 'Vera Two']);
+
+    await segment(page, 'Community view').click();
+    await expect.poll(() => gridNames(page, 'verified-members-grid'), { message: 'house order restored' })
+      .toEqual(['Vera Two', 'Vike Three', 'Mae Member', 'Vin Four']);
+    await expect(gridCard(page, 'verified-members-grid', 'Vera Two').locator('.candidate-trust-score'),
+      'house chip values restored').toHaveText('🏅 91');
+    await expect(searchIndicator(page)).toHaveText(/searching as Les Femmes Orange/i);
+    expect(houseCalls(), 'switch-back fetched nothing — house scores stayed cached under their own key').toBe(baseline);
+  });
+
+  // T42
+  test('the view choice does not survive a reload — community default every session', async ({ page }) => {
+    await stubPovRankApi(page, povScores());
+    await openMembers(page, bigGridSetup());
+    await expect(segment(page, 'My view')).toBeEnabled({ timeout: 10_000 });
+    await segment(page, 'My view').click();
+    await expect(segment(page, 'My view')).toHaveAttribute('aria-checked', 'true');
+
+    await openMembers(page, bigGridSetup());   // full reload + re-seed
+    await expect(segment(page, 'Community view'), 'fresh session starts in Community view').toHaveAttribute('aria-checked', 'true');
+    await expect(gridIndicator(page)).toHaveText(/viewing as Les Femmes Orange/i);
+  });
+
+  // T43 — AMENDED at the Test Design gate (PO, 2026-08-06): font/size/weight/alignment
+  // already matched (story-#1 styling). The real target is the full header treatment —
+  // the search header sits in the same bordered row (.members-section-header) as the
+  // "Verified Members" heading.
+  test('search header carries the same bordered-row treatment as the members header', async ({ page }) => {
+    await stubPovRankApi(page, povScores());
+    await openMembers(page, bigGridSetup());
+    const styles = await page.evaluate(() => {
+      const row = (el) => {
+        const s = getComputedStyle(el);
+        return { borderBottomWidth: s.borderBottomWidth, borderBottomStyle: s.borderBottomStyle,
+                 borderBottomColor: s.borderBottomColor, paddingBottom: s.paddingBottom,
+                 marginBottom: s.marginBottom };
+      };
+      const font = (el) => {
+        const s = getComputedStyle(el);
+        return { family: s.fontFamily, size: s.fontSize, weight: s.fontWeight, align: s.textAlign };
+      };
+      const searchRow  = document.querySelector('#page-members .member-search .members-section-header');
+      const membersRow = document.querySelector('#verified-members-section .members-section-header');
+      return {
+        searchRowExists: !!searchRow,
+        rows: searchRow && membersRow ? { search: row(searchRow), members: row(membersRow) } : null,
+        fonts: { search: font(document.querySelector('.member-search-label')),
+                 members: font(document.querySelector('#verified-members-section h2')) },
+      };
+    });
+    expect(styles.searchRowExists, 'search header sits in a .members-section-header row').toBe(true);
+    expect(styles.rows.search, 'bordered-row treatment matches the members header').toEqual(styles.rows.members);
+    expect(styles.fonts.search, 'headers remain typographic siblings').toEqual(styles.fonts.members);
   });
 });

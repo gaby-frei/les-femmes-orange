@@ -25,6 +25,11 @@ T29 is a **failure-mode guard**: it passes against the current build (no chips e
 all) and must keep passing after implementation — its value is pinning that an ORE outage
 never degrades the page. T28 and T30 are the red feature tests.
 
+**Amendment (2026-08-06, story #3):** T28's "exactly one batch request per load" re-pinned
+to "exactly one **chip-shaped** batch request per load" — story #3's readiness probe
+shares the `/rank/pubkeys` glob and is excluded from the count by its shape (member pov +
+curator target). Green before and after #3.
+
 ## Test infrastructure
 
 Playwright only; no live hosts contacted; no concept-graph dependency.

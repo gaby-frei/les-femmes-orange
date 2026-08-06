@@ -45,9 +45,11 @@ Product direction settled in the 2026-08-06 advisory discussion (Product Advisor
    The community label reads "Les Femmes Orange" regardless of which pubkey currently
    backs the house designation (the placeholder swap never changes this copy). These two
    lines are the mechanism satisfying the "active view is always evident" criterion.
-4. **Header typography parity (PO UI spec, 2026-08-06).** In this story, the
-   "Find someone on Nostr" and "Verified Members" headers are amended to render in the
-   **same font, text size, and alignment**.
+4. **Header parity (PO UI spec, 2026-08-06; clarified at the Test Design gate).** The
+   "Find someone on Nostr" and "Verified Members" headers render in the same font, text
+   size, and alignment (already true — story-#1 styling), **and the search header gains
+   the same bordered-row treatment as the members section header** (the underlined
+   header row the "Verified Members" heading sits in).
 
 ## User-facing description
 
@@ -145,5 +147,5 @@ Testable from the outside. "Toggle" = the Community view / My view control.
 ## Linked artifacts
 
 - ADR: `engineering-team/decisions/0046-personalized-pov-toggle.md` (Accepted 2026-08-06 — readiness predicate `any rank > 0`, source-informed)
-- Test plan: (Test Design phase)
+- Test plan: `engineering-team/stories/npub-search/3-personalized-pov-ranking.test-plan.md` (T35–T43 red at `4d078d8`; #4's T28 amended for the probe)
 - Review: (Review phase)
