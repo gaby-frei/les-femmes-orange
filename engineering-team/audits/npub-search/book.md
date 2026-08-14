@@ -1,7 +1,7 @@
 # Book of Work: Npub search (find + attest any Nostr identity)
 
 **Slug:** npub-search
-**Status:** Open
+**Status:** Closed (2026-08-14 — all six stories Done, reviews PASS, live checks PO-confirmed; branch `feat/npub-search` NOT yet merged to main per PO instruction)
 **Opened:** 2026-07-30
 
 ## Intent anchor
@@ -10,13 +10,13 @@ No PRD. Completion is *judged* against the acceptance frame below.
 
 ### Acceptance frame
 
-- [ ] A signed-in member on the Members page can enter a Nostr identity as a string — npub, hex pubkey, or nprofile — into a search bar situated above the verified-members grid, and see the resolved identity presented as a candidate in a horizontal dropdown panel, rendered like the existing member cards (display name, verification address, picture, shortened npub, truncated bio — where available) plus current membership status.
-- [ ] A verified member can attest a candidate directly from that panel, with the same member-signed attestation semantics the pending grid already uses — removing the "self-tag first" prerequisite for being vouchable.
-- [ ] Input that is not an exact identity resolves as a free-text query returning up to 6 ranked candidates in the same panel — **highest trust first, numeric trust scores displayed**, computed from the perspective of a **designated house npub** (placeholder: the PO's provisioned pubkey; target: the official LFO account once provisioned as a Brainstorm customer). Backend decided in story #2's Architecture (Open Ranking vs NIP-50).
-- [ ] Users can **opt into personalized-POV trust ranking**: with the opt-in active, profiles with the highest trust scores from the user's own point of view appear first in the search panel and on the existing member grids (verified and pending).
+- [x] A signed-in member on the Members page can enter a Nostr identity as a string — npub, hex pubkey, or nprofile — into a search bar situated above the verified-members grid, and see the resolved identity presented as a candidate in a horizontal dropdown panel, rendered like the existing member cards (display name, verification address, picture, shortened npub, truncated bio — where available) plus current membership status.
+- [x] A verified member can attest a candidate directly from that panel, with the same member-signed attestation semantics the pending grid already uses — removing the "self-tag first" prerequisite for being vouchable.
+- [x] Input that is not an exact identity resolves as a free-text query returning up to 6 ranked candidates in the same panel — **highest trust first, numeric trust scores displayed**, computed from the perspective of a **designated house npub** (placeholder: the PO's provisioned pubkey; target: the official LFO account once provisioned as a Brainstorm customer). Backend decided in story #2's Architecture (Open Ranking vs NIP-50).
+- [x] Users can **opt into personalized-POV trust ranking**: with the opt-in active, profiles with the highest trust scores from the user's own point of view appear first in the search panel and on the existing member grids (verified and pending).
 
 ## Epics in this book
-- `npub-search` — identity search + attest-from-panel on the Members page, repurposing the brainstorm.world search UX (reference: `tapestry/ui/src/pages/BrainstormSearch.jsx`). Three stories: #1 single-match identity search, #2 free-text search (house POV), #3 opt-in personalized-POV ranking (search panel + verified and pending member grids).
+- `npub-search` — identity search + attest-from-panel on the Members page, repurposing the brainstorm.world search UX (reference: `tapestry/ui/src/pages/BrainstormSearch.jsx`). Grew from three planned stories to six delivered: #1 identity search, #2 free-text search (house POV), #4 member-card trust chips (mini), #5 trust-ordered grids (mini), #6 search→ORE migration, #3 opt-in personalized-POV ranking. Execution order #1→#2→#4→#5→#6→#3; all Done.
 
 ## Provenance
 - **Mode:** Acceptance-frame
