@@ -75,7 +75,8 @@ const shortNpub = (hex) => { const n = nip19.npubEncode(hex); return n.slice(0, 
    openMembers aborts AND counts any call to the retired meili proxy (page.__meiliCalls). */
 
 const HOUSE_HEX = '6db8a13f0183828c44dc778af7e2689a810fc24317585f497ddad049b4dd2597';
-const ORE_HOST  = 'https://brainstormserver.nosfabrica.com';
+// Settled policy 2026-08-14: api.brainstorm.world for all ORE calls (T16 pins both URLs).
+const ORE_HOST  = 'https://api.brainstorm.world';
 
 function oreSearchResponse(pairs) {
   // pairs: [hex, fusedRank][] — served order IS the expected render order.

@@ -152,6 +152,13 @@ All in `public/index.html`; line refs as of `60177ba`.
   T15/T18/T20-T25 assertions should survive with fixture swaps. Grid suites (T28-T34)
   unaffected except the host constant (stubs are host-agnostic globs).
 
+## Amendments
+
+- **2026-08-14 — Decision 1 host superseded by settled policy** (CLAUDE.md § Brainstorm
+  Hosts): `ORE_HOST` = `api.brainstorm.world`; `brainstormserver.nosfabrica.com` is
+  deprecated (same IP). Everything else in Decision 1 (one host constant deriving both
+  endpoints, `SEARCH_API`/`expectedPovSuffix` deletions) stands.
+
 ## Out of scope
 
 - Personalized POV opt-in and `_houseScoreCache` re-keying (story #3).

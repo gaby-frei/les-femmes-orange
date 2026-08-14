@@ -5,7 +5,8 @@
 **This document was written on 2026-08-02, BEFORE story #6
 (`engineering-team/stories/npub-search/6-search-ore-migration.md`, Approved 2026-08-05),
 which migrates free-text search off this meili proxy and onto ORE
-`POST https://brainstormserver.nosfabrica.com/search/pubkeys` (`relevance-pov`).**
+`POST /search/pubkeys` (`relevance-pov`) — served from `api.brainstorm.world` per the
+2026-08-14 settled host policy (CLAUDE.md § Brainstorm Hosts).**
 
 ```
 GET https://tags.brainstorm.world/api/search/profiles/meili

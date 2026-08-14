@@ -2016,9 +2016,9 @@
     // Open Ranking Engine (npub-search #6, ADR 0045): ONE host serves both ORE calls —
     // free-text search (relevance-pov, ordering) and the batch trust ranks
     // (graperank-pov) that score search rows and member cards alike.
-    // api.brainstorm.world is a verified equivalent mirror (ADR 0042 → ORE probe
-    // record) if this host ever moves.
-    const ORE_HOST       = 'https://brainstormserver.nosfabrica.com';
+    // SETTLED POLICY (PO, 2026-08-14 — CLAUDE.md § Brainstorm Hosts): api.brainstorm.world
+    // for all ORE calls; brainstormserver.nosfabrica.com (same IP) is deprecated.
+    const ORE_HOST       = 'https://api.brainstorm.world';
     const ORE_SEARCH_API = ORE_HOST + '/search/pubkeys';
     const ORE_RANK_API   = ORE_HOST + '/rank/pubkeys';
     // The designated house point of view rankings are computed from. Swap to the

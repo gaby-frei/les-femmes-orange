@@ -219,6 +219,35 @@ until no changes
 
 ---
 
+## Brainstorm Hosts & Codebases — SETTLED POLICY (PO, 2026-08-14, from LFO weekly meeting notes)
+
+**ORE host:** `api.brainstorm.world` for **all** ORE calls. `brainstormserver.nosfabrica.com`
+resolves to the same IP (74.208.86.220) but is **subject to deprecation** — do not target it.
+
+**Codebase distinctions:**
+- **Tapestry repo** (`github.com/nous-clawds4/tapestry`; local checkout `tapestry/`) = Brainstorm's
+  **R&D** hub. Its concepts (e.g. taggings) are NOT integrated into production brainstorm.world.
+  R&D deployments: `tapestry.brainstorm.world`, `tags.brainstorm.world`, `staging.brainstorm.world`.
+  (LFO's membership/tagging machinery — kind-39999 LFO tag events on `tags.brainstorm.world` —
+  lives on this R&D side; that is unchanged.)
+- **Nosfabrica codebases** = **production** brainstorm.world: `github.com/nosfabrica/brainstorm_server`
+  (ORE implementation: `app/routers/open_ranking/`) and `github.com/nosfabrica/Brainstorm-UI`
+  (staging at `brainstorm-staging.nosfabrica.com`).
+- Both use **GrapeRank** for trust scores, computed from **FOLLOWS / MUTES / REPORTS** only.
+  **Taggings are NOT an input to trust scores.**
+
+**Provider hierarchy for LFO:** align search/ranking behavior with brainstorm.world.
+Primary provider: `api.brainstorm.world` (all HTTP/JSON web-of-trust interfaces).
+Secondary: `tapestry.brainstorm.world` endpoints **only** for behaviors not yet available in
+production Nosfabrica codebases (its ORE implementation: `nous-clawds4/tapestry/src/api/open-ranking`).
+
+**POV availability (adopted policy, per the 2026-08-05 probe, reconfirmed 2026-08-14):**
+personalized search/ranking queries no longer revert to the house POV. Non-provisioned POV →
+empty results; provisioned POV → results distinct from the global perspective. LFO's current
+readiness check (non-zero ranks among a small probe set) is interim: the production ORE contract
+will add a special message on personalization requests — preview (R&D-siloed) at
+`tapestry.brainstorm.world/developers/open-ranking`.
+
 ## Tech Stack
 
 - **Backend**: Node.js + Express

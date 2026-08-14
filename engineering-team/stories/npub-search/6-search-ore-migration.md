@@ -82,9 +82,25 @@ see are consistent everywhere they appear.
   calls (probe-verified for personalized search 2026-08-05; `api.brainstorm.world`
   verified as an equivalent mirror the same day and noted as alternate). Story #4's
   shipped rank URL moves — commit message must mention it.
+  **⚠️ SUPERSEDED (settled policy, PO 2026-08-14 — CLAUDE.md § Brainstorm Hosts):**
+  host reversed to **`api.brainstorm.world`**; `brainstormserver.nosfabrica.com` (same
+  IP, 74.208.86.220) is subject to deprecation. The single-`ORE_HOST`-constant design
+  meant the reversal was a one-string change; the "One ORE host" AC's intent (one shared
+  constant, both calls) is unchanged. See Amendments below.
 - **O4 — Chip source / score cache.** ~~Open~~ **Resolved:** chips from the `/rank/pubkeys`
   batch via `fetchHouseTrustScores` (grid parity by construction); search thereby warms
   the shared score cache. The fused `/search/pubkeys` relevance float is never displayed.
+
+## Amendments
+
+- **2026-08-14 — host policy reversal (post-close).** The LFO weekly meeting notes settled
+  `api.brainstorm.world` as the host for all ORE calls, deprecating
+  `brainstormserver.nosfabrica.com`. `ORE_HOST` flipped accordingly (one string, per this
+  story's own constant design); T16's URL assertions updated; suite green. The meeting
+  notes also retroactively frame this story's direction: `tags.brainstorm.world` (the
+  meili proxy migrated off) is a Tapestry **R&D** deployment, while the ORE target is
+  **production** — the migration aligned LFO with brainstorm.world per the now-settled
+  integration guideline.
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0045-search-ore-migration.md` (Accepted 2026-08-05)

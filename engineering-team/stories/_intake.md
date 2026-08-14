@@ -160,3 +160,23 @@ event-tag creation/signing/publishing/querying — those wait on the teammate's 
 **Epic:** `npub-search` (new). Stories: #1 `1-identity-search-attest` (drafted). Free-text ranked search pending PO scope call.
 **Not folded into:** `v1-release` (different intent anchor — that book stays open on its own frame) or `note-tagging` (attestation event machinery is settled; what's new is identity search/resolution).
 **Phase path confirmed with user:** yes — user asked for harness placement recommendation, then "kick off the product planner"; entered Planning via `/plan-feature`.
+
+## 2026-08-14 — Adopt the ORE personalization-status message (retire the rank-probe readiness heuristic)
+
+**Source:** LFO weekly meeting notes (settled policy, recorded in CLAUDE.md § Brainstorm
+Hosts & Codebases): the production ORE contract will be updated to return a special
+message on personalization requests, replacing client-side provisioning checks. Preview
+(currently R&D-siloed): `https://tapestry.brainstorm.world/developers/open-ranking`.
+
+**What changes when it lands:** npub-search story #3's readiness probe
+(`probeMyViewReadiness` — POST /rank/pubkeys, ready ⟺ any rank > 0, member+curator
+targets) becomes obsolete; the My-view toggle gates on the contract-level status instead.
+Also discharges the residual echo-less-regression risk (a recognized-but-global relapse
+would become detectable from the response itself) and moots the curator-target rationale
+correction discussed 2026-08-13 (GrapeRank inputs are FOLLOWS/MUTES/REPORTS, not taggings
+— the curator's probe-target fitness was sociological, not structural).
+
+**Classification when picked up:** small Feature or Refactor (behavior swap behind a
+tested surface — T36–T38 re-pin). **Blocked on:** the contract change reaching
+production `api.brainstorm.world`. Watch the preview page; re-probe before planning.
+**Epic:** `npub-search` (post-book follow-up) or successor book.
