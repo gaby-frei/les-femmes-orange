@@ -248,6 +248,18 @@ readiness check (non-zero ranks among a small probe set) is interim: the product
 will add a special message on personalization requests — preview (R&D-siloed) at
 `tapestry.brainstorm.world/developers/open-ranking`.
 
+**Client handling of that contract (ore-pov-availability #1, 2026-08-15 — one server
+generation early, per the NosFabrica rollout's client-first ordering):** any personalized ORE
+call (free-text search, trust-chip rank batch, readiness probe) answering `422` — reason in
+`body.error` (the provider mirrors `X-Reason` there; older generations answer FastAPI
+`body.detail`) — or `202` (supported, still computing) is surfaced to the user and retried
+EXPLICITLY as the endpoint's global default algorithm (`relevance` / `graperank`, sent with NO
+`pov`), never rendered as empty results and never silently relabeled as personalized. A `422`
+sticks for the session (the readiness probe un-sticks the member's own pov when scores land); a
+`202` retries personalized on the next call. The rank>0 readiness heuristic stays as the interim
+gate until the contract is live on production `api.brainstorm.world`; retiring it is the intake
+follow-up of 2026-08-14. Pinned by T44–T49 (ADR 0047).
+
 ## Tech Stack (as-built)
 
 - **Frontend**: plain HTML/JS, one page (`public/index.html`) plus small shared libs (`public/lib/`) — **intentionally no build step, no lint/typecheck** (house rule; changing this requires an ADR)
