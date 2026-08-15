@@ -180,3 +180,26 @@ correction discussed 2026-08-13 (GrapeRank inputs are FOLLOWS/MUTES/REPORTS, not
 tested surface — T36–T38 re-pin). **Blocked on:** the contract change reaching
 production `api.brainstorm.world`. Watch the preview page; re-probe before planning.
 **Epic:** `npub-search` (post-book follow-up) or successor book.
+
+## 2026-08-15 — Unavailable-POV refusals: client-first handling (precedes the provider flip)
+
+**Origin:** The 2026-08-14 entry above, inverted by the NosFabrica rollout's client-first
+ordering (upstream spec text: Open-Ranking/protocol PR #9; provider adoption staged in
+`nosfabrica/brainstorm_server`). The provider will refuse a personalized algorithm for a pov it
+cannot serve — `422` + reason (`X-Reason`, mirrored into `body.error`) — or answer `202` while
+scores are still being computed, and will never silently substitute another point of view. LFO
+users would hit hard failures the day production flips; the client therefore learns the contract
+FIRST, tolerating both server generations (every new branch is dormant against today's 200s).
+
+**What is proposed (ore-pov-availability #1, ADR 0047):** `422`/`202` caught on all three
+personalized surfaces (free-text search, trust-chip rank batch, readiness probe); reason
+surfaced (panel note, pov indicator, disabled-note); explicit fallback re-requests the global
+default algorithm with NO `pov`; `422` session-sticky, `202` transient; fallback scores cached
+under a `global:` namespace so perspectives never mix. T44–T49 pin the contract; T15–T43
+unchanged. The 2026-08-14 follow-up (retiring the rank>0 heuristic in favor of contract-level
+gating alone) stays open — safe once production `api.brainstorm.world` serves the contract.
+
+**Classification:** small Feature (behavior swap behind a tested surface).
+**Epic:** `ore-pov-availability` (successor-book naming mirrors the provider-side rollout;
+PO may re-home it under `npub-search` post-book).
+**Status:** outside contribution via PR — awaiting PO review; phase-path call is the PO's.
