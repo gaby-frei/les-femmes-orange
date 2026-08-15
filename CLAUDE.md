@@ -2,7 +2,11 @@
 
 ## What We're Building
 
-A website gated by a community-managed, decentralized membership list. Access requires a Nostr keypair. A user is a verified member when their npub has been tagged with the **LFO tag** by another existing verified member. The canonical member list is a **NIP-51 kind 30000** event published and maintained by `tags.brainstorm.world` — **we consume it, we do not publish it**.
+The LFO Hub: an all-in-one home for the Les Femmes Orange community — a global network of 2,000+ Bitcoin and freedom advocates — providing decentralized member management, governance, and human-driven feed curation on Nostr. Access requires a Nostr keypair (NIP-07 extension or the in-browser local signer). 
+Today, user is a verified member when their npub has been vouched — tagged with the LFO tag — by an existing verified member.
+The Hub derives the member roster directly from these taggings: it queries the kind-39999 vouch events from the membership relays and runs the vouch-graph closure itself (`public/lib/membership.js`), applying its own gating logic at sign-in.
+(`tags.brainstorm.world` also publishes the computed roster as a NIP-51 kind 30000 event; the Hub does not currently consume it — see "NIP-51 Kind 30000" below.)
+Beyond the membership gate, the Hub ships a tag-curated community feed and a Members page that doubles as a web-of-trust lens: search anyone on Nostr, vouch directly from search results, and see GrapeRank trust scores and trust-ordered grids from a switchable perspective — community house view or the member's own ("Community view / My view").
 
 ---
 
@@ -12,7 +16,7 @@ The LFO tag is a DList item defined on the Tapestry protocol.
 The LFO concept event is kind **39999**, not 39998. It is an item within the broader "tag" taxonomy, not a standalone list header.
 LFO tag items (kind 39999) use an e tag to point back to the LFO concept event ID (4ddde08a...).
 
-The feilds of the LFO concept definition are as follows: 
+The fields of the LFO concept definition are as follows: 
 
 | Property | Value |
 |---|---|
@@ -37,7 +41,8 @@ A user is "tagged LFO" when a kind 39999 DList item exists that:
 ## Tapestry Protocol Reference
 
 The `tapestry/` directory contains the full reference implementation (the cloned Tapestry repo lives directly at `tapestry/`).
-The live deployment relevant to this project is `tags.brainstorm.world` — branch `feat/pubkey-tagging-target`, stood up 2026-05-12, long-lived sandbox for the pubkey-tagging feature.
+**Staleness warning:** the checkout is a snapshot and the live deployments are newer — modules have moved/vanished upstream (see the `builder-parity` test drift) and deployed endpoints carry fields absent from this code. Use it for patterns and orientation; verify behavior on the wire before trusting it.
+The live **Tapestry/R&D** deployment relevant to this project is `tags.brainstorm.world` — branch `feat/pubkey-tagging-target`, stood up 2026-05-12, long-lived sandbox for the pubkey-tagging feature. (Production ORE at `api.brainstorm.world` is an equally load-bearing live dependency for search/trust scores — see "Brainstorm Hosts & Codebases" below.)
 
 ### Relay URL
 
@@ -45,7 +50,7 @@ The strfry relay WebSocket is at:
 ```
 wss://tags.brainstorm.world/relay
 ```
-Nginx proxies `/relay` → strfry WebSocket inside the Docker container. This is both the standard Nostr relay and the NIP-50 search entry point.
+Nginx proxies `/relay` → strfry WebSocket inside the Docker container. This is both the standard Nostr relay and the NIP-50 search entry point. (The Hub does not use NIP-50 search — free-text search is ORE, per ADR 0045; we use this relay for membership tag events — vouches and applications — and event-tag publishing.)
 
 ### DList Event Kinds
 
@@ -125,6 +130,36 @@ For each result item:
 - Tagged pubkey = `item.tags.find(t => t[0] === 'p')?.[1]`
 - Tagger pubkey = `item.pubkey`
 
+### Event-Tagging Event Format (note tags — feed curation)
+
+Distinct from pubkey-tagging: these kind-39999 events tag **notes** (kind-1 events) with a topic tag, powering the community feed's channels. Today, the Hub publishes **assertions only** — it does not mint tag-elements or tagging headers (ADR 0040; the upstream SDK's minting builders are deliberately excluded).
+
+**Correct format for applying a topic tag to a note** (built by `buildEventTaggingAssertion` in `public/lib/event-tagging.js`, adapted verbatim from the Tapestry SDK):
+
+```js
+{
+  kind: 39999,
+  tags: [
+    ['d',        `event-tag-${slug}-${targetId.slice(0,8)}-${asserterHex.slice(0,8)}`],
+    ['e',        targetNoteId],                                   // or ['a', <coordinate>] for addressable targets; optional relay-hint 3rd element
+    ['z',        `39998:${taPubkey}:nostr-event-tag`],            // concept namespace, keyed by the deployment TA
+    ['z',        `39999:${headerAuthorHex}:tagging:${slug}-tagging`],  // the per-tag tagging header coordinate
+    ['polarity', '1'],                                            // 1 = apply, -1 = dispute (the Hub only publishes 1)
+  ],
+  content: '',
+}
+```
+
+Key points:
+- **Two `z` tags**, unlike pubkey-tagging's one: the `nostr-event-tag` concept (TA-keyed) and the specific tag's tagging-header coordinate.
+- The **TA pubkey is never hardcoded** — resolved at runtime from `https://tags.brainstorm.world/api/assistant/pubkey` (`api/_lib/ta.js`).
+- `d` is deterministic (`event-tag-<slug>-<first8 of target>-<first8 of asserter>`), so a re-publish is an idempotent overwrite, never a duplicate.
+- A tag is **"armed" for applying** only when a conforming header (`d` = `tagging:<slug>-tagging`) exists on the relay (`api/_lib/tagged.js` `armedHeaderFor`) — the never-mint guard, enforced server-side at feed build.
+- Published to `wss://tags.brainstorm.world/relay`; signed by the asserting member's own key via the signer abstraction.
+- **Configured tags** (in `api/feed.js` `EVENT_TAGS`, all authored by the PO's pubkey `6db8a13f…`): `lfo-community`, `bitcoin`, `nostr`, `ask-lfo` → the feed's four channels.
+
+LFO Hub reads event tags by querying headers by `#a` (tag-element coordinates) + `#z` (`39998:<taPubkey>:tagging-with-specific-tag`), then assertions by `#z` over the discovered header coordinates (see `api/_lib/tagged.js`); the one trust gate is **asserter ∈ member set** (the vouch-graph closure). The tagging relay holds tagging events only — **note bodies live on the feed relays** (`nos.lol`, `relay.damus.io`) and are fetched separately.
+
 ### Key tapestry source files to reference
 
 - `tapestry/src/lib/dtag.js` — d-tag derivation (`slug` + `hash8`)
@@ -136,51 +171,17 @@ For each result item:
 
 ---
 
-## NIP-51 Kind 30000 — Constraints
+## NIP-51 Kind 30000 — Not Consumed (as-built)
 
-The canonical member list is a **NIP-51 kind 30000 "Follow Set"** event, published by `tags.brainstorm.world`. 
+`tags.brainstorm.world` publishes its computed LFO roster as a **NIP-51 kind 30000 "Follow Set"** event (parameterized-replaceable, members as `p` tags). **As built, the Hub never consumes it**: membership is derived in-app by querying the kind-39999 vouch events and running the same vouch-graph closure locally (see "Verification Algorithm" below; `public/lib/membership.js`, ADR 0033). The kind 30000 list remains a possible future convergence point (adopt brainstorm's published roster instead of recomputing), not a current dependency.
 
-**We only read this list — we never write to it.**
-
-### What kind 30000 is (from NIP-51 spec + tapestry firmware)
-
-- **Parameterized-replaceable** (addressable by `d` tag): `30000:<publisher-pubkey>:<d-tag>`
-- Multiple follow sets per user are allowed (unlike kind 3, which is a single list)
-- The `d` tag names the set
-- Optional `title`, `image`, `description` tags for UI
-- Members are listed as `p` tags in the `tags` array (public entries)
-- Private entries, if any, are stored as a NIP-44-encrypted JSON array in `content` — we treat `content` as opaque since we have no key to decrypt it
-- Items are appended in chronological order (oldest first) per NIP-51
-
-### What we don't know yet (to confirm with tags.brainstorm.world operator)
-
-- The exact **publisher pubkey** who signs the kind 30000 event on tags.brainstorm.world
-- The exact **d-tag** used for the LFO members set
-- Whether private entries exist (content encrypted) — if so, only public `p` tags are visible to us
-
-Once confirmed, the list address will be:
-```
-30000:<publisher-pubkey>:<d-tag>
-```
-
-### How we consume the list
-
-On server startup and on a recurring sync, fetch the latest kind 30000 event:
-```js
-{
-  kinds: [30000],
-  authors: ["<publisher-pubkey>"],
-  "#d": ["<d-tag>"]
-}
-```
-
-Cache the set of `p` tag pubkeys in memory. This is the gate: if a user's pubkey is in this set, they have access.
+**We never write a kind 30000 event either way** — if the list is ever adopted, we remain a read-only consumer; `tags.brainstorm.world` owns it.
 
 ---
 
-## Verification Algorithm (for reference / future re-sync)
+## Verification Algorithm (run in-app)
 
-This is how `tags.brainstorm.world` determines who belongs in the NIP-51 list. We don't run this — the tapestry instance does. Documented here so we understand the trust model:
+This determines who is a verified member. **We run this ourselves**: `buildMemberSets` in `public/lib/membership.js` (a UMD module shared verbatim by the browser and the `api/feed.js` serverless function) applies the closure to the kind-39999 tag events fetched from the membership relays. `tags.brainstorm.world` runs the same computation on its side to produce its kind 30000 list.
 
 A user `P` is a **verified member** if and only if:
 
@@ -202,20 +203,19 @@ repeat:
 until no changes
 ```
 
-**Trust chain:** Bootstrap seed tagged the primary curator, who tagged 42 members.
+**Trust chain:** Bootstrap seed tagged the primary curator, who vouched in the initial cohort; the graph has grown member-to-member since.
 - Seed: `npub1aqll77sskvxups5kcc45gz4fquwfqnvqkxzzqdqm2sj6sx7ks4kq3zqr3p`
 - Primary curator: `npub1hz5alqscpp8yjrvgsdp2n4ygkl8slvstrgvmjca7e45w6644ew7sewtysa` (hex: `b8a9df8218084e490d888342a9d488b7cf0fb20b1a19b963becd68ed6ab5cbbd`)
 
 ---
 
-## Authentication Flow (NIP-07)
+## Authentication Flow (as-built — all client-side, no backend session)
 
-1. Frontend calls `window.nostr.getPublicKey()` → user's hex pubkey
-2. Backend generates a 32-byte random hex challenge, stores in session
-3. Frontend signs a challenge event via `window.nostr.signEvent()` — event includes challenge in a tag
-4. Backend verifies the event signature and challenge tag match
-5. Backend checks if pubkey is in the cached NIP-51 kind 30000 member set
-6. If yes: session marked authenticated; user sees gated content
+1. The user connects a signer: a **NIP-07 extension** (`window.nostr`) or the **in-browser local signer** (nsec imported/generated, NIP-49-encrypted in localStorage — see ADR/memory "local signer decision"). Both are wrapped behind one signer interface (`getPublicKey` / `signEvent`).
+2. The app resolves the user's hex pubkey from the signer.
+3. The app fetches the kind-39999 vouch events and computes `verifiedMap`/`pendingMap` via `buildMemberSets`; results are cached per session (`_tagItemsCache`) and cleared on disconnect.
+4. Gate: pubkey ∈ verifiedMap → gated views unlock; tagged only by non-verified accounts → pending; otherwise → offered the apply-for-membership flow.
+5. There is **no challenge/response and no server session** — gating is client-side display logic. Real key possession is proven only when the user signs something (a vouch, a self-tag application, a post): all writes go through the signer.
 
 ---
 
@@ -248,54 +248,50 @@ readiness check (non-zero ranks among a small probe set) is interim: the product
 will add a special message on personalization requests — preview (R&D-siloed) at
 `tapestry.brainstorm.world/developers/open-ranking`.
 
-## Tech Stack
+## Tech Stack (as-built)
 
-- **Backend**: Node.js + Express
-- **Frontend**: React + Vite (or lightweight HTML/JS — TBD)
-- **Nostr library**: `nostr-tools` (same as tapestry reference implementation)
-- **Relay client**: `nostr-tools` `SimplePool` for querying `wss://tags.brainstorm.world/relay`
-- **Session**: `express-session`
+- **Frontend**: plain HTML/JS, one page (`public/index.html`) plus small shared libs (`public/lib/`) — **intentionally no build step, no lint/typecheck** (house rule; changing this requires an ADR)
+- **Hosting**: Vercel static + serverless (`api/feed.js` for the community feed); local dev via the minimal static `server.js` (`node server.js`, port 3000)
+- **Nostr library**: `nostr-tools@2` from esm.sh in the browser (nip19/bech32, key derivation, `finalizeEvent`, nip49 for the local signer); dynamic import in `api/feed.js`
+- **Relay client**: hand-rolled raw `WebSocket` query/publish helpers in `index.html` (no SimplePool)
+- **Trust scores**: ORE (`api.brainstorm.world`) — `POST /search/pubkeys` + `POST /rank/pubkeys`, GrapeRank, POV-parameterized
+- **Session/auth**: none server-side — client-side signer + membership gate (see Authentication Flow)
+- **Tests**: Playwright e2e (`tests/`, fully stubbed/offline) + Node unit tests (`test/`)
 
 ---
 
 ## Key Decisions
 
-- We are a **read-only consumer** of the NIP-51 list — `tags.brainstorm.world` owns it
-- The cached NIP-51 `p` tag set is the runtime gate (not a per-request relay query)
-- Membership is binary: in the list = access, not in the list = denied
-- Private/encrypted entries in the kind 30000 `content` field are ignored — we only read public `p` tags
-- No GrapeRank or influence scoring
-- The NIP-51 publisher pubkey and d-tag must be confirmed before implementation
+- Membership is **computed in-app** from the kind-39999 vouch graph (transitive vouch closure, ADR 0033) — the NIP-51 kind 30000 list is not consumed, and we never publish one
+- Membership is binary: in the verified closure = access; tagged-by-unverified = pending; otherwise denied
+- Tag events are fetched **once per session** and cached client-side (`_tagItemsCache`); the cache is appended on a new vouch and cleared on disconnect — no cron, no server cache
+- One write path for attestations (`publishVouch`); all writes go through the signer abstraction (NIP-07 extension or local signer)
+- **GrapeRank trust scores are displayed** (ORE, POV-parameterized: house "Community view" / personal "My view") but are **not an input to membership** — the vouch closure alone decides who's in
+- Trust surfaces are enhancement-only: score/backend failures degrade gracefully, never block rendering or membership
 
 ---
 
-## Open Questions (confirm before implementing)
-
-1. What is the **publisher pubkey** of the kind 30000 list on `tags.brainstorm.world`?
-2. What is the **d-tag** of the LFO members set?
-3. How often should we re-sync the list from the relay? (startup only, on login, cron?)
-4. Frontend: React + Vite or plain HTML/JS?
-
----
-
-## Directory Layout (planned)
+## Directory Layout (as-built)
 
 ```
 les-femmes-orange/
   CLAUDE.md              ← this file
-  tapestry/              ← cloned Tapestry reference implementation, read-only (branch feat/pubkey-tagging-target context)
-  src/
-    server/
-      auth.js            ← NIP-07 challenge-sign endpoints
-      membership.js      ← NIP-51 list read + in-memory cache
-      relay.js           ← nostr-tools SimplePool relay client
-      index.js           ← Express app entry point
-    client/
-      pages/
-        SignIn.jsx        ← NIP-07 login page
-        Home.jsx          ← gated content
-      components/
-        AuthGate.jsx      ← membership check wrapper
+  server.js              ← minimal static file server for local dev (no framework)
+  vercel.json            ← deployment config (static + serverless)
+  public/
+    index.html           ← the entire app: markup, styles, and client JS (no build step)
+    lib/
+      membership.js      ← shared vouch-graph closure (buildMemberSets) — browser + Node UMD
+      event-tagging.js   ← shared event-tag builders
+  api/
+    feed.js              ← serverless community-feed endpoint (+ api/_lib/)
+  tests/                 ← Playwright e2e specs (offline, stubbed)
+  test/                  ← Node unit tests
+  scripts/               ← one-off probes/utilities (e.g. relay coverage)
+  docs/                  ← contracts, ADR-adjacent references, meeting notes
+  engineering-team/      ← stories, ADRs, reviews, audits (process harness)
+  product-team/          ← product-flow artifacts
+  tapestry/              ← cloned Tapestry reference implementation, read-only
 ```
 
 ---
@@ -314,7 +310,7 @@ les-femmes-orange/
 **Also check at session start:**
 
 - [`engineering-team/stories/_intake.md`](./engineering-team/stories/_intake.md) — queued-but-unplanned work catalog (if present). See [engineering-team/README.md](./engineering-team/README.md) for the format. Scan before opening a fresh feature request.
-- `engineering-team/*/done/community-reference/` — Tapestry's community build records, inherited read-only as protocol reference. Gaby's own epics/stories/decisions live outside `done/`.
+- Community-reference files under `engineering-team/{stories,decisions,reviews,epics}/done/` — Tapestry's community build records, inherited read-only as protocol reference. Gaby's own epics/stories/decisions live outside `done/`.
 
 ## Product Team Mode (upstream — optional)
 
