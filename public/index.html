@@ -994,6 +994,12 @@
       font-size: 0.85rem; color: var(--grey-text);
       padding: 0.6rem 0.55rem; line-height: 1.5;
     }
+    /* Unavailable-POV fallback note (ore-pov-availability #1): the personalized
+       refusal's reason, shown above the network-default rows it fell back to. */
+    .member-search-fallback-note {
+      font-size: 0.78rem; color: #b45309;
+      padding: 0.5rem 0.55rem 0.3rem; line-height: 1.5;
+    }
     .member-search-footnote {
       font-size: 0.75rem; color: var(--grey-text);
       padding: 0.5rem 0.55rem 0.25rem; margin-top: 0.2rem;
@@ -2948,13 +2954,40 @@
       _freetextAbort = ctrl;
 
       let results;
+      let fallbackReason = null;   // non-null → refusal surfaced + explicit global fallback
       try {
-        const resp = await fetch(ORE_SEARCH_API, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query, algorithm: 'relevance-pov', pov: povPubkey, limit: 6 }),
-          signal: ctrl.signal,
-        });
+        let resp = null;
+        if (_povUnavailable.has(povPubkey)) {
+          // This pov was already refused this session (422) — skip straight to the
+          // global default algorithm; the note below still says why.
+          fallbackReason = _povUnavailable.get(povPubkey);
+        } else {
+          resp = await fetch(ORE_SEARCH_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query, algorithm: 'relevance-pov', pov: povPubkey, limit: 6 }),
+            signal: ctrl.signal,
+          });
+          if (resp.status === 422 || resp.status === 202) {
+            // Unavailable pov (ORE-01 § Unavailable pov, upstream PR #9): the provider
+            // refuses (422) or isn't ready yet (202) rather than silently substituting
+            // another point of view. Never render a refusal as "no matches".
+            fallbackReason = (await oreRefusalReason(resp))
+              || 'Personalized results are not available for this view right now';
+            notePovUnavailable(povPubkey, resp.status, fallbackReason);
+            resp = null;
+          }
+        }
+        if (resp === null) {
+          // The explicit, informed fallback the contract asks of clients: re-request
+          // the endpoint's global default algorithm — no pov on a global algorithm.
+          resp = await fetch(ORE_SEARCH_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query, algorithm: 'relevance', limit: 6 }),
+            signal: ctrl.signal,
+          });
+        }
         if (!resp.ok) throw new Error(`search backend ${resp.status}`);
         const data = await resp.json();
         results = Array.isArray(data.results) ? data.results : [];
@@ -2982,6 +3015,12 @@
       if (seq !== _searchSeq) return;
 
       panelEl.innerHTML = '';
+      if (fallbackReason) {
+        const note = document.createElement('div');
+        note.className = 'member-search-fallback-note';
+        note.textContent = `⚠️ ${fallbackReason} — showing network-default results instead.`;
+        panelEl.appendChild(note);
+      }
       if (!pubkeys.length) {
         const empty = document.createElement('div');
         empty.className = 'member-search-empty';
@@ -3010,6 +3049,40 @@
       panelEl.appendChild(foot);
     }
 
+    // ── Unavailable POV (ORE-01 § Unavailable pov; Open-Ranking/protocol PR #9) ──
+    // A personalized algorithm can be refused for a pov the provider cannot serve:
+    // 422 + a reason (X-Reason header, mirrored into the response body) — never a
+    // silent substitution of another point of view. 202 means "supported, still
+    // computing". The client's half of the contract: surface the reason and fall
+    // back EXPLICITLY by re-requesting the global default algorithm.
+    // povPubkey → reason. A 422 sticks for the session (later calls skip straight
+    // to the global algorithm); a 202 falls back this call only, so the
+    // personalized retry happens naturally once scores land. The readiness probe
+    // clears the signed-in member's entry when their scores appear.
+    const _povUnavailable = new Map();
+
+    function notePovUnavailable(povPubkey, status, reason) {
+      if (status !== 422) return;   // 202 is transient — never sticky
+      _povUnavailable.set(povPubkey, reason || 'Personalized results are not available for this view');
+      updatePovUi();   // indicator flips to the network-default wording immediately
+    }
+
+    // Generation-robust refusal reason: new servers mirror X-Reason into body.error
+    // (and CORS-expose the header); the currently deployed generation answers
+    // FastAPI {"detail": …} with no exposed header. Body first, header as backup.
+    async function oreRefusalReason(resp) {
+      let body = null;
+      try { body = await resp.json(); } catch { /* non-JSON or empty body */ }
+      const fromBody = body
+        ? (typeof body.error === 'string' && body.error)
+          || (typeof body.detail === 'string' && body.detail)
+          || null
+        : null;
+      let fromHeader = null;
+      try { fromHeader = resp.headers.get('X-Reason'); } catch { /* opaque response */ }
+      return fromBody || fromHeader || null;
+    }
+
     // ── Trust scores (story #4, ADR 0043; POV-keyed by story #3, ADR 0046) ──
     // One ORE batch call scores a page of pubkeys from the ACTIVE point of view.
     // Cache key is (povPubkey, pubkey) — both views stay warm, so switching views
@@ -3018,19 +3091,42 @@
     const _scoreCache = new Map();   // `${povPubkey}:${pubkey}` → 0..1 graperank
 
     async function fetchTrustScores(pubkeys, povPubkey = activePovPubkey()) {
-      const keyOf = (pk) => `${povPubkey}:${pk}`;
-      const missing = pubkeys.filter(pk => !_scoreCache.has(keyOf(pk)));
+      // A pov the provider refused (422) is served from the global default
+      // algorithm instead — cached under the 'global' namespace so one
+      // perspective's numbers are never stored under another pov's key.
+      let ns = _povUnavailable.has(povPubkey) ? 'global' : povPubkey;
+      const keyOf = (pk) => `${ns}:${pk}`;
+      let missing = pubkeys.filter(pk => !_scoreCache.has(keyOf(pk)));
       if (missing.length) {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 8000);
         try {
-          const resp = await fetch(ORE_RANK_API, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pubkeys: missing, algorithm: 'graperank-pov', pov: povPubkey }),
-            signal: ctrl.signal,
-          });
-          if (resp.ok) {
+          let resp = null;
+          if (ns !== 'global') {
+            resp = await fetch(ORE_RANK_API, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ pubkeys: missing, algorithm: 'graperank-pov', pov: povPubkey }),
+              signal: ctrl.signal,
+            });
+            if (resp.status === 422 || resp.status === 202) {
+              // Unavailable pov (ORE-01) — fall back explicitly to the global
+              // default; a 202 (still computing) retries personalized next call.
+              notePovUnavailable(povPubkey, resp.status, await oreRefusalReason(resp));
+              ns = 'global';
+              missing = pubkeys.filter(pk => !_scoreCache.has(keyOf(pk)));
+              resp = null;
+            }
+          }
+          if (ns === 'global' && missing.length) {
+            resp = await fetch(ORE_RANK_API, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ pubkeys: missing, algorithm: 'graperank' }),
+              signal: ctrl.signal,
+            });
+          }
+          if (resp && resp.ok) {
             const data = await resp.json();
             for (const r of (data.results || [])) {
               if (r && typeof r.rank === 'number' && r.pubkey) _scoreCache.set(keyOf(r.pubkey), r.rank);
@@ -3047,6 +3143,7 @@
     // ── Community view / My view (story #3, ADR 0046) ────────────────────────
     let _activeView = 'community';   // per-tab; never persisted (PO determination 2)
     let _myViewReady = false;
+    let _myViewPendingNote = null;   // 202 "still computing" reason from the probe
 
     function activePovPubkey() {
       return _activeView === 'mine' && currentPubkey ? currentPubkey : HOUSE_POV.pubkey;
@@ -3065,13 +3162,20 @@
       let note = document.getElementById('pov-disabled-note');
       if (_myViewReady) {
         if (note) note.remove();
-      } else if (!note) {
-        note = document.createElement('p');
-        note.className = 'pov-disabled-note';
-        note.id = 'pov-disabled-note';
-        note.textContent = "My view isn't available for your account yet.";
-        const toggle = document.querySelector('.pov-toggle');
-        if (toggle) toggle.insertAdjacentElement('afterend', note);
+      } else {
+        if (!note) {
+          note = document.createElement('p');
+          note.className = 'pov-disabled-note';
+          note.id = 'pov-disabled-note';
+          const toggle = document.querySelector('.pov-toggle');
+          if (toggle) toggle.insertAdjacentElement('afterend', note);
+        }
+        // When the provider gave a reason (422 refusal / 202 still-computing), the
+        // note carries it — the O1 string alone otherwise (ore-pov-availability #1).
+        const reason = (currentPubkey && _povUnavailable.get(currentPubkey)) || _myViewPendingNote;
+        note.textContent = reason
+          ? `My view isn't available for your account yet — ${reason}`
+          : "My view isn't available for your account yet.";
       }
       const avatarEl = document.getElementById('pov-my-avatar');
       if (avatarEl && currentPubkey && !avatarEl.querySelector('img')) {
@@ -3089,7 +3193,14 @@
       }
       const who = _activeView === 'mine' ? 'you' : 'Les Femmes Orange';
       const s = document.getElementById('pov-indicator-search');
-      if (s) s.textContent = `— searching as ${who}`;
+      if (s) {
+        // Honest labeling under fallback (ORE-01): when the active pov was refused,
+        // what's on screen is the network default — say so where the perspective is
+        // normally named.
+        s.textContent = _povUnavailable.has(activePovPubkey())
+          ? `— ${_activeView === 'mine' ? 'your' : "Les Femmes Orange's"} view is unavailable; searching network-wide`
+          : `— searching as ${who}`;
+      }
     }
 
     function setActiveView(view) {
@@ -3109,15 +3220,24 @@
     async function probeMyViewReadiness() {
       if (!currentPubkey) { _myViewReady = false; updatePovUi(); return; }
       let ready = false;
+      _myViewPendingNote = null;
       try {
         const resp = await fetch(ORE_RANK_API, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ pubkeys: [currentPubkey, CURATOR_HEX], algorithm: 'graperank-pov', pov: currentPubkey }),
         });
-        if (resp.ok) {
+        if (resp.status === 422) {
+          // Definitive refusal (ORE-01 Unavailable pov) — segment stays disabled and
+          // the disabled note carries the provider's reason.
+          notePovUnavailable(currentPubkey, 422, await oreRefusalReason(resp));
+        } else if (resp.status === 202) {
+          _myViewPendingNote = (await oreRefusalReason(resp))
+            || 'your scores are still being computed — check back soon';
+        } else if (resp.ok) {
           const data = await resp.json();
           ready = (data.results || []).some(r => r && typeof r.rank === 'number' && r.rank > 0);
+          if (ready) _povUnavailable.delete(currentPubkey);   // provisioning landed
         }
       } catch { /* enhancement only — segment stays disabled */ }
       _myViewReady = ready;

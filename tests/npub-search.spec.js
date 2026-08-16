@@ -1290,3 +1290,141 @@ test.describe('Community view / My view toggle (npub-search #3)', () => {
     expect(styles.searchRow.borderBottomWidth, 'search header has no underline').toBe('0px');
   });
 });
+
+/* ═══════════ Unavailable POV — refusal handling (ore-pov-availability #1) ═══════════
+   ORE-01 § "Unavailable pov" (Open-Ranking/protocol PR #9): a provider that cannot
+   serve a personalized algorithm for the supplied pov answers 422 with a reason
+   (X-Reason, mirrored into body.error) — or 202 while scores are still being
+   computed — and NEVER silently substitutes another point of view. The client's
+   half of the contract: surface the reason, and fall back EXPLICITLY by
+   re-requesting the endpoint's global default algorithm (which carries NO pov).
+   T44–T49 are RED until that handling lands. Fixtures put the reason in body.error
+   exactly as the provider mirrors it (the X-Reason header is not CORS-exposed by
+   the deployed generation, so the client must not depend on reading it). */
+
+const SEARCH_REFUSAL = "pov not provisioned: personalized scores are not available for this pov on this instance; request the default global algorithm 'relevance' instead";
+const RANK_REFUSAL   = "pov not provisioned: personalized scores are not available for this pov on this instance; request the default global algorithm 'graperank' instead";
+
+test.describe('unavailable POV — 422/202 refusals (ore-pov-availability #1)', () => {
+  // T44 — search 422: reason surfaced verbatim, explicit global re-request (no pov),
+  // fallback rows render — never "no matches", never silence.
+  test('personalized search refused → reason shown, explicit global re-request, rows render', async ({ page }) => {
+    const calls = await stubOreSearch(page, (body) => body.algorithm === 'relevance-pov'
+      ? { status: 422, body: { error: SEARCH_REFUSAL } }
+      : { body: oreSearchResponse([[FX.A, 9000], [FX.B, 8000]]) });
+    await stubRankApi(page, (body) => ({
+      body: { results: (body.pubkeys || []).map(pk => ({ pubkey: pk, rank: 0.42 })), ttl: 3600 },
+    }));
+    await openMembers(page, { profiles: fxProfiles({ A: 'Ada', B: 'Bo' }) });
+
+    await search(page, 'ad');
+    await expect(panel(page).locator('.member-search-fallback-note'),
+      'refusal reason surfaced verbatim above the fallback rows')
+      .toHaveText(`⚠️ ${SEARCH_REFUSAL} — showing network-default results instead.`);
+    await expect(candidate(page), 'global fallback rows render').toHaveCount(2);
+    await expect.poll(() => rowNames(page)).toEqual(['Ada', 'Bo']);
+    await expect(panel(page).locator('.member-search-empty'),
+      'a refusal is never rendered as the empty state').toHaveCount(0);
+
+    const povCall = calls.find(c => c.algorithm === 'relevance-pov');
+    const fbCall  = calls.find(c => c.algorithm === 'relevance');
+    expect(povCall, 'personalized attempt fired first').toBeTruthy();
+    expect(povCall.pov, 'personalized attempt carried the house pov').toBe(HOUSE_HEX);
+    expect(fbCall, 'explicit global re-request fired').toBeTruthy();
+    expect(Object.hasOwn(fbCall, 'pov'), 'global request carries NO pov (ORE-01)').toBe(false);
+    expect(fbCall.query, 'fallback repeats the same query').toBe('ad');
+  });
+
+  // T45 — search 202 (supported, still computing): same explicit fallback for this
+  // call, but NOT sticky — the personalized attempt retries on the next search.
+  test('202 still-computing → fallback this call only; personalized retries next search', async ({ page }) => {
+    const PENDING_REASON = 'scores for this pov are still being computed; retry shortly';
+    const calls = await stubOreSearch(page, (body) => body.algorithm === 'relevance-pov'
+      ? { status: 202, body: { error: PENDING_REASON } }
+      : { body: oreSearchResponse([[FX.A, 9000]]) });
+    await stubRankApi(page, (body) => ({
+      body: { results: (body.pubkeys || []).map(pk => ({ pubkey: pk, rank: 0.42 })), ttl: 3600 },
+    }));
+    await openMembers(page, { profiles: fxProfiles({ A: 'Ada' }) });
+
+    await search(page, 'ad');
+    await expect(panel(page).locator('.member-search-fallback-note'))
+      .toHaveText(`⚠️ ${PENDING_REASON} — showing network-default results instead.`);
+    await expect(candidate(page)).toHaveCount(1);
+
+    await search(page, 'bo');
+    await expect.poll(() => calls.filter(c => c.algorithm === 'relevance-pov').length,
+      { message: '202 is transient — the personalized attempt fires again' }).toBe(2);
+    expect(calls.filter(c => c.algorithm === 'relevance').length, 'each 202 falls back explicitly').toBe(2);
+  });
+
+  // T46 — rank-batch 422: chips come from the explicit global re-request (no pov) and
+  // the perspective indicator says the view is unavailable — honest labeling, never
+  // global numbers presented under a personalized label.
+  test('trust-chip batch refused → explicit global chips + indicator says network-wide', async ({ page }) => {
+    const calls = await stubRankApi(page, (body) => body.algorithm === 'graperank-pov'
+      ? { status: 422, body: { error: RANK_REFUSAL } }
+      : { body: { results: (body.pubkeys || []).map(pk => ({ pubkey: pk, rank: 0.42 })), ttl: 3600 } });
+    await openMembers(page, bigGridSetup());
+
+    await expect(gridChips(page).first(), 'chips render from the global fallback').toHaveText('🏅 42');
+    const globalCall = calls.find(c => c.algorithm === 'graperank');
+    expect(globalCall, 'explicit global rank re-request fired').toBeTruthy();
+    expect(Object.hasOwn(globalCall, 'pov'), 'global rank request carries NO pov').toBe(false);
+    await expect(searchIndicator(page), 'indicator drops the personalized claim')
+      .toHaveText("— Les Femmes Orange's view is unavailable; searching network-wide");
+  });
+
+  // T47 — probe 422: My view stays disabled and the note carries the provider's
+  // reason; the healthy house view is untouched (no cross-pov poisoning).
+  test('readiness probe refused → disabled note carries the reason; house view intact', async ({ page }) => {
+    await stubRankApi(page, (body) => body.pov === ME
+      ? { status: 422, body: { error: RANK_REFUSAL } }
+      : { body: { results: povResults(povScores()[HOUSE_HEX], body.pubkeys), ttl: 3600 } });
+    await openMembers(page, bigGridSetup());
+
+    await expect(segment(page, 'My view'), 'refused pov → segment disabled').toBeDisabled();
+    await expect(page.locator('.pov-disabled-note'))
+      .toHaveText(`My view isn't available for your account yet — ${RANK_REFUSAL}`);
+    await expect(searchIndicator(page), 'community view unaffected by the member-pov refusal')
+      .toHaveText('— searching as Les Femmes Orange');
+    await expect(gridChips(page).first(), 'house chips render normally').toBeVisible();
+  });
+
+  // T48 — probe 202: still-computing reason lands in the note; segment stays disabled.
+  test('readiness probe answers 202 → note says scores are still being computed', async ({ page }) => {
+    const COMPUTING = 'your scores are still being computed — check back soon';
+    await stubRankApi(page, (body) => body.pov === ME
+      ? { status: 202, body: { error: COMPUTING } }
+      : { body: { results: povResults(povScores()[HOUSE_HEX], body.pubkeys), ttl: 3600 } });
+    await openMembers(page, bigGridSetup());
+
+    await expect(segment(page, 'My view')).toBeDisabled();
+    await expect(page.locator('.pov-disabled-note'))
+      .toHaveText(`My view isn't available for your account yet — ${COMPUTING}`);
+  });
+
+  // T49 — a 422 sticks for the session: later searches skip straight to the global
+  // algorithm (no hammering the refused pov) and the note keeps saying why.
+  test('422 refusal is session-sticky — no repeat personalized attempts', async ({ page }) => {
+    const calls = await stubOreSearch(page, (body) => body.algorithm === 'relevance-pov'
+      ? { status: 422, body: { error: SEARCH_REFUSAL } }
+      : { body: oreSearchResponse([[FX.A, 9000]]) });
+    await stubRankApi(page, (body) => ({
+      body: { results: (body.pubkeys || []).map(pk => ({ pubkey: pk, rank: 0.42 })), ttl: 3600 },
+    }));
+    await openMembers(page, { profiles: fxProfiles({ A: 'Ada' }) });
+
+    await search(page, 'ad');
+    await expect(candidate(page)).toHaveCount(1);
+    await search(page, 'bo');
+    await expect(candidate(page)).toHaveCount(1);
+
+    expect(calls.filter(c => c.algorithm === 'relevance-pov').length,
+      'exactly one personalized attempt — the refusal stuck').toBe(1);
+    expect(calls.filter(c => c.algorithm === 'relevance').length,
+      'both searches served by the explicit global algorithm').toBe(2);
+    await expect(panel(page).locator('.member-search-fallback-note'),
+      'the second render still says why').toHaveText(`⚠️ ${SEARCH_REFUSAL} — showing network-default results instead.`);
+  });
+});
