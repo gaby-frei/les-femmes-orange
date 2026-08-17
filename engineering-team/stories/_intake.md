@@ -180,3 +180,20 @@ correction discussed 2026-08-13 (GrapeRank inputs are FOLLOWS/MUTES/REPORTS, not
 tested surface — T36–T38 re-pin). **Blocked on:** the contract change reaching
 production `api.brainstorm.world`. Watch the preview page; re-probe before planning.
 **Epic:** `npub-search` (post-book follow-up) or successor book.
+
+**Update 2026-08-17 — live on staging, not yet production. verified on the Nosfabrica codebase, not siloed to R&D.** 
+Probed `brainstormserver-staging.nosfabrica.com`: an unavailable-POV request to `/rank/pubkeys`
+or `/search/pubkeys` now returns **HTTP 422** with the reason in both an `x-reason`
+header and a JSON `error` body — cause ("no scores exist for this point of view and none
+are scheduled (ranking requests never provision new povs)"), the endpoint's fallback
+algorithm, and a provisioning URL. Capability doc (`/.well-known/open-ranking.json`)
+unchanged — response-contract change only. Shipped in **NosFabrica/brainstorm_server**
+(PR #66 `feat/ore-pov-availability`, merged to staging 2026-08-16: "422/202 for
+unavailable pov; X-Reason on all ORE errors" — the 202 suggests scheduled-but-not-ready
+POVs get 202, per ORE-05's previously unused 202+Retry-After). Promotion to main is
+**PR #68, open as of 2026-08-17**. Production `api.brainstorm.world` re-probed same day:
+still old contract (HTTP 200, zero-filled ranks). Note: staging has its own provisioning
+store (the PO's POV also 422s there), so the provisioned success shape can't be verified
+on staging. Shipped LFO code is already safe under the new contract
+(`probeMyViewReadiness` treats non-2xx as not-ready); the story remains blocked on PR
+#68 reaching production.
