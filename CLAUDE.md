@@ -305,7 +305,7 @@ les-femmes-orange/
 
 - [AGENTS.md](./AGENTS.md) — concept-graph orientation pattern. Read this BEFORE touching code.
 - [BIBLE.md](./BIBLE.md) — protocol spec, architecture, and data model. Its **§22 Community-Reference Model, §23 Class-Thread Membership Tags, §24 Task Queue, §25 Inherit-From Tag**, and the `concept-graph` header pointer are the community substrate to design on.
-- [docs/COMMUNITIES_PROTOCOL_DESIGN_HANDOFF.md](./docs/COMMUNITIES_PROTOCOL_DESIGN_HANDOFF.md) — the **current direction** for how Tapestry communities work (community as a concept, membership via a `nostr-user-tag` weighted by GrapeRank, definitional deference via the `b` inherit-from tag). **LFO should align to this**, not to any older community model. This is the primary community-design reference.
+- [docs/communities-protocol-handoff-2026-06-05.md](./docs/communities-protocol-handoff-2026-06-05.md) — the **current direction** for how Tapestry communities work (community as a concept, membership via a `nostr-user-tag` weighted by GrapeRank, definitional deference via the `b` inherit-from tag). **LFO should align to this**, not to any older community model. This is the primary community-design reference.
 
 **Also check at session start:**
 
