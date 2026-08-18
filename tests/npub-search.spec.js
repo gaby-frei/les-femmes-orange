@@ -74,7 +74,7 @@ const shortNpub = (hex) => { const n = nip19.npubEncode(hex); return n.slice(0, 
      3. POST <ORE_HOST>/rank/pubkeys (chips) → stubRankApi (0–1 floats; chip = round(×100)).
    openMembers aborts AND counts any call to the retired meili proxy (page.__meiliCalls). */
 
-const HOUSE_HEX = '6db8a13f0183828c44dc778af7e2689a810fc24317585f497ddad049b4dd2597';
+const HOUSE_HEX = '6ff682438884e32f619d79e1aa1aba7de8f426005bea5891fc64ef854768731c';
 // Settled policy 2026-08-14: api.brainstorm.world for all ORE calls (T16 pins both URLs).
 const ORE_HOST  = 'https://api.brainstorm.world';
 

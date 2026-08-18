@@ -2021,10 +2021,12 @@
     const ORE_HOST       = 'https://api.brainstorm.world';
     const ORE_SEARCH_API = ORE_HOST + '/search/pubkeys';
     const ORE_RANK_API   = ORE_HOST + '/rank/pubkeys';
-    // The designated house point of view rankings are computed from. Swap to the
-    // official LFO account once it is provisioned (ADR 0042 swap runbook) — one string.
+    // The designated house point of view rankings are computed from. Provisioned
+    // on ORE and verified non-zero against /rank/pubkeys (2026-08-18). Chosen over
+    // the official LFO account (5f0d66ba…, ADR 0042's swap target), whose private
+    // key is unavailable — provisioning a POV requires signing.
     const HOUSE_POV = {
-      pubkey: '6db8a13f0183828c44dc778af7e2689a810fc24317585f497ddad049b4dd2597', // placeholder: PO's account
+      pubkey: '6ff682438884e32f619d79e1aa1aba7de8f426005bea5891fc64ef854768731c', // npub1dlmgysu…
     };
     // Primary curator — readiness-probe target (npub-search #3, ADR 0046): the pubkey
     // every member's trust chain reaches, so a computed personal WoT scores her > 0.
