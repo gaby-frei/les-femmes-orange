@@ -110,7 +110,9 @@ Four sub-decisions:
    first" is made a property of our code, at zero extra request cost. (The placeholder
    account's pref is currently rank-desc, so served order already agrees; the re-sort is
    defense against pref drift, and equal-rank ties have no specified secondary order.)
-3. **House POV is one config constant block** in `public/index.html`, beside `RELAYS`:
+3. **House POV is one config constant block** in `public/index.html`, beside `RELAYS`
+   *(the block below is the story-#2 snapshot — `SEARCH_API`/`expectedPovSuffix` were
+   deleted by ADR 0045 and the pubkey was replaced on 2026-08-18; see Amendments)*:
 
    ```js
    // House point of view for free-text search ranking (story #2, ADR 0042).
@@ -128,7 +130,9 @@ Four sub-decisions:
    HOUSE_POV.expectedPovSuffix` — render normally (returned scores are real scores) but
    `console.warn`, converting the proxy's silent nosfabrica fallback into a detectable
    signal even if `povResolution` leaves the contract.
-4. **Swap runbook (config-only).** Prerequisites (external): (a) LFO pubkey `5f0d66ba…`
+4. **Swap runbook (config-only).** *(Superseded 2026-08-18 — never executed; the house POV
+   moved to a different account instead. Do not act on the prerequisites below; see
+   Amendments.)* Prerequisites (external): (a) LFO pubkey `5f0d66ba…`
    registered as a brainstorm customer (self-serve sign-up); (b) an LFO-signed kind-10040
    delegating `30382:rank`; (c) deployment-side prefs for the LFO pubkey with `rankAuthor` —
    established by one sign-in to the brainstorm search UI as LFO after (b). Then the swap is
@@ -193,13 +197,33 @@ All in `public/index.html` unless noted.
   and below-minimum no-request assertions (route call-count). Identity fast-path regression:
   no search-API request when input decodes.
 
+## Amendments
+
+- **2026-08-18 — sub-decision 4's swap runbook superseded, not executed** (commit
+  `5296c17`): `HOUSE_POV.pubkey` moved off the PO's placeholder account
+  (`6db8a13f…`) to `6ff68243…` (`npub1dlmgysu…`), which is now the designated house
+  perspective. The official LFO account `5f0d66ba…` is **not** the house POV and the
+  runbook's prerequisites were never carried out: provisioning a POV requires signing
+  (an LFO-signed kind-10040 delegation plus a signed sign-in to the brainstorm UI), and
+  the LFO account's private key is unavailable. Provisioning of `6ff68243…` was verified
+  on `api.brainstorm.world` before the swap — `/rank/pubkeys` under the new POV returns
+  non-zero, distinct ranks (curator 0.964, PO 0.568) while a control junk POV returns
+  0.0. Sub-decision 3's **seam** stands unchanged: one constant, read by every consumer
+  through `activePovPubkey()`, so the change was one string in the app and one in the
+  spec. `api/feed.js` `TAG_AUTHOR` is deliberately untouched — same hex as the old
+  placeholder, different role (feed tag-header authorship, not POV).
+- **2026-08-05 — Option A backend superseded by ADR 0045** (story #6): free-text search
+  runs on ORE `/search/pubkeys`; sub-decisions 1–2 and the `SEARCH_API` /
+  `expectedPovSuffix` constants (and their fallback guard) are retired with the meili
+  proxy. The house-POV-as-config seam carries forward.
+
 ## Out of scope
 
 - Personalized POV (story #3) — this ADR only shapes the seam.
 - NIP-05 identifier input and the proxy's `nip05Lookup` param — future story.
 - Pagination / full results page (`offset` stays 0; `estimatedTotalHits` unused).
 - The response's `tagHits` and `nip05Result` fields — explicitly ignored.
-- Executing the LFO swap runbook (external; the PO is driving it).
+- Executing the LFO swap runbook (external) — superseded 2026-08-18, see Amendments.
 - Our own proxy (Option C) — revisit only on a CORS/contract change.
 - Migrating search to ORE `/search/pubkeys` (Option D) — the planned successor, per the
   convergence rationale in ADR 0043. When picked up: verify the LFO POV, and join profile

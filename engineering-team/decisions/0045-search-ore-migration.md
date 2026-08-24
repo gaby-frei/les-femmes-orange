@@ -154,6 +154,10 @@ All in `public/index.html`; line refs as of `60177ba`.
 
 ## Amendments
 
+- **2026-08-18 — the carried-forward swap runbook is retired** (`5296c17`): ADR 0042
+  sub-decision 4 was superseded rather than executed; the house POV is `6ff68243…`, not
+  the LFO account. The `HOUSE_POV` seam this ADR carries forward is unaffected — the
+  change was one constant. See ADR 0042 § Amendments.
 - **2026-08-14 — Decision 1 host superseded by settled policy** (CLAUDE.md § Brainstorm
   Hosts): `ORE_HOST` = `api.brainstorm.world`; `brainstormserver.nosfabrica.com` is
   deprecated (same IP). Everything else in Decision 1 (one host constant deriving both
@@ -162,7 +166,7 @@ All in `public/index.html`; line refs as of `60177ba`.
 ## Out of scope
 
 - Personalized POV opt-in and `_houseScoreCache` re-keying (story #3).
-- LFO-POV verification on ORE (swap runbook, ADR 0042 — external).
+- LFO-POV verification on ORE (swap runbook, ADR 0042 — retired 2026-08-18, see Amendments).
 - ORE 202/`Retry-After` handling (not emitted by the hosts today).
 - Retiring `docs/meili-search-proxy-contract.md` (stays as reference for the deployment's
   API; no longer describes our search path once this ships).

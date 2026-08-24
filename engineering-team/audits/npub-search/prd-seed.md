@@ -61,7 +61,8 @@ persistence *(rejected, PO determination)*.
   provider from FOLLOWS/MUTES/REPORTS (**not** from taggings — settled policy), always
   relative to a **perspective**.
 - **Perspective (POV)** — a pubkey; two roles: *house* (community default; config
-  constant, LFO-account swap pending) and *mine* (the signed-in member, gated on
+  constant, held by a designated account that is not the LFO account — see audit §4 #5)
+  and *mine* (the signed-in member, gated on
   **provisioning** — whether the provider has computed that pubkey's WoT).
 - **Ranked result** — search relevance = text-match × perspective-trust (server-fused,
   ordering only); display score always from the rank endpoint (single source with cards).
@@ -83,8 +84,7 @@ product wants one):
 
 ## 6. Carry-forward & open questions
 
-Promoted from audit §6: LFO house-account swap (config-only, externally blocked);
-ORE personalization-status message adoption (retires the readiness probe heuristic);
+Promoted from audit §6: ORE personalization-status message adoption (retires the readiness probe heuristic);
 `builder-parity` test drift; NIP-05 identifier input; pagination; feed personalization;
 operator asks (observer echo / LFO-POV verification).
 
@@ -102,3 +102,7 @@ operator asks (observer echo / LFO-POV verification).
 - [ ] Score display semantics: 🏅 chips show *relationship-to-perspective*, not
       reputation — is that legible enough, or does it need a "what is this?" explainer
       (deliberately excluded from story #3)?
+- [ ] **Whose perspective is "Community view"?** It is now a designated individual
+      account (`6ff68243…`), not the LFO account — that route is closed while the LFO
+      key is unavailable (audit §4 #5). Product should confirm this is the intended
+      long-term stand-in, and whether members should be told whose view they are seeing.

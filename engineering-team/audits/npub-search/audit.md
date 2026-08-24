@@ -2,7 +2,7 @@
 
 **Book:** `engineering-team/audits/npub-search/book.md`
 **Date:** 2026-08-14
-**Branch / commit range:** `feat/npub-search`, `a6d1738..0fec33b` (41 commits, +5031/−76; NOT yet merged to main per PO instruction)
+**Branch / commit range:** `feat/npub-search`, `a6d1738..0fec33b` (41 commits, +5031/−76; NOT yet merged to main per PO instruction). Post-close commits since: `5296c17` (house POV, 2026-08-18) — §4 #5.
 **Provenance:** Acceptance-frame
 **Confidence:** high — anchor captured at kickoff; every story ran the full five-phase cycle with a PASS review; live-preview checks PO-confirmed 2026-08-14
 
@@ -27,7 +27,7 @@
 | #6 search-ore-migration | meili proxy → ORE three-call pipeline; meili path deleted | Done | `reviews/npub-search/6-search-ore-migration.md` (PASS 2026-08-05) |
 | #3 personalized-pov-ranking | View toggle, readiness probe, (pov,pubkey) cache, indicators, decrowding pass | Done | `reviews/npub-search/3-personalized-pov-ranking.md` (PASS 2026-08-06) |
 
-ADRs: 0041 (identity search), 0042 (house-POV search; rewritten 2026-08-05 → ORE probe record), 0043 (ORE batch chips), 0044 (grid ordering), 0045 (ORE migration), 0046 (view toggle). Post-close policy commit `0fec33b` (2026-08-14) amends #6/0045 for the settled host.
+ADRs: 0041 (identity search), 0042 (house-POV search; rewritten 2026-08-05 → ORE probe record), 0043 (ORE batch chips), 0044 (grid ordering), 0045 (ORE migration), 0046 (view toggle). Post-close policy commit `0fec33b` (2026-08-14) amends #6/0045 for the settled host; post-close config commit `5296c17` (2026-08-18) amends #2/0042 for the house POV (§4 #5).
 
 ## 3. As-built inventory
 
@@ -51,7 +51,7 @@ search block (input + dropdown panel: candidate rows, trust chips, loading/empty
 | 2 | (implied: profile required to attest) | Profile-less candidates ARE vouchable, with ⚠️ warning copy | intentional-change | PO O3 rollback 2026-07-31 (ADR 0041 amendments) | Any valid key vouchable | — |
 | 3 | frame silent on NIP-05 trust | ✓ renders only after live `/.well-known/nostr.json` proof | added-beyond-scope | PO option-b 2026-07-31 (ADR 0041) | Impersonation-resistant address display | — |
 | 4 | "Backend decided in story #2 (Open Ranking vs NIP-50)" | Decided **twice**: meili proxy (ADR 0042, only backend then serving scores+profiles in one call) → production ORE (ADR 0045) once `/search/pubkeys` personalization went live server-side (2026-08-05 probe) | constraint-discovered → intentional-change | ADR 0042 (probe evidence), ADR 0043 convergence rationale, ADR 0045 | Search, chips, grids share one engine/POV; meili dependency gone | — |
-| 5 | "designated house npub … target: official LFO account" | Placeholder (PO's pubkey) still active; swap = one config string | deferred | External provisioning not complete (ADR 0042 swap runbook; PO driving) | Ranking reflects PO's POV until swap | ✔ register #1 |
+| 5 | "designated house npub … target: official LFO account" | House POV moved off the PO's placeholder to a third account, `6ff68243…` (`5296c17`, 2026-08-18, post-close); the official LFO account is **not** the house POV | intentional-change (was: deferred) | ADR 0042 sub-decision 4's swap runbook superseded, not executed — provisioning a POV requires signing and the LFO account's key is unavailable; `6ff68243…` verified provisioned on `api.brainstorm.world` first (ADR 0042 Amendments 2026-08-18) | Ranking reflects `6ff68243…`'s POV, not the PO's and not LFO's | register #1 closed |
 | 6 | frame bullets 3–4 only (search ranking) | Trust chips on all member cards + trust-ordered grids in BOTH views + sorted vouch placement | added-beyond-scope | PO directives 2026-08-02 (stories #4/#5; ADR 0043/0044 — 0043's "display-only" superseded by 0044) | Grids are trust-ranked even without opt-in — exceeds frame | — |
 | 7 | "opt into personalized-POV ranking" | Community/My view toggle: visible-but-disabled gating (rank-probe readiness), session-default community, single inline indicator | interpretation | PO determinations 1–4 + O1–O3 (story #3, 2026-08-06); decrowding pass same day superseded ADR 0046 Decisions 5–7 UI details (story amendments are authority; PO declined ADR edit) | Opt-in is per-session, only for provisioned members | ✔ register #2 |
 | 8 | "repurposes the deployed brainstorm.world search page" | UX repurposed (suggestion flow, POV pill); backend intentionally diverged from the tapestry R&D stack to production ORE | interpretation | Settled policy 2026-08-14 (CLAUDE.md § Brainstorm Hosts): tapestry = R&D, nosfabrica = production; #6 retroactively aligned with it | Consistency with brainstorm.world ranking | — |
@@ -68,7 +68,7 @@ search block (input + dropdown panel: candidate rows, trust chips, loading/empty
 
 ## 6. Carry-forward register
 
-- [ ] **LFO house-account swap** — external: brainstorm customer registration + LFO-signed kind-10040 + one UI sign-in; then edit `HOUSE_POV.pubkey` (one string). Runbook: ADR 0042 sub-decision 4. (§4 #5)
+- [x] **LFO house-account swap** — **closed 2026-08-18 as superseded, not executed** (`5296c17`): `HOUSE_POV.pubkey` = `6ff68243…`, provisioning verified on `api.brainstorm.world` before the flip. The official LFO account `5f0d66ba…` was ruled out — provisioning a POV requires signing (kind-10040 delegation + signed sign-in) and its private key is unavailable. ADR 0042 sub-decision 4's runbook is retired; see ADR 0042 § Amendments. (§4 #5)
 - [ ] **Adopt the ORE personalization-status message** when the production contract ships it — retires story #3's rank-probe heuristic, makes POV fallback detectable from responses, moots the ADR 0046 curator-rationale defect. Tracked: `stories/_intake.md` 2026-08-14 entry; preview R&D-siloed at `tapestry.brainstorm.world/developers/open-ranking`. (§4 #7)
 - [ ] **`builder-parity` unit test** — re-pin the `tapestry/` checkout or retire/re-point the test (its upstream module vanished). Recommended since review #2.
 - [ ] **NIP-05 identifier input** (`name@domain` → search) — deferred by ADRs 0041/0042/0045; natural next search story.
