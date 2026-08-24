@@ -1,0 +1,727 @@
+<title>Perspective Availability</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+
+<style>
+  /* ─────────────────────────────────────────────────────────────
+     SPEC CHROME — the document around the mockups.
+     Warm-biased neutrals (hue pulled toward the LFO orange) so the
+     frame reads as chosen rather than inherited default grey.
+     ───────────────────────────────────────────────────────────── */
+  :root {
+    --ground:      #f7f5f3;
+    --surface:     #ffffff;
+    --ink:         #241f1c;
+    --ink-soft:    #5c534d;
+    --ink-faint:   #8a7f77;
+    --rule:        #e6e1dc;
+    --rule-strong: #d4ccc5;
+    --lfo:         #f5945c;
+    --flag:        #b45309;
+    --flag-bg:     #fdf4e7;
+    --keep:        #3f7d58;
+    --keep-bg:     #edf5f0;
+
+    --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+    --measure: 62ch;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #191614;
+      --surface:     #221e1b;
+      --ink:         #ece7e2;
+      --ink-soft:    #b3a89f;
+      --ink-faint:   #8d8078;
+      --rule:        #322c28;
+      --rule-strong: #453d38;
+      --lfo:         #f5945c;
+      --flag:        #e0a253;
+      --flag-bg:     #2c2118;
+      --keep:        #7fc39c;
+      --keep-bg:     #1a2620;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:      #191614;
+    --surface:     #221e1b;
+    --ink:         #ece7e2;
+    --ink-soft:    #b3a89f;
+    --ink-faint:   #8d8078;
+    --rule:        #322c28;
+    --rule-strong: #453d38;
+    --lfo:         #f5945c;
+    --flag:        #e0a253;
+    --flag-bg:     #2c2118;
+    --keep:        #7fc39c;
+    --keep-bg:     #1a2620;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 4rem 1.5rem 6rem;
+  }
+
+  /* ── Masthead ── */
+
+  .masthead { border-bottom: 2px solid var(--ink); padding-bottom: 1.75rem; margin-bottom: 1rem; }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 0.9rem;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.08;
+    text-wrap: balance;
+    margin: 0 0 1rem;
+  }
+
+  .standfirst {
+    font-size: 1.0625rem;
+    color: var(--ink-soft);
+    max-width: var(--measure);
+    margin: 0;
+  }
+
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 2rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--ink-faint);
+    margin: 0 0 4rem;
+    padding-top: 0.9rem;
+  }
+  .meta span { white-space: nowrap; }
+  .meta b { font-weight: 500; color: var(--ink-soft); }
+
+  /* ── Thesis block ── */
+
+  .thesis {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--lfo);
+    border-radius: 3px;
+    padding: 1.75rem 1.9rem;
+    margin: 0 0 4rem;
+  }
+  .thesis h2 { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.015em; margin: 0 0 0.75rem; }
+  .thesis p { margin: 0 0 1rem; color: var(--ink-soft); max-width: var(--measure); }
+  .thesis p:last-of-type { margin-bottom: 1.5rem; }
+
+  .persp-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+  .persp-table th {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    text-align: left;
+    padding: 0 1rem 0.55rem 0;
+    border-bottom: 1px solid var(--rule-strong);
+  }
+  .persp-table td {
+    padding: 0.7rem 1rem 0.7rem 0;
+    border-bottom: 1px solid var(--rule);
+    color: var(--ink-soft);
+    vertical-align: top;
+  }
+  .persp-table tr:last-child td { border-bottom: none; }
+  .persp-table td:first-child { color: var(--ink); font-weight: 600; white-space: nowrap; }
+
+  /* ── State rows ── */
+
+  .states { display: flex; flex-direction: column; gap: 3.5rem; }
+
+  .state {
+    display: grid;
+    grid-template-columns: 21rem 1fr;
+    gap: 2.5rem;
+    align-items: start;
+    padding-top: 2.25rem;
+    border-top: 1px solid var(--rule-strong);
+    scroll-margin-top: 2rem;
+  }
+
+  .state-note h3 {
+    font-size: 1.1875rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    line-height: 1.25;
+    text-wrap: balance;
+    margin: 0 0 0.75rem;
+  }
+  .state-note p { font-size: 0.9375rem; color: var(--ink-soft); margin: 0 0 0.85rem; }
+  .state-note p:last-child { margin-bottom: 0; }
+
+  .status-code {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    color: var(--ink-faint);
+    margin-bottom: 0.7rem;
+  }
+  .status-code b {
+    color: var(--ink);
+    font-weight: 600;
+    background: var(--ground);
+    border: 1px solid var(--rule-strong);
+    border-radius: 2px;
+    padding: 0.1rem 0.4rem;
+  }
+
+  .tag {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    border-radius: 2px;
+    padding: 0.22rem 0.5rem;
+    margin: 0.35rem 0.35rem 0 0;
+  }
+  .tag-keep { background: var(--keep-bg); color: var(--keep); }
+  .tag-flag { background: var(--flag-bg); color: var(--flag); }
+
+  /* ─────────────────────────────────────────────────────────────
+     MOCKUP PANE — depicts the shipped LFO app, which is light-only.
+     Every value here is an explicit literal, never a theme token,
+     so the depiction holds identically on either host ground.
+     ───────────────────────────────────────────────────────────── */
+  .pane {
+    background: #ffffff;
+    border: 1px solid #d9d4cf;
+    border-radius: 6px;
+    padding: 1.75rem 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.04);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: #1c1c1c;
+    line-height: 1.5;
+    overflow-x: auto;
+  }
+
+  .pane-label {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #9a9a9a;
+    margin: 0 0 1.25rem;
+  }
+
+  /* toggle */
+  .pov-toggle {
+    display: flex; width: max-content; align-items: center; gap: 0.25rem;
+    background: #f2f2f4; border: 1px solid #e0e0e0;
+    border-radius: 999px; padding: 0.25rem;
+    margin: 0 auto 0.6rem;
+  }
+  .pov-segment {
+    display: inline-flex; align-items: center; gap: 0.45rem;
+    border: none; background: transparent; border-radius: 999px;
+    padding: 0.7rem 1rem;                 /* raised to a 44px target — a11y fix */
+    font-size: 0.85rem; font-weight: 600;
+    color: #777777; font-family: inherit;
+  }
+  .pov-segment.on { background: #ffffff; color: #1c1c1c; box-shadow: 0 1px 4px rgba(0,0,0,0.12); }
+  .pov-segment.off { opacity: 0.55; }
+  .pov-mark {
+    width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+    background: #f5945c;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .pov-mark svg { width: 12px; height: 12px; fill: #ffffff; }
+  .pov-avatar {
+    width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+    background: #f5945c; color: #ffffff; font-size: 0.6rem; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+
+  .pov-status {
+    font-size: 0.75rem; color: #5f5f5f;   /* --grey-text-strong, 6.5:1 */
+    text-align: center; margin: 0 auto 1.5rem; max-width: 34rem;
+  }
+  .pov-status.none { display: none; }
+
+  /* search header */
+  .search-header {
+    display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap;
+    border-bottom: 1px solid #e0e0e0; padding-bottom: 0.55rem; margin-bottom: 0.75rem;
+  }
+  .search-label { font-size: 1.05rem; font-weight: 700; color: #1c1c1c; letter-spacing: -0.01em; }
+  .pov-indicator { font-size: 0.75rem; font-weight: 600; color: #f5945c; }
+
+  .search-input {
+    width: 100%; padding: 0.7rem 1rem;
+    font-family: ui-monospace, Menlo, monospace; font-size: 0.85rem;
+    color: #9a9a9a; background: #ffffff;
+    border: 1px solid #e0e0e0; border-radius: 8px;
+  }
+
+  /* dropdown panel */
+  .search-panel {
+    margin-top: 0.5rem; padding: 0.45rem;
+    background: #ffffff; border: 1px solid #e0e0e0; border-radius: 12px;
+    box-shadow: 0 14px 36px rgba(0,0,0,0.13);
+  }
+  .panel-notice {
+    font-size: 0.75rem; line-height: 1.5; color: #5f5f5f;
+    padding: 0.6rem 0.55rem 0.45rem;
+    border-bottom: 1px solid #e0e0e0;
+    margin-bottom: 0.2rem;
+  }
+  .row {
+    display: flex; align-items: center; gap: 0.7rem;
+    padding: 0.5rem 0.55rem; border-radius: 8px;
+  }
+  .row + .row { margin-top: 0.15rem; }
+  .row-avatar {
+    width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+    background: #fde8d8; color: #e0743a;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.78rem; font-weight: 700;
+  }
+  .row-body { min-width: 0; flex: 1; }
+  .row-name { font-size: 0.88rem; font-weight: 600; color: #1c1c1c; }
+  .row-addr { font-size: 0.72rem; color: #777777; }
+  .row-chip {
+    flex-shrink: 0; font-size: 0.72rem; font-weight: 600; color: #5f5f5f;
+    background: #f2f2f4; border-radius: 999px; padding: 0.2rem 0.55rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .row-badge {
+    flex-shrink: 0; font-size: 0.66rem; font-weight: 600;
+    background: #fde8d8; color: #b45309; border-radius: 999px; padding: 0.2rem 0.5rem;
+  }
+  .panel-foot {
+    font-size: 0.75rem; color: #5f5f5f; line-height: 1.5;
+    padding: 0.5rem 0.55rem 0.25rem; margin-top: 0.2rem;
+    border-top: 1px solid #e0e0e0;
+  }
+
+  /* grid strip */
+  .grid-strip { display: flex; gap: 0.6rem; margin-top: 1.5rem; }
+  .grid-card {
+    flex: 1; border: 1px solid #e0e0e0; border-radius: 10px;
+    padding: 0.7rem 0.6rem; text-align: center;
+  }
+  .grid-card .row-avatar { margin: 0 auto 0.4rem; }
+  .grid-card .row-name { font-size: 0.76rem; }
+  .grid-card .row-chip { display: inline-block; margin-top: 0.35rem; }
+  .grid-heading {
+    font-size: 0.8rem; font-weight: 700; color: #1c1c1c;
+    border-bottom: 1px solid #e0e0e0; padding-bottom: 0.4rem; margin-bottom: 0.7rem;
+  }
+
+  /* ── Killed-copy callout ── */
+
+  .killed {
+    margin-top: 1.25rem;
+    background: var(--flag-bg);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 1.1rem 1.25rem;
+  }
+  .killed .eyebrow { margin-bottom: 0.6rem; color: var(--flag); }
+  .killed .specimen {
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    line-height: 1.65;
+    color: var(--ink-soft);
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 0.75rem 0.85rem;
+    margin: 0 0 0.9rem;
+    text-decoration: line-through;
+    text-decoration-color: var(--flag);
+    text-decoration-thickness: 1px;
+    overflow-x: auto;
+  }
+  .killed ul { margin: 0; padding-left: 1.1rem; font-size: 0.875rem; color: var(--ink-soft); }
+  .killed li { margin-bottom: 0.3rem; }
+  .killed li:last-child { margin-bottom: 0; }
+  .killed code {
+    font-family: var(--font-mono); font-size: 0.82em;
+    background: var(--surface); border: 1px solid var(--rule);
+    border-radius: 2px; padding: 0.05rem 0.3rem;
+  }
+
+  /* ── Closing rules ── */
+
+  .rules { margin-top: 5rem; border-top: 2px solid var(--ink); padding-top: 2rem; }
+  .rules h2 { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 1.5rem; }
+  .rules ol { margin: 0; padding-left: 1.4rem; }
+  .rules li { margin-bottom: 1rem; max-width: var(--measure); color: var(--ink-soft); }
+  .rules li:last-child { margin-bottom: 0; }
+  .rules b { color: var(--ink); font-weight: 600; }
+
+  @media (max-width: 880px) {
+    .wrap { padding: 2.5rem 1.1rem 4rem; }
+    .state { grid-template-columns: 1fr; gap: 1.5rem; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">Les Femmes Orange · Experience Design</p>
+    <h1>Perspective Availability</h1>
+    <p class="standfirst">
+      What the Members page shows when a trust perspective cannot be served — and why none of it
+      is styled as an error.
+    </p>
+  </header>
+
+  <p class="meta">
+    <span><b>Slug</b> pov-availability</span>
+    <span><b>Date</b> 2026-08-24</span>
+    <span><b>Surfaces</b> toggle, indicator, search panel</span>
+    <span><b>Reference</b> ADR 0047 / pr-1</span>
+  </p>
+
+  <section class="thesis">
+    <h2>A refused perspective is a third perspective, not a failure</h2>
+    <p>
+      Nothing has gone wrong from the member's side. They asked to find someone on Nostr, and they
+      will get ranked results. What changed is whose judgment ordered them.
+    </p>
+    <p>
+      The page already has a name for that idea and a place to show it. So the fallback gets named
+      like the other two perspectives, in the same slot, in the same voice.
+    </p>
+    <p>
+      The page shows the most community-specific perspective that can actually be served: Les Femmes
+      Orange first, the member's own second, unpersonalized last. The two are resolved independently,
+      so a refusal of one says nothing about the other.
+    </p>
+    <p>
+      The fallback is <i>not</i> "the whole Nostr network." A refused personalized algorithm falls to
+      the provider's default one, which is rooted in Brainstorm's own house account. What a member
+      can actually verify is the negative — these results are not personalized to Les Femmes Orange —
+      so that is what the copy claims, and nothing more.
+    </p>
+    <table class="persp-table">
+      <thead>
+        <tr>
+          <th>Perspective</th>
+          <th>Whose trust graph orders the results</th>
+          <th>How a member reaches it</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Les Femmes Orange</td>
+          <td>The community's designated account, <span style="font-family:var(--font-mono);font-size:0.85em">npub1dlmgysu…65v2x2</span></td>
+          <td>Default</td>
+        </tr>
+        <tr>
+          <td>You</td>
+          <td>The signed-in member's own</td>
+          <td>Opt-in, when their scores exist</td>
+        </tr>
+        <tr>
+          <td>Brainstorm's default</td>
+          <td>The provider's own house account — not personalized to this community</td>
+          <td>Automatic, when the chosen perspective can't be served</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <div class="states">
+
+    <!-- S1 -->
+    <section class="state" id="s1">
+      <div class="state-note">
+        <p class="status-code"><b>200</b> community perspective served</p>
+        <h3>Available — the shipped default</h3>
+        <p>The baseline every other state is measured against. The indicator names the perspective; the toggle offers the alternative; no status line appears.</p>
+        <p><span class="tag tag-keep">unchanged</span></p>
+      </div>
+      <div class="pane">
+        <p class="pane-label">Members · default</p>
+        <div class="pov-toggle">
+          <span class="pov-segment on"><span class="pov-mark"><svg viewBox="0 0 24 24"><path d="M14.5 10.5c.8-.4 1.5-1.1 1.5-2.2C16 6.5 14.8 5.5 13 5.3V4h-1.5v1.2H10V4H8.5v1.3H6.5V17h2V7.3h3c1.4 0 2 .6 2 1.5s-.7 1.5-2 1.5H10v1.5h1.5c1.7 0 2.5.7 2.5 1.8 0 1.2-.9 1.9-2.5 1.9H8.5V17h2v1.3H12V17h1c2 0 3.5-1 3.5-2.8 0-1.3-.7-2.3-2-2.7z"/></svg></span>Community view</span>
+          <span class="pov-segment"><span class="pov-avatar">M</span>My view</span>
+        </div>
+        <p class="pov-status none"></p>
+        <div class="search-header">
+          <span class="search-label">Find someone on Nostr</span>
+          <span class="pov-indicator">— searching as Les Femmes Orange</span>
+        </div>
+        <input class="search-input" value="Paste an npub, hex pubkey, or nprofile…" readonly aria-label="Search preview">
+      </div>
+    </section>
+
+    <!-- S2 -->
+    <section class="state" id="s2">
+      <div class="state-note">
+        <p class="status-code"><b>200</b> member perspective served</p>
+        <h3>My view — the opt-in perspective</h3>
+        <p>One word changes in the indicator. The perspective statement is the only thing on the page that reports which trust graph is active, so it carries the whole message.</p>
+        <p><span class="tag tag-keep">unchanged</span></p>
+      </div>
+      <div class="pane">
+        <p class="pane-label">Members · My view active</p>
+        <div class="pov-toggle">
+          <span class="pov-segment"><span class="pov-mark"><svg viewBox="0 0 24 24"><path d="M14.5 10.5c.8-.4 1.5-1.1 1.5-2.2C16 6.5 14.8 5.5 13 5.3V4h-1.5v1.2H10V4H8.5v1.3H6.5V17h2V7.3h3c1.4 0 2 .6 2 1.5s-.7 1.5-2 1.5H10v1.5h1.5c1.7 0 2.5.7 2.5 1.8 0 1.2-.9 1.9-2.5 1.9H8.5V17h2v1.3H12V17h1c2 0 3.5-1 3.5-2.8 0-1.3-.7-2.3-2-2.7z"/></svg></span>Community view</span>
+          <span class="pov-segment on"><span class="pov-avatar">M</span>My view</span>
+        </div>
+        <p class="pov-status none"></p>
+        <div class="search-header">
+          <span class="search-label">Find someone on Nostr</span>
+          <span class="pov-indicator">— searching as you</span>
+        </div>
+        <input class="search-input" value="Paste an npub, hex pubkey, or nprofile…" readonly aria-label="Search preview">
+      </div>
+    </section>
+
+    <!-- S3 -->
+    <section class="state" id="s3">
+      <div class="state-note">
+        <p class="status-code"><b>422</b> member perspective refused</p>
+        <h3>My view unavailable — the common case</h3>
+        <p>The readiness check gates the toggle before a member can enter a hollow view. The provider's new refusal reaches exactly the same conclusion the old zero-score heuristic did.</p>
+        <p>The shipped line states a fact with no cause, which leaves a member with nothing to do. Naming the registration gives the state a reason a person can act on, and it is the sentence a future provisioning flow attaches to.</p>
+        <p>The provider's own reason string is still read, logged, and discarded. It does not reach the page.</p>
+        <p><span class="tag tag-flag">new copy</span><span class="tag tag-flag">reason not surfaced</span></p>
+      </div>
+      <div class="pane">
+        <p class="pane-label">Members · My view not provisioned</p>
+        <div class="pov-toggle">
+          <span class="pov-segment on"><span class="pov-mark"><svg viewBox="0 0 24 24"><path d="M14.5 10.5c.8-.4 1.5-1.1 1.5-2.2C16 6.5 14.8 5.5 13 5.3V4h-1.5v1.2H10V4H8.5v1.3H6.5V17h2V7.3h3c1.4 0 2 .6 2 1.5s-.7 1.5-2 1.5H10v1.5h1.5c1.7 0 2.5.7 2.5 1.8 0 1.2-.9 1.9-2.5 1.9H8.5V17h2v1.3H12V17h1c2 0 3.5-1 3.5-2.8 0-1.3-.7-2.3-2-2.7z"/></svg></span>Community view</span>
+          <span class="pov-segment off"><span class="pov-avatar">M</span>My view</span>
+        </div>
+        <p class="pov-status">My view isn't available yet because your account isn't registered with Brainstorm.</p>
+        <div class="search-header">
+          <span class="search-label">Find someone on Nostr</span>
+          <span class="pov-indicator">— searching as Les Femmes Orange</span>
+        </div>
+        <input class="search-input" value="Paste an npub, hex pubkey, or nprofile…" readonly aria-label="Search preview">
+      </div>
+    </section>
+
+    <!-- S4 -->
+    <section class="state" id="s4">
+      <div class="state-note">
+        <p class="status-code"><b>202</b> member perspective computing</p>
+        <h3>Preparing — a wait with a number on it</h3>
+        <p>The only genuinely new member-facing state, and the only hopeful one. Scores are coming.</p>
+        <p>The interval is read from the <code style="font-family:var(--font-mono);font-size:0.82em">Retry-After</code> header, now readable in the browser, and rounded to a plain unit. Without it, the line reads <i>Check back in a few minutes.</i></p>
+        <p><span class="tag tag-flag">new state</span></p>
+      </div>
+      <div class="pane">
+        <p class="pane-label">Members · scores being computed</p>
+        <div class="pov-toggle">
+          <span class="pov-segment on"><span class="pov-mark"><svg viewBox="0 0 24 24"><path d="M14.5 10.5c.8-.4 1.5-1.1 1.5-2.2C16 6.5 14.8 5.5 13 5.3V4h-1.5v1.2H10V4H8.5v1.3H6.5V17h2V7.3h3c1.4 0 2 .6 2 1.5s-.7 1.5-2 1.5H10v1.5h1.5c1.7 0 2.5.7 2.5 1.8 0 1.2-.9 1.9-2.5 1.9H8.5V17h2v1.3H12V17h1c2 0 3.5-1 3.5-2.8 0-1.3-.7-2.3-2-2.7z"/></svg></span>Community view</span>
+          <span class="pov-segment off"><span class="pov-avatar">M</span>My view</span>
+        </div>
+        <p class="pov-status">My view is being set up. Check back in about 10 minutes.</p>
+        <div class="search-header">
+          <span class="search-label">Find someone on Nostr</span>
+          <span class="pov-indicator">— searching as Les Femmes Orange</span>
+        </div>
+        <input class="search-input" value="Paste an npub, hex pubkey, or nprofile…" readonly aria-label="Search preview">
+      </div>
+    </section>
+
+    <!-- S5 -->
+    <section class="state" id="s5">
+      <div class="state-note">
+        <p class="status-code"><b>422</b> community refused &middot; <b>200</b> member served</p>
+        <h3>The page moves the member to their own view</h3>
+        <p>The two perspectives resolve independently, so a refusal of the community's ranking says nothing about the member's. When theirs works, showing it beats falling to a stranger's default account — the results stay personal to someone the member has a reason to trust.</p>
+        <p><b>Only the Community segment disables.</b> My view is live and selected. There is nothing to switch back to, and the dimmed segment shows why.</p>
+        <p>This is the one place a perspective changes without the member asking, so it is the one place the change is announced. The indicator still reads <i>searching as you</i> — a substituted view and a chosen one produce identical results, and the <i>why</i> belongs in the status line.</p>
+        <p><span class="tag tag-flag">new state</span><span class="tag tag-flag">default moves</span></p>
+      </div>
+      <div class="pane">
+        <p class="pane-label">Members &middot; community unavailable, own view served</p>
+        <div class="pov-toggle">
+          <span class="pov-segment off"><span class="pov-mark"><svg viewBox="0 0 24 24"><path d="M14.5 10.5c.8-.4 1.5-1.1 1.5-2.2C16 6.5 14.8 5.5 13 5.3V4h-1.5v1.2H10V4H8.5v1.3H6.5V17h2V7.3h3c1.4 0 2 .6 2 1.5s-.7 1.5-2 1.5H10v1.5h1.5c1.7 0 2.5.7 2.5 1.8 0 1.2-.9 1.9-2.5 1.9H8.5V17h2v1.3H12V17h1c2 0 3.5-1 3.5-2.8 0-1.3-.7-2.3-2-2.7z"/></svg></span>Community view</span>
+          <span class="pov-segment on"><span class="pov-avatar">M</span>My view</span>
+        </div>
+        <p class="pov-status">Les Femmes Orange's ranking isn't available right now. You're seeing your own view instead.</p>
+        <div class="search-header">
+          <span class="search-label">Find someone on Nostr</span>
+          <span class="pov-indicator">— searching as you</span>
+        </div>
+        <input class="search-input" value="Paste an npub, hex pubkey, or nprofile…" readonly aria-label="Search preview">
+        <div class="grid-strip">
+          <div class="grid-card">
+            <div class="row-avatar">SM</div>
+            <div class="row-name">Sofia Marín</div>
+            <span class="row-chip">92</span>
+          </div>
+          <div class="grid-card">
+            <div class="row-avatar">AK</div>
+            <div class="row-name">Anna Kovač</div>
+            <span class="row-chip">88</span>
+          </div>
+          <div class="grid-card">
+            <div class="row-avatar">RD</div>
+            <div class="row-name">Renata Dias</div>
+            <span class="row-chip">63</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- S6 -->
+    <section class="state" id="s6">
+      <div class="state-note">
+        <p class="status-code"><b>422</b> both perspectives refused</p>
+        <h3>Neither view can be served — the last resort</h3>
+        <p>Only when <i>both</i> perspectives are refused does the page run unpersonalized. Every trust surface moves at once, so it says so in the place it always names the perspective.</p>
+        <p><b>Both segments go disabled.</b> The toggle's proposition is a choice between two personalized perspectives. Here neither one is available, so offering the choice would misrepresent what the control does. Community keeps its white pill so the radio state stays readable — dimmed, not removed.</p>
+        <p>Grid cards keep their chips. They are real numbers, and the line above says what they are not.</p>
+        <p><span class="tag tag-flag">new copy</span><span class="tag tag-flag">both disabled</span><span class="tag tag-keep">no new color</span></p>
+      </div>
+      <div class="pane">
+        <p class="pane-label">Members · neither perspective available</p>
+        <div class="pov-toggle">
+          <span class="pov-segment on off"><span class="pov-mark"><svg viewBox="0 0 24 24"><path d="M14.5 10.5c.8-.4 1.5-1.1 1.5-2.2C16 6.5 14.8 5.5 13 5.3V4h-1.5v1.2H10V4H8.5v1.3H6.5V17h2V7.3h3c1.4 0 2 .6 2 1.5s-.7 1.5-2 1.5H10v1.5h1.5c1.7 0 2.5.7 2.5 1.8 0 1.2-.9 1.9-2.5 1.9H8.5V17h2v1.3H12V17h1c2 0 3.5-1 3.5-2.8 0-1.3-.7-2.3-2-2.7z"/></svg></span>Community view</span>
+          <span class="pov-segment off"><span class="pov-avatar">M</span>My view</span>
+        </div>
+        <p class="pov-status">Results aren't personalized to the community right now. Neither view is available.</p>
+        <div class="search-header">
+          <span class="search-label">Find someone on Nostr</span>
+          <span class="pov-indicator">— not personalized to the community</span>
+        </div>
+        <input class="search-input" value="Paste an npub, hex pubkey, or nprofile…" readonly aria-label="Search preview">
+        <div class="grid-strip">
+          <div class="grid-card">
+            <div class="row-avatar">AK</div>
+            <div class="row-name">Anna Kovač</div>
+            <span class="row-chip">96</span>
+          </div>
+          <div class="grid-card">
+            <div class="row-avatar">RD</div>
+            <div class="row-name">Renata Dias</div>
+            <span class="row-chip">81</span>
+          </div>
+          <div class="grid-card">
+            <div class="row-avatar">SM</div>
+            <div class="row-name">Sofia Marín</div>
+            <span class="row-chip">74</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- S7 -->
+    <section class="state" id="s7">
+      <div class="state-note">
+        <p class="status-code"><b>422</b> search, fallen back</p>
+        <h3>The panel says what these rows are</h3>
+        <p>The notice mirrors the shipped footnote inverted — that one sits below the rows with a rule above, this one sits above the rows with a rule below. Same family, opposite anchor, so the panel still reads as one designed object.</p>
+        <p>It claims only the negative. The app knows the community's ranking was refused; it does not know whose ranking replaced it, so it names none.</p>
+        <p>The notice belongs to this state alone. When a member is on their own substituted view the rows <i>are</i> personalized, and a caveat there would disparage the best results the page can produce.</p>
+        <p>It stays short because the indicator directly above already carries the reason. The panel says what these rows <i>are</i>; the toggle line says <i>why</i>. Neither repeats the other.</p>
+        <p>A refused perspective is never rendered as <i>No profiles matched that search</i> and never as <i>Search is temporarily unavailable</i>. Both would be false.</p>
+        <p><span class="tag tag-flag">new component</span></p>
+      </div>
+      <div class="pane">
+        <p class="pane-label">Members · search open, not personalized</p>
+        <div class="search-header">
+          <span class="search-label">Find someone on Nostr</span>
+          <span class="pov-indicator">— not personalized to the community</span>
+        </div>
+        <input class="search-input" value="renata" readonly aria-label="Search preview" style="color:#1c1c1c">
+        <div class="search-panel">
+          <p class="panel-notice">These results aren't personalized to the community.</p>
+          <div class="row">
+            <span class="row-avatar">RD</span>
+            <span class="row-body">
+              <span class="row-name">Renata Dias</span><br>
+              <span class="row-addr">renata@nostrplebs.com</span>
+            </span>
+            <span class="row-badge">Verified</span>
+            <span class="row-chip">81</span>
+          </div>
+          <div class="row">
+            <span class="row-avatar">RF</span>
+            <span class="row-body">
+              <span class="row-name">Renata Ferreira</span><br>
+              <span class="row-addr">npub1qw3…7fpz</span>
+            </span>
+            <span class="row-chip">47</span>
+          </div>
+          <div class="row">
+            <span class="row-avatar">RB</span>
+            <span class="row-body">
+              <span class="row-name">renata.btc</span><br>
+              <span class="row-addr">npub1m8k…2rxd</span>
+            </span>
+            <span class="row-chip">12</span>
+          </div>
+          <p class="panel-foot">Don't see who you're looking for? Search their exact npub, hex pubkey, or nprofile instead.</p>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <section class="killed">
+    <p class="eyebrow">Removed from the reference implementation</p>
+    <p class="specimen">⚠️ algorithm 'graperank-pov' cannot be served for pov 6ff68243…731c: no scores exist for this point of view and none are scheduled (ranking requests never provision new povs). Either fall back to the endpoint's default algorithm 'graperank' for a global view, or provision this pov at https://brainstorm.nosfabrica.com — showing network-default results instead.</p>
+    <ul>
+      <li><b>Emoji in product copy</b> — banned by the language guardrail.</li>
+      <li><b>An em-dash sentence join</b> — banned as a default connective.</li>
+      <li><b>Protocol vocabulary</b> — <code>pov</code>, <code>algorithm</code>, <code>graperank-pov</code>, a 64-character hex key.</li>
+      <li><b>An operator's provisioning URL</b> — an instruction a community member cannot act on.</li>
+      <li><b>The word "unavailable" in the results area</b> — the results are right there.</li>
+      <li><b>"Network-default results"</b> — inaccurate. The fallback is Brainstorm's default account, not the network at large.</li>
+    </ul>
+    <p style="margin:0.9rem 0 0;font-size:0.875rem;color:var(--ink-soft)">
+      The reason string is still captured. It goes to <code style="font-family:var(--font-mono);font-size:0.82em">console.warn</code>, where a developer can read it and a member cannot.
+    </p>
+  </section>
+
+  <section class="rules">
+    <h2>Six rules review will enforce</h2>
+    <ol>
+      <li><b>A perspective is always named, and only one is named at a time.</b> Every trust surface reflects the same perspective, and the active one is always on screen. No member should be able to read a number without being able to read whose view produced it.</li>
+      <li><b>Protocol language never reaches a member.</b> Reason strings, algorithm names, status codes, hex keys, and operator URLs are diagnostics. The app maps a machine state to its own plain sentence.</li>
+      <li><b>Degrade to the best alternative that can be served.</b> Prefer a personalized perspective over an unpersonalized one: community first, the member's own second, unpersonalized last. Claim only what the app can verify. It knows the community's ranking was refused, so it says results aren't personalized to the community. It does not know whose ranking replaced it, so it names none.</li>
+      <li><b>Reserve error styling for errors.</b> A perspective substitution is a status: small, grey, quiet, above the content it describes.</li>
+      <li><b>A wait is described in the member's units.</b> "Check back in about 10 minutes" is a designed state. "Still computing" is a shrug.</li>
+      <li><b>Recovery is silent; substitution is not.</b> Restoring a choice needs no words. Taking one does — when the page moves a member into a perspective they did not pick, it says so, once.</li>
+    </ol>
+  </section>
+
+</div>
