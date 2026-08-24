@@ -197,3 +197,36 @@ store (the PO's POV also 422s there), so the provisioned success shape can't be 
 on staging. Shipped LFO code is already safe under the new contract
 (`probeMyViewReadiness` treats non-2xx as not-ready); the story remains blocked on PR
 #68 reaching production.
+
+**Update 2026-08-24 — LIVE ON PRODUCTION. Unblocked.** Re-probed
+`api.brainstorm.world` directly. Both endpoints now serve the new contract:
+an unavailable POV (junk key `0000…0001`) returns **HTTP 422** with the reason in
+both an `x-reason` header and a JSON `error` body, naming the cause ("no scores exist
+for this point of view and none are scheduled (ranking requests never provision new
+povs)"), the endpoint's fallback algorithm (`graperank` for `/rank/pubkeys`,
+`relevance` for `/search/pubkeys`), and a provisioning URL
+(`https://brainstorm.nosfabrica.com` — note: not the `brainstorm.world` host).
+The old zero-filled HTTP 200 is gone.
+
+**Success shape verified** — the gap staging left open (staging's own provisioning
+store 422s for every POV we hold). Against the provisioned house POV `6ff68243…`:
+`/rank/pubkeys` → `200 {"results":[{pubkey,rank},…],"ttl":3600}`, ranks non-zero and
+distinct (curator 0.964, PO 0.568); `/search/pubkeys` → `200 {"results":[{pubkey,rank},…]}`.
+Both unchanged from the pre-422 shape, so **no migration is needed on the success path**.
+
+**The observer-echo operator ask is NOT discharged.** A 200 response carries no POV
+echo — no `x-reason`, no pov field, nothing but `results` + `ttl` (full header dump
+confirmed). So the 422 makes *unavailability* detectable, but a 200 still does not
+confirm *which* POV was served. Register #2's claim that the status message "makes POV
+fallback detectable from responses" holds only for the failure direction; the audit's
+separate observer-echo ask survives.
+
+The capability doc (`/.well-known/open-ranking.json`) is still silent on the 422 —
+algorithm listings only, no error contract. Unchanged, as on staging.
+
+**202/`Retry-After`** (scheduled-but-not-ready POV) remains unverified — not producible
+from outside, since we hold no POV in that state.
+
+**Status: ready to plan.** The readiness heuristic (`probeMyViewReadiness`, ready ⟺ any
+rank > 0) can be replaced by the status code: 2xx = ready, 422 = not provisioned,
+202 = scheduled. T36–T38 re-pin as anticipated.
