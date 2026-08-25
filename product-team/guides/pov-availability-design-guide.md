@@ -187,7 +187,7 @@ The reference implementation's `⚠️ {server reason} — showing network-defau
 ### Toggle status line — `.pov-status-note`
 
 - **Visual.** `0.75rem`, `--grey-text-strong`, centered, `margin: 0 0 var(--space-3)`. No color, no symbol, no border.
-- **Behavior.** One line at a time, by priority: the active perspective's condition wins. When nothing applies the element is removed from the DOM rather than emptied, so no ghost gap remains.
+- **Behavior.** One line at a time, by priority: the active perspective's condition wins. When nothing applies the element stays in the DOM and is hidden, so no ghost gap remains. *(Amended 2026-08-25, PO-ratified via ADR 0047: this originally called for removing the element. A live region that is destroyed and recreated does not announce reliably, and announcing is what the accessibility baseline below requires, so the element persists and hides instead. The visual intent is unchanged.)*
 - **Empty / loading / error.** Empty is the default and correct state. It has no loading state. It *is* the error state, in its quietest possible form.
 
 ### Perspective indicator — `.pov-indicator`
@@ -235,7 +235,7 @@ One screen, seven states.
 ## Accessibility baseline
 
 - **Contrast.** Status lines and the panel notice use `--grey-text-strong` (6.5:1 on white). The orange indicator `#f5945c` on white measures **2.2:1** — it fails AA on its own. It is legible in the shipped design because it is 600-weight and paired with an adjacent label, but **color is never the only carrier**: every perspective statement is a complete sentence or phrase that reads correctly in monochrome. A member who cannot distinguish the orange still reads "not personalized to the community."
-- **Announcement.** The status line and the panel notice carry `role="status"` with `aria-live="polite"`. A perspective change is a fact a screen-reader user needs, and it happens without their input. It must not be `assertive` — it is not urgent and must not interrupt typing.
+- **Announcement.** The status line and the panel notice carry `role="status"` with `aria-live="polite"`, on a persistent element (see the amendment under Toggle status line). A perspective change is a fact a screen-reader user needs, and it happens without their input. It must not be `assertive` — it is not urgent and must not interrupt typing.
 - **Toggle semantics.** The shipped `role="radiogroup"` / `role="radio"` / `aria-checked` structure is unchanged. The status line is referenced by `aria-describedby` from the disabled segment, so the reason arrives with the control rather than as a stray line.
 - **Touch targets.** The segments currently compute to roughly **34px** tall (`0.45rem` padding on `0.85rem` text). That is under the 44px minimum. Raise the vertical padding to `0.7rem` to reach 44px. This is a shipped defect surfaced by the review, not a new requirement.
 - **Keyboard.** Unchanged: arrow keys move within the radiogroup, `Tab` leaves it. A disabled segment stays focusable so its `aria-describedby` reason can be read — `aria-disabled="true"` rather than the `disabled` attribute, which would remove it from the tab order and hide the explanation from exactly the members who need it most. This matters most in the community-fallback state, where **both** segments are disabled: with the `disabled` attribute the whole radiogroup would drop out of the tab order and a keyboard user would never reach the line explaining why.

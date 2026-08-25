@@ -91,6 +91,6 @@ Carried from the story brief in `product-team/stories-queue.md`, not re-derived.
 - Story brief: `product-team/stories-queue.md` → Story 7
 
 ## Linked artifacts
-- ADR: (filled in after Architecture phase)
+- ADR: `engineering-team/decisions/0047-ore-unavailable-pov-client-handling.md` — Accepted 2026-08-25, revised in place (original: W David Strayhorn, PR #1). Retires ADR 0046 Decision 3.
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
