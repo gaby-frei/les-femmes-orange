@@ -913,7 +913,9 @@
       background: var(--white); color: var(--dark);
       box-shadow: 0 1px 4px rgba(0,0,0,0.12);
     }
-    .pov-segment:disabled { opacity: 0.55; cursor: not-allowed; }
+    /* Keyed to the attribute, not the property: the segment uses aria-disabled so it
+       stays in the tab order (ADR 0047), and :disabled would match nothing. */
+    .pov-segment[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; }
     /* Community mark = the nav-logo bitcoin mark, avatar-sized. */
     .pov-segment-mark {
       width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;

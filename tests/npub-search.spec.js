@@ -1437,6 +1437,15 @@ test.describe('My view availability states (npub-search #7, ADR 0047)', () => {
 
     const mine = segment(page, 'My view');
     await expect(mine, 'aria-disabled, not the disabled attribute').toHaveAttribute('aria-disabled', 'true');
+
+    // toBeDisabled() resolves aria-disabled SEMANTICALLY and passes while the segment
+    // renders at full opacity — which is exactly how R1 shipped green. Pin the pixels.
+    const dimmed = await mine.evaluate(el => {
+      const c = getComputedStyle(el);
+      return { opacity: c.opacity, cursor: c.cursor };
+    });
+    expect(dimmed.opacity, 'a dimmed segment is visibly dimmed').toBe('0.55');
+    expect(dimmed.cursor, 'and does not invite a click').toBe('not-allowed');
     expect(await mine.evaluate(el => el.hasAttribute('disabled')),
       'the disabled attribute would drop it out of the tab order').toBe(false);
 
@@ -1464,6 +1473,13 @@ test.describe('My view availability states (npub-search #7, ADR 0047)', () => {
     await openMembers(page, bigGridSetup());
     await expect(statusNote(page), 'persistent element, hidden when there is nothing to say').toBeHidden();
     await expect(statusNote(page), 'persistent means still in the DOM').toHaveCount(1);
+
+    const live = await segment(page, 'My view').evaluate(el => {
+      const c = getComputedStyle(el);
+      return { opacity: c.opacity, cursor: c.cursor };
+    });
+    expect(live.opacity, 'a served perspective is not dimmed').toBe('1');
+    expect(live.cursor, 'and invites a click').not.toBe('not-allowed');
   });
 
 });
