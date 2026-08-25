@@ -7,7 +7,14 @@
 **Diff:** `c7765e5..846d8e7` on `feat/npub-search` — `39839b8` (tests), `846d8e7` (implementation)
 **Date:** 2026-08-25
 
-## Verdict: **CHANGES REQUESTED**
+## Verdict: **CHANGES REQUESTED** → **resolved 2026-08-25** (`ddc91d5`)
+
+> **Resolution.** R1 fixed by re-keying the rule to `[aria-disabled="true"]`. R2 fixed by pinning
+> computed `opacity` and `cursor` in T50, in both directions. The new assertion was verified to
+> catch the original defect: with R1 reverted, T50 fails `a dimmed segment is visibly dimmed`,
+> expected `"0.55"`, received `"1"`. Gates re-run: 52/52 e2e, 106/107 unit. N1 (pointer-events)
+> deliberately left as an ADR question. **Story #7 passes; the live-preview checks below are
+> still owed.**
 
 One blocking defect, verified in a browser. The work is otherwise faithful to the ADR, well-scoped, and the test corrections made mid-phase were legitimate. The fix is one CSS selector plus a test that would have caught it.
 

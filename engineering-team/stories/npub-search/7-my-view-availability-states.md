@@ -1,6 +1,6 @@
 # Story 7: My view availability states
 
-**Status:** Approved (PO, 2026-08-25)
+**Status:** Done (review PASS after R1/R2, 2026-08-25) — live-preview checks outstanding
 **Created:** 2026-08-25
 **Type:** Feature
 **Epic:** `npub-search` (stories #1–#6 Done; this opens the epic's second book)
@@ -93,4 +93,4 @@ Carried from the story brief in `product-team/stories-queue.md`, not re-derived.
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0047-ore-unavailable-pov-client-handling.md` — Accepted 2026-08-25, revised in place (original: W David Strayhorn, PR #1). Retires ADR 0046 Decision 3.
 - Test plan: `engineering-team/stories/npub-search/7-my-view-availability-states.test-plan.md` — T44–T50 new, T36/T37 re-pinned, confirmed failing 2026-08-25
-- Review: `engineering-team/reviews/npub-search/7-my-view-availability-states.md` — **CHANGES REQUESTED** 2026-08-25 (R1 dimmed treatment lost with the `disabled` property; R2 no test asserts it)
+- Review: `engineering-team/reviews/npub-search/7-my-view-availability-states.md` — CHANGES REQUESTED 2026-08-25, **resolved in `ddc91d5`**; R1 dimmed treatment restored, R2 pinned in T50
