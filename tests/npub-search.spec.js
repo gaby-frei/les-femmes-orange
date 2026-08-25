@@ -1103,7 +1103,14 @@ async function stubProbe(page, probeResponse, byPov = povScores()) {
     : { body: { results: povResults(byPov[body.pov], body.pubkeys), ttl: 3600 } });
 }
 
-const retryAfter = (v) => ({ status: 202, body: {}, headers: { 'Retry-After': String(v) } });
+// The live provider sends `access-control-expose-headers: X-Reason, Retry-After`; without
+// it the browser hides the header from script entirely. The fixture must carry it or it
+// would be testing a response no server actually sends.
+const retryAfter = (v) => ({
+  status: 202,
+  body: {},
+  headers: { 'Retry-After': String(v), 'Access-Control-Expose-Headers': 'X-Reason, Retry-After' },
+});
 
 async function pageTextOf(page) {
   return (await page.locator('#page-members').innerText()).toLowerCase();
@@ -1445,8 +1452,10 @@ test.describe('My view availability states (npub-search #7, ADR 0047)', () => {
     await expect(note, 'the design guide generalizes the class beyond "disabled"')
       .toHaveClass(/pov-status-note/);
 
-    // Activating a dimmed segment must do nothing — aria-disabled does not block clicks.
-    await mine.click();
+    // Activating a dimmed segment must do nothing. dispatchEvent, not click(): Playwright
+    // treats aria-disabled as disabled and would refuse the click on actionability, which
+    // would prove nothing about the handler. This fires it the way a stray script would.
+    await mine.dispatchEvent('click');
     await expect(searchIndicator(page), 'the perspective did not change')
       .toHaveText('— searching as Les Femmes Orange');
 

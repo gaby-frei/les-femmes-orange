@@ -928,10 +928,12 @@
     }
     .pov-segment-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
-    .pov-disabled-note {
+    .pov-status-note {
       font-size: 0.75rem; color: var(--grey-text); text-align: center;
       margin: 0 0 1.5rem;
     }
+    /* Persistent element, so it takes no space rather than being removed (ADR 0047). */
+    .pov-status-note[hidden] { display: none; }
 
     /* Orange perspective indicator — inline with the search header after an em dash
        (PO decrowding pass; the grid-side "viewing as" line was removed as redundant
@@ -1708,11 +1710,14 @@
           <span class="pov-segment-mark"><svg viewBox="0 0 24 24"><path d="M14.5 10.5c.8-.4 1.5-1.1 1.5-2.2C16 6.5 14.8 5.5 13 5.3V4h-1.5v1.2H10V4H8.5v1.3H6.5V17h2V7.3h3c1.4 0 2 .6 2 1.5s-.7 1.5-2 1.5H10v1.5h1.5c1.7 0 2.5.7 2.5 1.8 0 1.2-.9 1.9-2.5 1.9H8.5V17h2v1.3H12V17h1c2 0 3.5-1 3.5-2.8 0-1.3-.7-2.3-2-2.7z"/></svg></span>Community view
         </button>
         <button type="button" class="pov-segment" role="radio" aria-checked="false"
-                id="pov-segment-mine" disabled onclick="setActiveView('mine')">
+                id="pov-segment-mine" aria-disabled="true" onclick="setActiveView('mine')">
           <span class="pov-segment-avatar" id="pov-my-avatar">•</span>My view
         </button>
       </div>
-      <p class="pov-disabled-note" id="pov-disabled-note">My view isn't available for your account yet.</p>
+      <!-- Persistent live region (ADR 0047 Decision 5): hidden when there is nothing to
+           say, never removed — a region destroyed and recreated does not announce. -->
+      <p class="pov-status-note pov-disabled-note" id="pov-disabled-note"
+         role="status" aria-live="polite" hidden></p>
 
       <!-- Npub search (npub-search #1, ADR 0041): identity-string lookup + vouch from panel.
            Inherits the page's verified-members-only gate; all decoding is client-side. -->
@@ -3062,18 +3067,29 @@
       if (!community || !mine) return;
       community.setAttribute('aria-checked', _activeView === 'community' ? 'true' : 'false');
       mine.setAttribute('aria-checked', _activeView === 'mine' ? 'true' : 'false');
-      mine.disabled = !_myViewReady;
-      // The disabled note exists in the DOM only while My view is unavailable.
-      let note = document.getElementById('pov-disabled-note');
-      if (_myViewReady) {
-        if (note) note.remove();
-      } else if (!note) {
-        note = document.createElement('p');
-        note.className = 'pov-disabled-note';
-        note.id = 'pov-disabled-note';
-        note.textContent = "My view isn't available for your account yet.";
-        const toggle = document.querySelector('.pov-toggle');
-        if (toggle) toggle.insertAdjacentElement('afterend', note);
+      // aria-disabled, not the `disabled` property: a disabled button leaves the tab
+      // order and takes its explanation with it, hiding the reason from exactly the
+      // members who need it. setActiveView refuses activation instead (ADR 0047).
+      mine.setAttribute('aria-disabled', _myViewReady ? 'false' : 'true');
+
+      // One persistent live region; hidden when there is nothing to say.
+      const note = document.getElementById('pov-disabled-note');
+      if (note) {
+        const povInfo = currentPubkey ? _povState.get(currentPubkey) : null;
+        let message = '';
+        if (!_myViewReady && povInfo?.state === 'unavailable') {
+          message = "My view isn't available yet because your account isn't registered with Brainstorm.";
+        } else if (!_myViewReady && povInfo?.state === 'preparing') {
+          const interval = spokenInterval(povInfo.retryAfterSeconds);
+          message = interval
+            ? `My view is being set up. Check back in about ${interval}.`
+            : 'My view is being set up. Check back in a few minutes.';
+        }
+        // A transport failure explains nothing, so it says nothing.
+        note.textContent = message;
+        note.hidden = !message;
+        if (message) mine.setAttribute('aria-describedby', 'pov-disabled-note');
+        else mine.removeAttribute('aria-describedby');
       }
       const avatarEl = document.getElementById('pov-my-avatar');
       if (avatarEl && currentPubkey && !avatarEl.querySelector('img')) {
@@ -3097,31 +3113,93 @@
     function setActiveView(view) {
       if (view === _activeView) return;
       if (view === 'mine' && !_myViewReady) return;
+      if (view === 'mine' && !_myViewReady) return;   // aria-disabled does not block clicks
       _activeView = view;
       hideMemberSearchPanel();   // no stale-POV rows can survive a switch
       updatePovUi();
       loadMembersPage();         // grids re-render + re-rank under the new POV
     }
 
-    // Readiness (ADR 0046 Decision 3): ask the rank endpoint for the member's own
-    // perspective on themselves + the curator. Ready ⟺ any rank > 0 — robust across
-    // server generations (the deployed host answers [] for unknown POVs; main answers
-    // zero-filled entries). Deliberately NOT routed through fetchTrustScores: the
-    // probe must hit the network on every Members-page visit (PO O2), never a cache.
+    // ── Unavailable / preparing perspectives (ADR 0047; ORE-01 § Unavailable pov) ──
+    // The provider refuses a perspective it cannot serve (422 + reason) or reports one
+    // still being computed (202 + Retry-After), and never silently substitutes another.
+    // A 2xx therefore MEANS SERVED — we read the status, never the values.
+
+    // povPubkey → { state: 'unavailable' | 'preparing', retryAfterSeconds: number|null }.
+    // One writer in this story (the readiness probe, member's own perspective); story #8
+    // adds the community perspective as a second key with no refactor.
+    const _povState = new Map();
+
+    // Diagnostics only. Returns NOTHING on purpose: the provider's reason names an
+    // algorithm, quotes a pubkey and links an operator console, and the style guide bans
+    // all three from the interface. With no string returned there is no expression in the
+    // UI layer that evaluates to provider text, so it cannot leak by accident.
+    async function logPovRefusal(povPubkey, status, resp) {
+      let reason = null;
+      try {
+        const body = await resp.clone().json();
+        reason = (typeof body?.error === 'string' && body.error)
+              || (typeof body?.detail === 'string' && body.detail)   // older generations
+              || null;
+      } catch { /* non-JSON or empty body */ }
+      if (!reason) { try { reason = resp.headers.get('X-Reason'); } catch { /* opaque */ } }
+      console.warn(`[pov] ${status} for ${povPubkey.slice(0, 8)}…: ${reason || '(no reason given)'}`);
+    }
+
+    // Retry-After is delta-seconds or an HTTP-date (RFC 9110). Anything absent,
+    // unparseable, or already elapsed yields null — the caller then says "a few minutes".
+    function retryAfterSeconds(resp) {
+      let raw = null;
+      try { raw = resp.headers.get('Retry-After'); } catch { /* opaque */ }
+      if (!raw) return null;
+      const trimmed = String(raw).trim();
+      let seconds;
+      if (/^-?\d+$/.test(trimmed)) {
+        seconds = Number(trimmed);
+      } else {
+        const when = Date.parse(trimmed);
+        if (Number.isNaN(when)) return null;
+        seconds = (when - Date.now()) / 1000;
+      }
+      return seconds > 0 ? seconds : null;
+    }
+
+    // Story #7 D1 buckets: a wait a person would say out loud. The max(5, …) floor is
+    // what stops a 90-second wait rendering as "about 0 minutes".
+    function spokenInterval(seconds) {
+      if (!(seconds > 0)) return null;
+      if (seconds < 90)   return 'a minute';
+      if (seconds < 600)  return `${Math.max(5, Math.round(seconds / 60 / 5) * 5)} minutes`;
+      if (seconds < 5400) return 'an hour';
+      return `${Math.round(seconds / 3600)} hours`;
+    }
+
+    // Readiness (ADR 0047, retiring ADR 0046 Decision 3): the provider's STATUS decides.
+    // The old predicate inferred readiness from "any rank > 0" because an unservable and a
+    // servable perspective both answered 200, distinguishable only by their values — which
+    // read a provisioned-but-zero-scoring perspective as unavailable. The probe targets are
+    // now arbitrary: nothing reads them. Deliberately NOT routed through fetchTrustScores —
+    // the probe must hit the network on every Members-page visit (PO O2), never a cache.
     async function probeMyViewReadiness() {
       if (!currentPubkey) { _myViewReady = false; updatePovUi(); return; }
       let ready = false;
+      _povState.delete(currentPubkey);
       try {
         const resp = await fetch(ORE_RANK_API, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ pubkeys: [currentPubkey, CURATOR_HEX], algorithm: 'graperank-pov', pov: currentPubkey }),
         });
-        if (resp.ok) {
-          const data = await resp.json();
-          ready = (data.results || []).some(r => r && typeof r.rank === 'number' && r.rank > 0);
+        if (resp.status === 422) {
+          _povState.set(currentPubkey, { state: 'unavailable', retryAfterSeconds: null });
+          await logPovRefusal(currentPubkey, 422, resp);
+        } else if (resp.status === 202) {
+          _povState.set(currentPubkey, { state: 'preparing', retryAfterSeconds: retryAfterSeconds(resp) });
+          await logPovRefusal(currentPubkey, 202, resp);
+        } else if (resp.ok) {
+          ready = true;   // served — the values are its answer, not evidence about availability
         }
-      } catch { /* enhancement only — segment stays disabled */ }
+      } catch { /* enhancement only — segment stays disabled, and says nothing */ }
       _myViewReady = ready;
       updatePovUi();
     }
