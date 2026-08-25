@@ -881,7 +881,7 @@ async function stubRankApi(page, respond) {
     if (r.abort) return route.abort('failed');
     return route.fulfill({
       status: r.status ?? 200,
-      headers: { 'Access-Control-Allow-Origin': '*' },
+      headers: { 'Access-Control-Allow-Origin': '*', ...(r.headers || {}) },
       json: r.body ?? { results: [], ttl: 3600 },
     });
   });
@@ -1073,6 +1073,42 @@ async function stubPovRankApi(page, byPov, opts = {}) {
 
 const isProbeCall = (c) => c.pov === ME && (c.pubkeys || []).includes(CURATOR);
 
+// ── Story #7 fixtures (ADR 0047) ──────────────────────────────────────────────
+// The provider's own words, in both channels it uses. Nothing in this string may
+// reach the DOM — T46/T47/T49 assert that, and a bland fixture would make the
+// assertion vacuous, so this is the real production shape.
+const RANK_REFUSAL =
+  "algorithm 'graperank-pov' cannot be served for pov " + ME +
+  ': no scores exist for this point of view and none are scheduled (ranking requests ' +
+  "never provision new povs). Either fall back to the endpoint's default algorithm " +
+  "'graperank' for a global view, or provision this pov at https://brainstorm.nosfabrica.com";
+
+// Fragments that must never appear on the page, whatever the state. Every one of
+// these occurs in RANK_REFUSAL, so the assertion bites. Bare status codes are
+// deliberately excluded — they would collide with innocuous numerals on the page.
+const PROVIDER_LEAKS = ['graperank', 'algorithm', 'point of view', 'provision', 'nosfabrica', ME];
+
+const NOT_REGISTERED = "My view isn't available yet because your account isn't registered with Brainstorm.";
+const SETTING_UP     = (interval) => `My view is being set up. Check back in about ${interval}.`;
+const SETTING_UP_VAGUE = 'My view is being set up. Check back in a few minutes.';
+
+const statusNote = (page) => page.locator('#pov-disabled-note');
+
+// Answer the member's own perspective with `probeResponse`; every other perspective
+// (i.e. the house batch that feeds the grids) answers normally, so a probe-side
+// failure never masquerades as a page-wide outage.
+async function stubProbe(page, probeResponse, byPov = povScores()) {
+  return stubRankApi(page, (body) => body.pov === ME
+    ? (typeof probeResponse === 'function' ? probeResponse(body) : probeResponse)
+    : { body: { results: povResults(byPov[body.pov], body.pubkeys), ttl: 3600 } });
+}
+
+const retryAfter = (v) => ({ status: 202, body: {}, headers: { 'Retry-After': String(v) } });
+
+async function pageTextOf(page) {
+  return (await page.locator('#page-members').innerText()).toLowerCase();
+}
+
 // Shared POV fixture: house order [Vera, Vike, Mae, Vin] / [Pia, Pat]; member order
 // [Vike, Mae, Vin, Vera] / [Pat, Pia] — different in BOTH grids, so any lingering
 // house ordering under My view fails loudly. CURATOR .9 makes ME "ready".
@@ -1129,8 +1165,8 @@ test.describe('Community view / My view toggle (npub-search #3)', () => {
     const calls = await stubPovRankApi(page, povScores());
     await openMembers(page, bigGridSetup());
 
-    await expect(segment(page, 'My view'), 'probe found rank > 0 → segment enabled').toBeEnabled({ timeout: 10_000 });
-    await expect(page.locator('.pov-disabled-note'), 'no disabled note when ready').toHaveCount(0);
+    await expect(segment(page, 'My view'), 'probe was served (2xx) → segment enabled').toBeEnabled({ timeout: 10_000 });
+    await expect(statusNote(page), 'no status note when the perspective is served').toBeHidden();
 
     const probe = calls.find(isProbeCall);
     expect(probe, 'readiness probe fired').toBeTruthy();
@@ -1140,27 +1176,17 @@ test.describe('Community view / My view toggle (npub-search #3)', () => {
     expect(targets.has(ME) && targets.has(CURATOR), 'probe targets include the member and the curator').toBe(true);
   });
 
-  // T37 — the robust readiness predicate: empty (deployed server), all-zero (main
-  // server), and network failure ALL read as not-ready. Page stays fully functional.
-  test('not ready — empty, all-zero, or probe failure → disabled segment + verbatim copy; page intact', async ({ page }) => {
-    // (a) deployed generation: unknown POV → empty results
-    await stubPovRankApi(page, { [HOUSE_HEX]: povScores()[HOUSE_HEX] });
-    await openMembers(page, bigGridSetup());
-    await expect(segment(page, 'My view'), 'empty probe → disabled').toBeDisabled();
-    await expect(page.locator('.pov-disabled-note'))
-      .toHaveText("My view isn't available for your account yet.");
-
-    // (b) main generation: one entry per requested pubkey, all rank 0.0
-    await stubPovRankApi(page, { ...povScores(), [ME]: { [ME]: 0, [CURATOR]: 0 } });
-    await openMembers(page, bigGridSetup());
-    await expect(segment(page, 'My view'), 'all-zero probe → disabled (any-rank>0 predicate)').toBeDisabled();
-    await expect(page.locator('.pov-disabled-note'))
-      .toHaveText("My view isn't available for your account yet.");
-
-    // (c) probe network failure — enhancement-only: everything else untouched
+  // T37 — RE-PINNED for ADR 0047. Under the old heuristic an unservable perspective
+  // and a servable-but-zero-scoring one were indistinguishable, so both read as
+  // not-ready. The provider now refuses what it cannot serve, so the only remaining
+  // not-ready-without-a-note case is a transport failure. Enhancement-only holds:
+  // the page is fully functional either way.
+  test('probe transport failure → disabled segment, no note, page intact', async ({ page }) => {
     await stubPovRankApi(page, povScores(), { failProbe: true });
     await openMembers(page, bigGridSetup());
+
     await expect(segment(page, 'My view'), 'probe failure → disabled').toBeDisabled();
+    await expect(statusNote(page), 'a transport failure explains nothing, so it says nothing').toBeHidden();
     await expect(gridCard(page, 'verified-members-grid', 'Vera Two'), 'grids render normally').toBeVisible();
     await expect(gridCard(page, 'pending-members-grid', 'Pat Pending').locator('.attest-btn'),
       'vouch flow untouched by probe failure').toBeVisible();
@@ -1289,4 +1315,146 @@ test.describe('Community view / My view toggle (npub-search #3)', () => {
     expect(styles.pendingRow.borderBottomWidth, 'pending header keeps its underline').toBe('1px');
     expect(styles.searchRow.borderBottomWidth, 'search header has no underline').toBe('0px');
   });
+});
+
+test.describe('My view availability states (npub-search #7, ADR 0047)', () => {
+
+  // T44 — the false-negative class ADR 0047 kills. Yesterday's heuristic read an
+  // all-zero probe as "not provisioned". A 200 means the provider SERVED the
+  // perspective; the values are its answer, not evidence about its availability.
+  test('served with all-zero ranks reads READY — no value inspection', async ({ page }) => {
+    await stubProbe(page, { body: { results: [{ pubkey: ME, rank: 0 }, { pubkey: CURATOR, rank: 0 }], ttl: 3600 } });
+    await openMembers(page, bigGridSetup());
+
+    await expect(segment(page, 'My view'),
+      'a served perspective is ready even when every rank it returns is zero').toBeEnabled({ timeout: 10_000 });
+    await expect(statusNote(page), 'nothing to explain when the perspective is served').toBeHidden();
+  });
+
+  // T45 — same principle, the other empty shape: served, but no row matched.
+  test('served with empty results reads READY', async ({ page }) => {
+    await stubProbe(page, { body: { results: [], ttl: 3600 } });
+    await openMembers(page, bigGridSetup());
+
+    await expect(segment(page, 'My view'),
+      'an empty result set is still a served perspective').toBeEnabled({ timeout: 10_000 });
+    await expect(statusNote(page)).toBeHidden();
+  });
+
+  // T46 — AC-1 and AC-5 together. The refusal carries the provider's real reason in
+  // BOTH channels it uses, so the leak assertion has something to catch.
+  test('refused perspective → dimmed segment, registration cause, no provider text', async ({ page }) => {
+    await stubProbe(page, {
+      status: 422,
+      body: { error: RANK_REFUSAL },
+      headers: { 'X-Reason': RANK_REFUSAL, 'Access-Control-Expose-Headers': 'X-Reason, Retry-After' },
+    });
+    await openMembers(page, bigGridSetup());
+
+    await expect(segment(page, 'My view'), 'a refusal disables the segment').toBeDisabled();
+    await expect(statusNote(page), 'the cause a member can act on, verbatim').toHaveText(NOT_REGISTERED);
+
+    const text = await pageTextOf(page);
+    for (const leak of PROVIDER_LEAKS) {
+      expect(text.includes(leak.toLowerCase()),
+        `provider vocabulary "${leak}" must never reach the page`).toBe(false);
+    }
+
+    // AC-7: the community perspective is untouched by a refusal of the member's own.
+    await expect(searchIndicator(page)).toHaveText('— searching as Les Femmes Orange');
+    await expect(gridChips(page).first(), 'house chips render normally').toBeVisible();
+  });
+
+  // T47 — AC-2. Retry-After in its delta-seconds form.
+  test("still being set up → the wait, with an interval from the provider's estimate", async ({ page }) => {
+    await stubProbe(page, retryAfter(300));
+    await openMembers(page, bigGridSetup());
+
+    await expect(segment(page, 'My view'), 'preparing is still not selectable').toBeDisabled();
+    await expect(statusNote(page)).toHaveText(SETTING_UP('5 minutes'));
+
+    const text = await pageTextOf(page);
+    expect(text.includes('retry'), 'no header vocabulary on the page').toBe(false);
+  });
+
+  // T48 — AC-2 boundaries. Each bucket edge from both sides, the five-minute floor
+  // (90s must not render "about 0 minutes"), and the HTTP-date form of Retry-After.
+  test('interval buckets: boundaries, the five-minute floor, and the date form', async ({ page }) => {
+    const cases = [
+      [1,     'a minute'],
+      [89,    'a minute'],
+      [90,    '5 minutes'],      // floor: round(1.5/5)*5 === 0 without max(5, …)
+      [300,   '5 minutes'],
+      [599,   '10 minutes'],
+      [600,   'an hour'],
+      [5399,  'an hour'],
+      [5400,  '2 hours'],        // round(1.5) === 2 — over-stating is the safe direction
+      [10800, '3 hours'],
+    ];
+    for (const [seconds, expected] of cases) {
+      await stubProbe(page, retryAfter(seconds));
+      await openMembers(page, bigGridSetup());
+      await expect(statusNote(page), `${seconds}s renders as "${expected}"`)
+        .toHaveText(SETTING_UP(expected));
+    }
+
+    // Retry-After may also be an HTTP-date (RFC 9110). Same mapping.
+    await stubProbe(page, (body) => retryAfter(new Date(Date.now() + 300_000).toUTCString()));
+    await openMembers(page, bigGridSetup());
+    await expect(statusNote(page), 'an HTTP-date estimate maps through the same buckets')
+      .toHaveText(SETTING_UP('5 minutes'));
+  });
+
+  // T49 — AC-3. Three ways to have no usable estimate, all landing on the same line.
+  // An elapsed estimate is the interesting one: it must not render as zero or negative.
+  test('no usable estimate — absent, unparseable, or already elapsed → a few minutes', async ({ page }) => {
+    const noEstimate = [
+      { status: 202, body: {} },                                   // header absent
+      retryAfter('soon'),                                          // unparseable
+      retryAfter('-30'),                                           // negative
+      retryAfter(new Date(Date.now() - 600_000).toUTCString()),    // already elapsed
+    ];
+    for (const [i, probe] of noEstimate.entries()) {
+      await stubProbe(page, probe);
+      await openMembers(page, bigGridSetup());
+      await expect(segment(page, 'My view')).toBeDisabled();
+      await expect(statusNote(page), `case ${i}: falls back to the vague wait`)
+        .toHaveText(SETTING_UP_VAGUE);
+    }
+  });
+
+  // T50 — AC-6. A control removed from the tab order takes its explanation with it.
+  test('dimmed segment stays focusable, is aria-disabled, and is described by its note', async ({ page }) => {
+    await stubProbe(page, { status: 422, body: { error: RANK_REFUSAL } });
+    await openMembers(page, bigGridSetup());
+
+    const mine = segment(page, 'My view');
+    await expect(mine, 'aria-disabled, not the disabled attribute').toHaveAttribute('aria-disabled', 'true');
+    expect(await mine.evaluate(el => el.hasAttribute('disabled')),
+      'the disabled attribute would drop it out of the tab order').toBe(false);
+
+    await mine.focus();
+    await expect(mine, 'a dimmed segment is still reachable by keyboard').toBeFocused();
+
+    const describedBy = await mine.getAttribute('aria-describedby');
+    expect(describedBy, 'the reason arrives with the control').toBe('pov-disabled-note');
+
+    const note = statusNote(page);
+    await expect(note).toHaveAttribute('role', 'status');
+    await expect(note).toHaveAttribute('aria-live', 'polite');
+    await expect(note, 'the design guide generalizes the class beyond "disabled"')
+      .toHaveClass(/pov-status-note/);
+
+    // Activating a dimmed segment must do nothing — aria-disabled does not block clicks.
+    await mine.click();
+    await expect(searchIndicator(page), 'the perspective did not change')
+      .toHaveText('— searching as Les Femmes Orange');
+
+    // The note persists across states so its live region can announce — hidden, not removed.
+    await stubProbe(page, { body: { results: [{ pubkey: ME, rank: 0.8 }], ttl: 3600 } });
+    await openMembers(page, bigGridSetup());
+    await expect(statusNote(page), 'persistent element, hidden when there is nothing to say').toBeHidden();
+    await expect(statusNote(page), 'persistent means still in the DOM').toHaveCount(1);
+  });
+
 });

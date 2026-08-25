@@ -92,5 +92,5 @@ Carried from the story brief in `product-team/stories-queue.md`, not re-derived.
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0047-ore-unavailable-pov-client-handling.md` — Accepted 2026-08-25, revised in place (original: W David Strayhorn, PR #1). Retires ADR 0046 Decision 3.
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/npub-search/7-my-view-availability-states.test-plan.md` — T44–T50 new, T36/T37 re-pinned, confirmed failing 2026-08-25
 - Review: (filled in after Review phase)
