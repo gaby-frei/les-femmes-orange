@@ -230,3 +230,12 @@ from outside, since we hold no POV in that state.
 **Status: ready to plan.** The readiness heuristic (`probeMyViewReadiness`, ready ⟺ any
 rank > 0) can be replaced by the status code: 2xx = ready, 422 = not provisioned,
 202 = scheduled. T36–T38 re-pin as anticipated.
+
+**Promoted 2026-08-25 — no longer open.** Picked up as `npub-search` **story #7**
+(`7-my-view-availability-states`) in the new PRD-backed book `pov-availability`
+(`engineering-team/audits/pov-availability/book.md`). Retiring the rank>0 heuristic is
+that story's central change. Scope grew past this entry along the way: the product flow
+(Experience Design → PRD → Story Decomposition, 2026-08-24/25) turned one behavior swap
+into four stories, #7–#10, covering the community-perspective refusal and the preference
+order as well. See `product-team/prd/pov-availability.md` and
+`product-team/stories-queue.md`. **Do not re-plan from this entry.**
