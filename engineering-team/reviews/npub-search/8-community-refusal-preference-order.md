@@ -7,7 +7,20 @@
 **Diff:** `30a5dd9..d5d5ffe` on `feat/npub-search`
 **Date:** 2026-08-26
 
-## Verdict: **CHANGES REQUESTED**
+## Verdict: **CHANGES REQUESTED** → **resolved 2026-08-26**
+
+> **Resolution.**
+> - **R1** reconciled in favour of the safer behavior, per PO: AC-7 and ADR Decision 8 now state the
+>   stranding exception explicitly, and **T58** pins the second-move branch that had no coverage.
+> - **R2** fixed: the toggle markup ships with no side selected and both sides inert, and
+>   `_perspectivesResolved` makes a click before resolution a no-op. **T55 extended** to hold the
+>   probes open and assert the pre-resolution window — verified to catch the original defect
+>   (`pov-segment-community must not be selected before resolution`, expected `"false"`, received
+>   `"true"`).
+> - **Live checks 1 and 4** accepted as **UNVERIFIED** by PO decision, 2026-08-26 — see below.
+> - **A1 ratified** by the PO the same day; AC-6 is a settled requirement, not an assumption.
+>
+> Gates re-run: **60/60** e2e, 106/107 unit. **Story #8 passes.**
 
 Two deviations from stated contracts, both in edge cases the tests cannot see. The core work is good — the preference order is correct, the transport-error fix is a genuine catch, and the copy is exact. Neither finding is a redesign; R1 is most likely a documentation reconciliation and R2 is a few lines.
 
@@ -127,6 +140,11 @@ Computed against `product-team/prd/pov-availability.md` §8.1:
 ---
 
 ## Live-preview checks
+
+> **PO DECISION 2026-08-26 — accepted as unverified.** The states requiring a declining community
+> perspective (checks 1 and 4) are **recorded as not verified against a live provider**, and are not
+> to be reported as passed. They ship on stub coverage alone. Checks 2, 3, 5 and 6 remain runnable
+> and outstanding.
 
 **State this plainly: unlike story #7, every state in this story is stub-only.** The community perspective is provisioned and healthy on the live provider, and there is no way to make it decline on demand. Story #7's 422 was verifiable because the PO could sign in as an unregistered account; there is no equivalent lever here. **Nothing below has been observed against a real provider, and the checks that require a declining community perspective may not be runnable at all without deliberately pointing a preview at an unprovisioned key.**
 

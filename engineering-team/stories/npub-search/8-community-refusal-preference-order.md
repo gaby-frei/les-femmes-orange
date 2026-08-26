@@ -1,6 +1,6 @@
 # Story 8: Community refusal and the preference order
 
-**Status:** Approved (PO standing approval for phases 1–4, 2026-08-26)
+**Status:** Done (review CHANGES REQUESTED → resolved 2026-08-26) — community-declined states ship UNVERIFIED against a live provider, by PO decision
 **Created:** 2026-08-26
 **Type:** Feature
 **Epic:** `npub-search` (continues story #7)
@@ -31,7 +31,7 @@ As a member using the Members page when the community's trust ranking cannot be 
 - [ ] Given the community's perspective is declined but she is on her own, when she searches, then **no** line appears above the rows — those results are personalized, to her.
 - [ ] Given any combination of perspective states, when the Members page loads, then the control never displays one side selected and then switches to the other; both perspectives are resolved before the control becomes usable.
 - [ ] Given she has selected a perspective herself during this session, when the page later re-resolves, then her choice is kept for as long as it can be served, even if a more-preferred perspective becomes available.
-- [ ] Given a single visit to the Members page, when perspective states change during it, then the page changes her perspective without being asked **at most once**.
+- [ ] Given a single visit to the Members page, when perspective states change during it, then the page changes her perspective without being asked **at most once — unless the perspective she is on stops being servable**, in which case it moves her again rather than stranding her on a perspective whose scores cannot arrive.
 
 ## Concepts touched
 
@@ -46,6 +46,8 @@ AC-6 states that a perspective the member picked herself survives a re-resolutio
 **Settled 2026-08-26 — keep as built.** A view the member picks is remembered for the session and overridden only when her own perspective stops being servable, in which case she is moved and told. This also preserves shipped behavior: `_activeView` is already session-scoped, so a chosen view survives in-app navigation today; the alternative would have been a behavior change that started overriding a choice which currently sticks.
 
 **D2 — The middle case announces itself; nothing else does.** AC-1 is the product's single announced perspective change. Recovery stays silent: when a perspective becomes servable again the control simply re-enables (PRD §5.1 rule 3, design principle 6).
+
+**D4 — The single-move rule yields to stranding.** *(Amended 2026-08-26 after review R1; the original AC said "at most once" unconditionally.)* Being moved twice in one visit is worse than being moved once, but both are better than being left on a perspective the provider has stopped serving — that page would show ordering that can never load. The guard therefore protects against the page changing its mind, not against a forced move. Every move still announces itself.
 
 **D3 — The indicator does not distinguish a substituted My view from a chosen one.** Both read `— searching as you`. The results are identical, so the label is identical; the *why* lives in the status line. Making them differ would imply the substituted numbers are somehow lesser.
 
@@ -77,4 +79,4 @@ None blocking. A1 is recorded as an assumption rather than a question, and is no
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0047-ore-unavailable-pov-client-handling.md` — amended 2026-08-26 (Decisions 7–10)
 - Test plan: `engineering-team/stories/npub-search/8-community-refusal-preference-order.test-plan.md` — T51–T57
-- Review: `engineering-team/reviews/npub-search/8-community-refusal-preference-order.md` — **CHANGES REQUESTED** 2026-08-26 (R1 AC-7 allows a second move; R2 selection visible on the wrong side at first paint)
+- Review: `engineering-team/reviews/npub-search/8-community-refusal-preference-order.md` — CHANGES REQUESTED 2026-08-26, **resolved**; R1 reconciled to the stranding exception (T58), R2 fixed with a neutral resting state (T55 extended)

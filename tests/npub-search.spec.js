@@ -1581,8 +1581,26 @@ test.describe('Community refusal and the preference order (npub-search #8)', () 
         return native.call(this, name, value);
       };
     });
-    await stubPerspectives(page, { declined: [HOUSE_HEX] });
+    // Hold the probes open so the pre-resolution window is observable. Review R2: the
+    // markup used to ship a selection, so the wrong side was visibly checked for a full
+    // round trip — a gap invisible to any test that samples only attribute WRITES.
+    let release;
+    const held = new Promise((r) => { release = r; });
+    await stubRankApi(page, async (body) => {
+      if (body.pov) await held;
+      return body.pov === HOUSE_HEX
+        ? { status: 422, body: { error: RANK_REFUSAL } }
+        : { body: { results: povResults(povScores()[body.pov], body.pubkeys), ttl: 3600 } };
+    });
     await openMembers(page, bigGridSetup());
+
+    for (const id of ['pov-segment-community', 'pov-segment-mine']) {
+      await expect(page.locator(`#${id}`), `${id} must not be selected before resolution`)
+        .toHaveAttribute('aria-checked', 'false');
+      await expect(page.locator(`#${id}`), `${id} must be inert before resolution`)
+        .toHaveAttribute('aria-disabled', 'true');
+    }
+    release();
     await expect(segment(page, 'My view')).toHaveAttribute('aria-checked', 'true', { timeout: 10_000 });
 
     const writes = await page.evaluate(() => window.__povChecked);
@@ -1629,6 +1647,26 @@ test.describe('Community refusal and the preference order (npub-search #8)', () 
       .toHaveText('— searching as you');
     await expect(segment(page, 'Community view'), 'but the control re-enables so she can choose')
       .toBeEnabled();
+  });
+
+
+  // T58 — the exception AC-7 gained after review R1. The guard stops the page changing
+  // its mind, not a forced move: leaving her on a refused perspective would render a page
+  // ordered by scores that can never arrive.
+  test('a second move is allowed rather than stranding her on a refused perspective', async ({ page }) => {
+    await stubPerspectives(page, { declined: [HOUSE_HEX] });
+    await openMembers(page, bigGridSetup());
+    await expect(searchIndicator(page), 'move one: substituted onto her own view')
+      .toHaveText('— searching as you', { timeout: 10_000 });
+
+    // Mid-visit the situation inverts: the community recovers, hers is declined.
+    await stubPerspectives(page, { declined: [ME] });
+    await page.evaluate(() => resolvePerspectives());
+
+    await expect(searchIndicator(page), 'move two: moved off the dead perspective, not stranded')
+      .toHaveText('— searching as Les Femmes Orange');
+    await expect(statusNote(page), 'and told why her own view is gone')
+      .toHaveText("My view isn't available yet because your account isn't registered with Brainstorm.");
   });
 
 });

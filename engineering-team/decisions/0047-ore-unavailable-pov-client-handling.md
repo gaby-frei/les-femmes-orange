@@ -151,6 +151,8 @@ All in `public/index.html`; no new files, no dependencies, no build step (house 
 
 ### 7. Both perspectives resolve before the control is usable
 
+*(Amended 2026-08-26, review R2.)* "Before the control is usable" is a statement about the **first paint**, not only about subsequent writes. The toggle's markup therefore ships with **no side selected and both sides inert**, and `resolvePerspectives()` performs the first and only selection. Shipping `aria-checked="true"` on Community in the markup meant a declined-community page showed the selection on the wrong side for a full round trip before jumping — invisible to a test that samples only attribute writes.
+
 A new `resolvePerspectives()` runs on every Members-page entry, replacing the bare `probeMyViewReadiness()` call at `:2119` and `:2815`. It probes **both** perspectives **in parallel** (`Promise.all`), writes both into `_povState` — the second key story #7's map was built general for — then picks the active view and paints the toggle once.
 
 Probing the community perspective costs one extra request per visit. The alternative is to learn its state from the first grid rank batch, which is cheaper but paints the toggle before the answer arrives — precisely what AC-5 forbids. **Correctness over the round trip**; the two probes run concurrently, so wall-clock is unchanged. *Consolidating the community probe with the grid batch is a real simplification and a natural candidate for story #9, which is already reworking when resolution happens.*
@@ -167,7 +169,7 @@ communityServable ? 'community'
 
 **An explicit choice wins while it can be served** (story A1, recorded there as an assumption open to reversal): `_viewChosenByMember` is set only by `setActiveView`, and the preference order is applied only when the chosen view is unservable or no choice has been made.
 
-**At most one unrequested move per visit** — `_movedThisVisit`, reset on Members-page entry. Once the page has moved her, a later re-resolution re-enables controls but does not move her again.
+**At most one unrequested move per visit, with one exception** — `_movedThisVisit`, reset on Members-page entry. Once the page has moved her, a later re-resolution re-enables controls but does not move her again **unless the perspective she is currently on has stopped being servable**. *(Amended 2026-08-26, review R1.)* The guard exists to stop the page changing its mind, not to strand her: leaving a member on a refused perspective would render a page ordered by scores that cannot arrive. Every move announces itself, so a second one is visible rather than silent.
 
 ### 9. Scores and search fall back explicitly, and never mix perspectives
 
