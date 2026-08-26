@@ -133,6 +133,10 @@ The book is **PRD-backed**, so completion is computed against `product-team/prd/
 
 ## Live-preview checks
 
+**Status 2026-08-26:** checks **1 (202)** and **2 (422)** confirmed by the PO against real Nostr
+accounts on a live preview. The 202 branch shipped tested only against an unobserved fixture, so
+this closes the largest known gap in the story. Checks 3–6 not reported as run.
+
 Per CLAUDE.md "How to operate" item 6. Verify on a deployed preview with a real browser and a real provider — the suite proves behavior against stubs only.
 
 1. **The 202 "being set up" path — CARRIED FROM TEST DESIGN, still outstanding.** This is the one the PO asked to be reminded of. The entire preparing branch ships tested only against a fixture nobody has ever observed: no perspective we control sits in the scheduled-but-not-computed window, so neither the status nor the `Retry-After` shape has been seen from this provider. **What to do:** register a perspective and load Members during the window before its scores land. **What to look for:** the note reads `My view is being set up. Check back in about {interval}.` with a plausible interval, and the console shows a `202` rather than a swallowed error. **If the window cannot be caught, say so explicitly rather than marking this passed** — an unverified branch recorded as verified is worse than one recorded as open.

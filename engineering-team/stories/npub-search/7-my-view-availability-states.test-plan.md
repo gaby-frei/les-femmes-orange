@@ -36,7 +36,12 @@
 
 ## Limitations
 
-> **CARRY TO REVIEW — live check owed (PO, 2026-08-25).** The 202 "still being set up" path
+> **DISCHARGED 2026-08-26 — PO confirmed the 202 and 422 paths against real Nostr accounts on a
+> live preview.** The preparing branch is no longer unverified: it has now been observed against
+> the real provider, not only against the fixture below. The Limitations note that follows stands
+> as the record of what was true when the tests were written.
+>
+> ~~**CARRY TO REVIEW — live check owed (PO, 2026-08-25).**~~ The 202 "still being set up" path
 > must be exercised against the live provider before this story is treated as closed. It cannot
 > be produced from outside today, so the check is: register a perspective that is not yet
 > computed and load the Members page during the scheduled-but-not-ready window, confirming the
