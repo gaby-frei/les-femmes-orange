@@ -910,7 +910,10 @@ test.describe('member-card trust scores — house POV via ORE batch (npub-search
     // AMENDED by story #3 (test plan 3-personalized-pov-ranking): the readiness probe
     // shares this glob — count only chip-shaped batches (probe = member pov + curator
     // in the target set). Green before AND after #3's implementation.
-    const chipCalls = calls.filter(c => !(c.pov === ME && (c.pubkeys || []).includes(CURATOR)));
+    // Story #8: readiness probes (both perspectives) are [pov, CURATOR] pairs and are NOT
+    // chip batches. Filter them out by shape so this still counts what it claims to count.
+    const isReadinessProbe = (c) => (c.pubkeys || []).length === 2 && (c.pubkeys || []).includes(CURATOR);
+    const chipCalls = calls.filter(c => !isReadinessProbe(c));
     expect(chipCalls.length, 'exactly one chip batch request per load').toBe(1);
     const body = chipCalls[0];
     expect(body.algorithm, 'personalized graperank algorithm').toBe('graperank-pov');
@@ -1277,7 +1280,10 @@ test.describe('Community view / My view toggle (npub-search #3)', () => {
     const calls = await stubPovRankApi(page, povScores());
     await openMembers(page, bigGridSetup());
     await expect(segment(page, 'My view')).toBeEnabled({ timeout: 10_000 });
-    const houseCalls = () => calls.filter(c => c.pov === HOUSE_HEX).length;
+    // Story #8: excludes the community readiness probe, which is a [pov, CURATOR] pair
+    // rather than a score fetch — this counter measures cache warmth, not probe traffic.
+    const houseCalls = () => calls.filter(c =>
+      c.pov === HOUSE_HEX && !((c.pubkeys || []).length === 2 && (c.pubkeys || []).includes(CURATOR))).length;
     const baseline = houseCalls();
 
     await segment(page, 'My view').click();
@@ -1566,27 +1572,29 @@ test.describe('Community refusal and the preference order (npub-search #8)', () 
   // leaves two entries behind.
   test('the control never shows one side selected and then switches', async ({ page }) => {
     await page.addInitScript(() => {
-      window.__povFlips = [];
-      new MutationObserver(() => {
-        const mine = document.getElementById('pov-segment-mine');
-        if (!mine) return;
-        const v = mine.getAttribute('aria-checked');
-        if (window.__povFlips[window.__povFlips.length - 1] !== v) window.__povFlips.push(v);
-      }).observe(document.documentElement, {
-        subtree: true, childList: true, attributes: true, attributeFilter: ['aria-checked'],
-      });
+      window.__povChecked = [];
+      const native = Element.prototype.setAttribute;
+      Element.prototype.setAttribute = function (name, value) {
+        if (name === 'aria-checked' && this.id && this.id.startsWith('pov-segment-')) {
+          window.__povChecked.push(`${this.id}=${value}`);
+        }
+        return native.call(this, name, value);
+      };
     });
     await stubPerspectives(page, { declined: [HOUSE_HEX] });
     await openMembers(page, bigGridSetup());
     await expect(segment(page, 'My view')).toHaveAttribute('aria-checked', 'true', { timeout: 10_000 });
 
-    const flips = await page.evaluate(() => window.__povFlips);
-    const settledOnMine = flips.filter(v => v === 'true');
-    expect(settledOnMine.length,
-      `My view should become checked exactly once; transitions seen: ${JSON.stringify(flips)}`).toBe(1);
-    expect(flips.filter(v => v === 'false').length,
-      `and must never be un-checked after being checked; transitions: ${JSON.stringify(flips)}`)
-      .toBeLessThanOrEqual(1);
+    const writes = await page.evaluate(() => window.__povChecked);
+    // Every write of aria-checked, in order. The page may write the same value repeatedly
+    // (idempotent repaints); what it must never do is show one side selected and then the
+    // other. Reduce to the sequence of DISTINCT selected sides.
+    const selected = writes.filter(w => w.endsWith('=true')).map(w => w.split('=')[0]);
+    const distinctInOrder = selected.filter((v, i, a) => v !== a[i - 1]);
+    expect(distinctInOrder.length,
+      `the selection settled once; instead it moved through ${JSON.stringify(distinctInOrder)}`).toBe(1);
+    expect(distinctInOrder[0],
+      'and settled on the only servable perspective').toBe('pov-segment-mine');
   });
 
   // T56 — AC-6. A deliberate choice is not undone by a later re-resolution.

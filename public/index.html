@@ -998,6 +998,13 @@
       font-size: 0.85rem; color: var(--grey-text);
       padding: 0.6rem 0.55rem; line-height: 1.5;
     }
+    /* Mirrors .member-search-footnote inverted: that sits below the rows with a rule
+       above, this sits above them with a rule below, so the panel reads as one object. */
+    .member-search-notice {
+      font-size: 0.75rem; color: var(--grey-text); line-height: 1.5;
+      padding: 0.6rem 0.55rem 0.45rem; margin: 0 0 0.2rem;
+      border-bottom: 1px solid var(--grey-mid);
+    }
     .member-search-footnote {
       font-size: 0.75rem; color: var(--grey-text);
       padding: 0.5rem 0.55rem 0.25rem; margin-top: 0.2rem;
@@ -2116,7 +2123,12 @@
       // Story #3 (ADR 0046, PO O2): re-probe My-view readiness on EVERY visit to the
       // Members page — a member provisioned mid-session sees the toggle enable on
       // their next visit, no reload needed.
-      else if (name === 'members') { updatePovUi(); probeMyViewReadiness(); }
+      else if (name === 'members') {
+        // Do NOT paint the toggle here: resolvePerspectives() paints it once, after both
+        // perspectives are known, so the selection can never move under the member (#8 AC-5).
+        _movedThisVisit = false;
+        resolvePerspectives();
+      }
       if (name === 'feed'    && !_feedLoaded)    { _feedLoaded    = true; loadFeedPage(); }
     }
 
@@ -2809,10 +2821,10 @@
       // scores. Deliberately NOT awaited — rendering never waits on the score backend.
       patchGridTrustScores([...verifiedPubkeys, ...pendingPubkeys]);
 
-      // Story #3 (ADR 0046): sync the view UI and re-probe readiness on every
-      // Members-page visit (PO O2). Fire-and-forget — never blocks rendering.
-      updatePovUi();
-      probeMyViewReadiness();
+      // Story #3 (ADR 0046): resolve both perspectives on every Members-page visit
+      // (PO O2). Fire-and-forget — never blocks rendering. resolvePerspectives paints
+      // the toggle itself, once, so the selection cannot move under the member (#8 AC-5).
+      resolvePerspectives();
     }
 
     // ── Npub search controller (npub-search #1, ADR 0041) ───────────────────
@@ -2961,7 +2973,9 @@
         const resp = await fetch(ORE_SEARCH_API, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query, algorithm: 'relevance-pov', pov: povPubkey, limit: 6 }),
+          body: JSON.stringify(povServable(povPubkey)
+            ? { query, algorithm: 'relevance-pov', pov: povPubkey, limit: 6 }
+            : { query, algorithm: 'relevance', limit: 6 }),
           signal: ctrl.signal,
         });
         if (!resp.ok) throw new Error(`search backend ${resp.status}`);
@@ -2997,6 +3011,16 @@
         empty.textContent = 'No profiles matched that search.';
         panelEl.appendChild(empty);
       } else {
+        // No perspective is active → these rows came from the provider's default, not
+        // from anyone this community chose. Say what they are NOT; the page cannot verify
+        // whose ranking replaced the community's (ADR 0047 Decision 10). Only in this
+        // state: on a substituted My view the rows ARE personalized, to her.
+        if (_activeView === 'none') {
+          const notice = document.createElement('p');
+          notice.className = 'member-search-notice';
+          notice.textContent = "These results aren't personalized to the community.";
+          panelEl.appendChild(notice);
+        }
         const canVouch = _isVerifiedMember && window.LFOSigner.canSign();
         for (const hex of pubkeys) {
           const status = verifiedMap.has(hex) ? 'verified' : pendingMap.has(hex) ? 'pending' : 'none';
@@ -3027,7 +3051,11 @@
     const _scoreCache = new Map();   // `${povPubkey}:${pubkey}` → 0..1 graperank
 
     async function fetchTrustScores(pubkeys, povPubkey = activePovPubkey()) {
-      const keyOf = (pk) => `${povPubkey}:${pk}`;
+      // No perspective, or one the provider has declined → the provider's global default
+      // algorithm, with no pov. Cached under a separate namespace so one perspective's
+      // numbers are never stored under another's key (ADR 0047 Decision 9).
+      const personalized = povServable(povPubkey);
+      const keyOf = (pk) => `${personalized ? povPubkey : 'global'}:${pk}`;
       const missing = pubkeys.filter(pk => !_scoreCache.has(keyOf(pk)));
       if (missing.length) {
         const ctrl = new AbortController();
@@ -3036,7 +3064,9 @@
           const resp = await fetch(ORE_RANK_API, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pubkeys: missing, algorithm: 'graperank-pov', pov: povPubkey }),
+            body: JSON.stringify(personalized
+              ? { pubkeys: missing, algorithm: 'graperank-pov', pov: povPubkey }
+              : { pubkeys: missing, algorithm: 'graperank' }),
             signal: ctrl.signal,
           });
           if (resp.ok) {
@@ -3057,9 +3087,14 @@
     let _activeView = 'community';   // per-tab; never persisted (PO determination 2)
     let _myViewReady = false;
 
+    // null === no perspective: the page is running on the provider's global default and
+    // every surface must be able to say so (ADR 0047 Decision 8).
     function activePovPubkey() {
+      if (_activeView === 'none') return null;
       return _activeView === 'mine' && currentPubkey ? currentPubkey : HOUSE_POV.pubkey;
     }
+
+    const povServable = (pk) => !!pk && !_povState.has(pk);
 
     // One code path applies view state to the UI — segments, disabled note, avatar,
     // and both orange indicator lines — so state and labels can never drift.
@@ -3072,6 +3107,8 @@
       // aria-disabled, not the `disabled` property: a disabled button leaves the tab
       // order and takes its explanation with it, hiding the reason from exactly the
       // members who need it. setActiveView refuses activation instead (ADR 0047).
+      const houseServable = povServable(HOUSE_POV.pubkey);   // declined ⇒ unusable
+      community.setAttribute('aria-disabled', houseServable ? 'false' : 'true');
       mine.setAttribute('aria-disabled', _myViewReady ? 'false' : 'true');
 
       // One persistent live region; hidden when there is nothing to say.
@@ -3079,7 +3116,11 @@
       if (note) {
         const povInfo = currentPubkey ? _povState.get(currentPubkey) : null;
         let message = '';
-        if (!_myViewReady && povInfo?.state === 'unavailable') {
+        if (_activeView === 'none') {
+          message = "Results aren't personalized to the community right now. Neither view is available.";
+        } else if (_activeView === 'mine' && !houseServable) {
+          message = "Les Femmes Orange's ranking isn't available right now. You're seeing your own view instead.";
+        } else if (!_myViewReady && povInfo?.state === 'unavailable') {
           message = "My view isn't available yet because your account isn't registered with Brainstorm.";
         } else if (!_myViewReady && povInfo?.state === 'preparing') {
           const interval = spokenInterval(povInfo.retryAfterSeconds);
@@ -3107,15 +3148,21 @@
           avatarEl.textContent = getInitials(meta.display_name || meta.name || '') || '•';
         }
       }
-      const who = _activeView === 'mine' ? 'you' : 'Les Femmes Orange';
       const s = document.getElementById('pov-indicator-search');
-      if (s) s.textContent = `— searching as ${who}`;
+      if (s) {
+        s.textContent = _activeView === 'none'
+          ? '— not personalized to the community'
+          : `— searching as ${_activeView === 'mine' ? 'you' : 'Les Femmes Orange'}`;
+      }
     }
 
     function setActiveView(view) {
       if (view === _activeView) return;
       if (view === 'mine' && !_myViewReady) return;
-      if (view === 'mine' && !_myViewReady) return;   // aria-disabled does not block clicks
+      // aria-disabled does not block clicks — refuse an unservable side here.
+      if (view === 'mine' && !_myViewReady) return;
+      if (view === 'community' && !povServable(HOUSE_POV.pubkey)) return;
+      _viewChosenByMember = true;   // a deliberate choice outranks the preference order
       _activeView = view;
       hideMemberSearchPanel();   // no stale-POV rows can survive a switch
       updatePovUi();
@@ -3176,33 +3223,71 @@
       return `${Math.round(seconds / 3600)} hours`;
     }
 
-    // Readiness (ADR 0047, retiring ADR 0046 Decision 3): the provider's STATUS decides.
-    // The old predicate inferred readiness from "any rank > 0" because an unservable and a
-    // servable perspective both answered 200, distinguishable only by their values — which
-    // read a provisioned-but-zero-scoring perspective as unavailable. The probe targets are
-    // now arbitrary: nothing reads them. Deliberately NOT routed through fetchTrustScores —
-    // the probe must hit the network on every Members-page visit (PO O2), never a cache.
-    async function probeMyViewReadiness() {
-      if (!currentPubkey) { _myViewReady = false; updatePovUi(); return; }
-      let ready = false;
-      _povState.delete(currentPubkey);
-      try {
-        const resp = await fetch(ORE_RANK_API, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pubkeys: [currentPubkey, CURATOR_HEX], algorithm: 'graperank-pov', pov: currentPubkey }),
-        });
-        if (resp.status === 422) {
-          _povState.set(currentPubkey, { state: 'unavailable', retryAfterSeconds: null });
-          await logPovRefusal(currentPubkey, 422, resp);
-        } else if (resp.status === 202) {
-          _povState.set(currentPubkey, { state: 'preparing', retryAfterSeconds: retryAfterSeconds(resp) });
-          await logPovRefusal(currentPubkey, 202, resp);
-        } else if (resp.ok) {
-          ready = true;   // served — the values are its answer, not evidence about availability
+    // Did the member pick a view herself this session, and have we already moved her?
+    // (ADR 0047 Decision 8; story #8 A1 and AC-7.)
+    let _viewChosenByMember = false;
+    let _movedThisVisit = false;
+
+    // One request, one perspective, one answer. Targets are arbitrary — nothing reads
+    // their values; only the status matters.
+    // Returns true when the provider SERVED this perspective. _povState records only the
+    // provider's own refusals — a transport failure leaves it unset, because "the network
+    // dropped" is not "you aren't registered" and must never render as though it were.
+    async function probePerspective(povPubkey) {
+      const resp = await fetch(ORE_RANK_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pubkeys: [povPubkey, CURATOR_HEX], algorithm: 'graperank-pov', pov: povPubkey }),
+      });
+      if (resp.status === 422) {
+        _povState.set(povPubkey, { state: 'unavailable', retryAfterSeconds: null });
+        await logPovRefusal(povPubkey, 422, resp);
+        return false;
+      }
+      if (resp.status === 202) {
+        _povState.set(povPubkey, { state: 'preparing', retryAfterSeconds: retryAfterSeconds(resp) });
+        await logPovRefusal(povPubkey, 202, resp);
+        return false;
+      }
+      _povState.delete(povPubkey);
+      return resp.ok;
+    }
+
+    // Both perspectives resolve BEFORE the toggle is painted, so the selection can never
+    // move under the member's eyes (story #8 AC-5). The probes run concurrently, so this
+    // costs a request but not wall-clock. Story #9 may fold the community probe into the
+    // grid batch.
+    async function resolvePerspectives() {
+      const house = HOUSE_POV.pubkey;
+      const mine  = currentPubkey;
+      const [houseServed, mineServed] = await Promise.all([
+        probePerspective(house).catch(() => false),
+        mine ? probePerspective(mine).catch(() => false) : Promise.resolve(false),
+      ]);
+      _myViewReady = mineServed;
+
+      // A perspective the provider DECLINED is unusable. One it merely failed to answer
+      // stays optimistically usable for the community default, preserving the shipped
+      // enhancement-only behavior: chips go missing, the page says nothing.
+      const houseUsable = houseServed || !_povState.has(house);
+
+      // Preference order: the most community-specific perspective that can be served.
+      // An explicit choice wins while it can be served (story #8 A1).
+      const chosenStillServable = _viewChosenByMember &&
+        ((_activeView === 'community' && houseUsable) || (_activeView === 'mine' && mineServed));
+
+      if (!chosenStillServable) {
+        const want = houseUsable ? 'community' : mineServed ? 'mine' : 'none';
+        // At most one unrequested move per visit (AC-7): after the page has moved her it
+        // re-enables controls on later resolutions but does not move her a second time.
+        const currentStillWorks =
+          (_activeView === 'community' && houseUsable) ||
+          (_activeView === 'mine' && mineServed);
+        if (!_movedThisVisit || !currentStillWorks) {
+          if (want !== _activeView) _movedThisVisit = true;
+          _activeView = want;
         }
-      } catch { /* enhancement only — segment stays disabled, and says nothing */ }
-      _myViewReady = ready;
+      }
       updatePovUi();
     }
 
