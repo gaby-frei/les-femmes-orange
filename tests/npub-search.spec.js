@@ -1112,6 +1112,22 @@ const retryAfter = (v) => ({
   headers: { 'Retry-After': String(v), 'Access-Control-Expose-Headers': 'X-Reason, Retry-After' },
 });
 
+// ── Story #8 fixtures (ADR 0047 amendment) ──────────────────────────────────
+const COMMUNITY_DOWN = "Les Femmes Orange's ranking isn't available right now. You're seeing your own view instead.";
+const NEITHER_VIEW   = "Results aren't personalized to the community right now. Neither view is available.";
+const PANEL_NOT_PERSONALIZED = "These results aren't personalized to the community.";
+
+// Decline the named perspectives; serve everything else normally. `global` requests
+// (the provider's default algorithm — no pov) always succeed, since that is what the
+// page falls back to.
+async function stubPerspectives(page, { declined = [], byPov = povScores() } = {}) {
+  return stubRankApi(page, (body) => {
+    if (!body.pov) return { body: { results: povResults(byPov[HOUSE_HEX], body.pubkeys), ttl: 3600 } };
+    if (declined.includes(body.pov)) return { status: 422, body: { error: RANK_REFUSAL } };
+    return { body: { results: povResults(byPov[body.pov], body.pubkeys), ttl: 3600 } };
+  });
+}
+
 async function pageTextOf(page) {
   return (await page.locator('#page-members').innerText()).toLowerCase();
 }
@@ -1480,6 +1496,131 @@ test.describe('My view availability states (npub-search #7, ADR 0047)', () => {
     });
     expect(live.opacity, 'a served perspective is not dimmed').toBe('1');
     expect(live.cursor, 'and invites a click').not.toBe('not-allowed');
+  });
+
+});
+
+test.describe('Community refusal and the preference order (npub-search #8)', () => {
+
+  // T51 — AC-1. The one unrequested perspective change in the product, and the one
+  // place the page announces a change it made itself.
+  test('community declined, hers served → opens on My view and says why', async ({ page }) => {
+    await stubPerspectives(page, { declined: [HOUSE_HEX] });
+    await openMembers(page, bigGridSetup());
+
+    await expect(segment(page, 'My view'), 'her own perspective is live and selected')
+      .toHaveAttribute('aria-checked', 'true', { timeout: 10_000 });
+    await expect(segment(page, 'Community view'), 'the declined side is dimmed').toBeDisabled();
+    await expect(statusNote(page)).toHaveText(COMMUNITY_DOWN);
+    await expect(searchIndicator(page), 'a substituted view reads exactly like a chosen one')
+      .toHaveText('— searching as you');
+  });
+
+  // T52 — AC-2. Only when BOTH are declined does the page run unpersonalized.
+  test('neither perspective served → both dimmed, nothing claimed beyond the negative', async ({ page }) => {
+    await stubPerspectives(page, { declined: [HOUSE_HEX, ME] });
+    await openMembers(page, bigGridSetup());
+
+    await expect(segment(page, 'Community view')).toBeDisabled();
+    await expect(segment(page, 'My view')).toBeDisabled();
+    await expect(statusNote(page)).toHaveText(NEITHER_VIEW);
+    await expect(searchIndicator(page)).toHaveText('— not personalized to the community');
+
+    const text = await pageTextOf(page);
+    expect(text.includes('nostr network'), 'never claims the whole network').toBe(false);
+    for (const leak of PROVIDER_LEAKS) {
+      expect(text.includes(leak.toLowerCase()), `provider vocabulary "${leak}" leaked`).toBe(false);
+    }
+  });
+
+  // T53 — AC-3. A declined perspective has RESULTS. It must never render as an absence.
+  test('unpersonalized search still returns rows, under one honest line', async ({ page }) => {
+    await stubPerspectives(page, { declined: [HOUSE_HEX, ME] });
+    await stubOreSearch(page, () => ({ body: oreSearchResponse([[FX.A, 9000]]) }));
+    await openMembers(page, bigGridSetup());
+
+    await page.fill('#member-search-input', 'rando');
+    const panel = page.locator('#member-search-panel');
+    await expect(panel.locator('.member-search-notice')).toHaveText(PANEL_NOT_PERSONALIZED);
+    await expect(panel.locator('.member-card'), 'rows still render').not.toHaveCount(0);
+    await expect(panel.locator('.member-search-empty'), 'never "no matches"').toHaveCount(0);
+    await expect(panel.locator('.member-search-unavailable'), 'never "temporarily unavailable"').toHaveCount(0);
+  });
+
+  // T54 — AC-4. On a substituted My view the rows ARE personalized. A caveat there
+  // would disparage the best results the page can produce.
+  test('substituted My view search carries no notice — those rows are personalized', async ({ page }) => {
+    await stubPerspectives(page, { declined: [HOUSE_HEX] });
+    await stubOreSearch(page, () => ({ body: oreSearchResponse([[FX.A, 9000]]) }));
+    await openMembers(page, bigGridSetup());
+
+    await page.fill('#member-search-input', 'rando');
+    const panel = page.locator('#member-search-panel');
+    await expect(panel.locator('.member-card').first()).toBeVisible();
+    await expect(panel.locator('.member-search-notice'), 'no caveat on personalized rows').toHaveCount(0);
+  });
+
+  // T55 — AC-5. The selection must never move under the member's eyes. A
+  // MutationObserver installed before the page loads records every transition of the
+  // toggle's checked state; a page that paints Community and then flips to My view
+  // leaves two entries behind.
+  test('the control never shows one side selected and then switches', async ({ page }) => {
+    await page.addInitScript(() => {
+      window.__povFlips = [];
+      new MutationObserver(() => {
+        const mine = document.getElementById('pov-segment-mine');
+        if (!mine) return;
+        const v = mine.getAttribute('aria-checked');
+        if (window.__povFlips[window.__povFlips.length - 1] !== v) window.__povFlips.push(v);
+      }).observe(document.documentElement, {
+        subtree: true, childList: true, attributes: true, attributeFilter: ['aria-checked'],
+      });
+    });
+    await stubPerspectives(page, { declined: [HOUSE_HEX] });
+    await openMembers(page, bigGridSetup());
+    await expect(segment(page, 'My view')).toHaveAttribute('aria-checked', 'true', { timeout: 10_000 });
+
+    const flips = await page.evaluate(() => window.__povFlips);
+    const settledOnMine = flips.filter(v => v === 'true');
+    expect(settledOnMine.length,
+      `My view should become checked exactly once; transitions seen: ${JSON.stringify(flips)}`).toBe(1);
+    expect(flips.filter(v => v === 'false').length,
+      `and must never be un-checked after being checked; transitions: ${JSON.stringify(flips)}`)
+      .toBeLessThanOrEqual(1);
+  });
+
+  // T56 — AC-6. A deliberate choice is not undone by a later re-resolution.
+  test('an explicit choice is kept while it can be served', async ({ page }) => {
+    await stubPerspectives(page, {});           // both available
+    await openMembers(page, bigGridSetup());
+    await expect(segment(page, 'My view')).toBeEnabled({ timeout: 10_000 });
+
+    await segment(page, 'My view').click();
+    await expect(searchIndicator(page)).toHaveText('— searching as you');
+
+    // Re-enter Members: the preference order would pick Community, but she chose.
+    await page.evaluate(() => { showView('home'); showView('members'); });
+    await expect(page.locator('#verified-members-grid .member-card').first()).toBeVisible({ timeout: 10_000 });
+    await expect(searchIndicator(page), 'her choice survives a re-resolution')
+      .toHaveText('— searching as you');
+  });
+
+  // T57 — AC-7. Being moved once is a service; being moved twice is the page
+  // changing its mind at her expense.
+  test('at most one unrequested move per visit', async ({ page }) => {
+    await stubPerspectives(page, { declined: [HOUSE_HEX] });
+    await openMembers(page, bigGridSetup());
+    await expect(searchIndicator(page)).toHaveText('— searching as you', { timeout: 10_000 });
+
+    // The community perspective recovers mid-visit.
+    await stubPerspectives(page, {});
+    await page.evaluate(() => resolvePerspectives());
+    await page.waitForTimeout(300);
+
+    await expect(searchIndicator(page), 'she stays where she was put')
+      .toHaveText('— searching as you');
+    await expect(segment(page, 'Community view'), 'but the control re-enables so she can choose')
+      .toBeEnabled();
   });
 
 });

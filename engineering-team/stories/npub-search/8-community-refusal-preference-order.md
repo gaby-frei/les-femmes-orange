@@ -75,6 +75,6 @@ None blocking. A1 is recorded as an assumption rather than a question, and is no
 - Story brief: `product-team/stories-queue.md` → Story 8
 
 ## Linked artifacts
-- ADR: (filled in after Architecture phase)
-- Test plan: (filled in after Test Design phase)
+- ADR: `engineering-team/decisions/0047-ore-unavailable-pov-client-handling.md` — amended 2026-08-26 (Decisions 7–10)
+- Test plan: `engineering-team/stories/npub-search/8-community-refusal-preference-order.test-plan.md` — T51–T57
 - Review: (filled in after Review phase)
