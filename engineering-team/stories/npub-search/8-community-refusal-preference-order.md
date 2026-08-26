@@ -39,11 +39,11 @@ As a member using the Members page when the community's trust ranking cannot be 
 
 ## Decisions and assumptions
 
-**A1 — An explicit choice outranks the preference order.** *(Assumption, not a PO ruling — carried forward as flagged.)*
+**A1 — An explicit choice outranks the preference order.** *(**Ratified by the PO, 2026-08-26.** Was carried as an assumption; now a settled requirement.)*
 
 AC-6 states that a perspective the member picked herself survives a re-resolution. This is the reading the PRD adopted at §5.1 rule 6, and the story queue flagged it as *a reading rather than a decision the PO made*. It is built that way here because the alternative — re-choosing for her whenever a more-preferred perspective returns — would undo a deliberate action without asking.
 
-**This remains open for the PO to overturn.** If overturned, AC-6 inverts and the preference order wins unconditionally on every re-resolution. Nothing else in the story depends on it.
+**Settled 2026-08-26 — keep as built.** A view the member picks is remembered for the session and overridden only when her own perspective stops being servable, in which case she is moved and told. This also preserves shipped behavior: `_activeView` is already session-scoped, so a chosen view survives in-app navigation today; the alternative would have been a behavior change that started overriding a choice which currently sticks.
 
 **D2 — The middle case announces itself; nothing else does.** AC-1 is the product's single announced perspective change. Recovery stays silent: when a perspective becomes servable again the control simply re-enables (PRD §5.1 rule 3, design principle 6).
 

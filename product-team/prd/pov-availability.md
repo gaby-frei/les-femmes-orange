@@ -144,7 +144,7 @@ One screen. Its behavior is fully determined by the availability of two perspect
 5. **A refused perspective is re-checked each time she returns to the Members page.** A refusal holds for the rest of that visit — the page does not re-ask a provider that has just declined — but it does not outlive the visit. Returning to Members re-resolves both perspectives from scratch, so a perspective that has since become available is offered again without her needing to reload the Hub.
 6. **An explicit choice outranks the preference order.** The order in the table decides the *default*. If she has chosen a perspective herself during this session, that choice stands for as long as it can be served. The page only re-resolves for her when her chosen perspective becomes unservable, and then rule 2 applies and it tells her.
 
-*Rule 6 is the reading implied by rule 5: once perspectives are re-resolved on every visit, the page needs a stated answer for what happens to a member who already picked one. Choosing for her again would undo a decision she made deliberately.*
+*Rule 6 was **ratified by the PO on 2026-08-26** and is a settled requirement, no longer a reading. It is the reading implied by rule 5: once perspectives are re-resolved on every visit, the page needs a stated answer for what happens to a member who already picked one. Choosing for her again would undo a decision she made deliberately.*
 
 ### 5.2 The perspective indicator
 
