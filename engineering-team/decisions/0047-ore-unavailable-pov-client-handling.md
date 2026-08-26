@@ -1,6 +1,6 @@
 # ADR 0047: Unavailable-POV refusals — client handling of the ORE-01 contract
 
-**Status:** Accepted (PO, 2026-08-25) — revised in place for story #7
+**Status:** Accepted (PO, 2026-08-25) — revised in place for story #7; **amended 2026-08-26 for story #8**
 **Original:** Proposed 2026-08-15 — outside contribution, W David Strayhorn (NosFabrica), for PR #1 / branch `pr-1`. Never accepted, never landed.
 **Revised:** 2026-08-25 — Architecture phase of `npub-search` #7, per PO instruction to edit in place rather than supersede. **Where this ADR conflicted with the approved design guide, the design guide won.**
 **Story:** `engineering-team/stories/npub-search/7-my-view-availability-states.md`
@@ -145,16 +145,48 @@ All in `public/index.html`; no new files, no dependencies, no build step (house 
 
 **Test coverage** (Tester's to design; shape implied): the three status branches to their three copy lines; the interval bucket boundaries including the `max(5, …)` floor and the elapsed-estimate fall-through; absence of provider text in the DOM across all states; the dimmed segment reachable by keyboard and described by its note; Community view unchanged. `T36–T38` re-pin from the heuristic to the status. `T15–T35` and `T39–T43` should pass unmodified.
 
-## Deferred to later stories in this book
+## Amendment — story #8: the preference order
 
-Retained here so this ADR stays the single home for the area, and so stories #8 and #9 amend rather than supersede it.
+**Accepted 2026-08-26.** `engineering-team/stories/npub-search/8-community-refusal-preference-order.md`. Story #7's decisions stand unchanged; this extends them from one perspective to two and adds the rule for choosing between them.
 
-- **The preference order** — resolving both perspectives independently and showing the most community-specific one that can be served. **Story #8.** The original draft has no notion of this: it falls back only to the provider's global default and never substitutes the member's own perspective.
-- **The community-perspective refusal** and its copy across toggle, indicator, and panel. **Story #8.**
-- **The search and rank-batch refusal paths**, including the explicit global re-request and the `global:` cache namespace from the original draft. **Story #8** — the machinery is right, its copy is not.
-- **Re-check discipline for the non-probe surfaces** (not re-asking a declining provider within a visit; re-resolving on return). **Story #9.**
+### 7. Both perspectives resolve before the control is usable
+
+A new `resolvePerspectives()` runs on every Members-page entry, replacing the bare `probeMyViewReadiness()` call at `:2119` and `:2815`. It probes **both** perspectives **in parallel** (`Promise.all`), writes both into `_povState` — the second key story #7's map was built general for — then picks the active view and paints the toggle once.
+
+Probing the community perspective costs one extra request per visit. The alternative is to learn its state from the first grid rank batch, which is cheaper but paints the toggle before the answer arrives — precisely what AC-5 forbids. **Correctness over the round trip**; the two probes run concurrently, so wall-clock is unchanged. *Consolidating the community probe with the grid batch is a real simplification and a natural candidate for story #9, which is already reworking when resolution happens.*
+
+### 8. The active view is a preference order over resolved states
+
+```
+communityServable ? 'community'
+  : mineServable   ? 'mine'
+  : 'none'
+```
+
+`'none'` is a third view value, not a null: the page is running unpersonalized and every surface must be able to say so. `activePovPubkey()` returns `null` for it, and callers switch to the provider's global default algorithm (no `pov`).
+
+**An explicit choice wins while it can be served** (story A1, recorded there as an assumption open to reversal): `_viewChosenByMember` is set only by `setActiveView`, and the preference order is applied only when the chosen view is unservable or no choice has been made.
+
+**At most one unrequested move per visit** — `_movedThisVisit`, reset on Members-page entry. Once the page has moved her, a later re-resolution re-enables controls but does not move her again.
+
+### 9. Scores and search fall back explicitly, and never mix perspectives
+
+Adopted from the original draft, whose machinery was right: when the active perspective is `'none'`, `fetchTrustScores` and `runFreetextSearch` request the endpoint's **global default** algorithm with no `pov`, and results cache under a `global:` namespace so one perspective's numbers are never stored under another's key. A refusal encountered mid-flight records the state and re-requests globally rather than rendering an empty panel.
+
+### 10. Copy, verbatim from the design guide
+
+| Surface | `'none'` | community declined, mine served |
+|---|---|---|
+| Status line | `Results aren't personalized to the community right now. Neither view is available.` | `Les Femmes Orange's ranking isn't available right now. You're seeing your own view instead.` |
+| Indicator | `— not personalized to the community` | `— searching as you` |
+| Search panel | `These results aren't personalized to the community.` | *(no line)* |
+
+The panel line renders **only** under `'none'`. On a substituted My view the rows *are* personalized, and a caveat there would disparage the best results the page can produce. A declined perspective is never rendered as the empty state or as the search-unavailable state.
+
+## Still deferred
+
+- **Re-check discipline for the non-probe surfaces** (not re-asking a declining provider within a visit; re-resolving on return). **Story #9** — which should also weigh folding the community probe into the grid batch (Decision 7).
 - **Contrast and touch-target corrections** on this same control. **Story #10** — pre-existing defects, kept in their own diff.
-
 ## Out of scope (this book entirely)
 
 - Retiring anything else from ADR 0046 beyond Decision 3.
