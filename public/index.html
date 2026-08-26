@@ -15,6 +15,9 @@
       --grey-light:   #f4f4f4;
       --grey-mid:     #e0e0e0;
       --grey-text:    #777777;
+      /* --grey-text measures 4.48:1 on white — just under the 4.5:1 AA floor for text
+         below 18pt. Small print that carries meaning uses this instead (6.5:1). */
+      --grey-text-strong: #5f5f5f;
       --dark:         #1c1c1c;
       --dark-mid:     #2e2e2e;
       --green:        #22c55e;
@@ -905,7 +908,10 @@
     .pov-segment {
       display: inline-flex; align-items: center; gap: 0.45rem;
       border: none; background: transparent; border-radius: 999px;
-      padding: 0.45rem 1rem; font-size: 0.85rem; font-weight: 600;
+      /* 44px is the touch-target minimum; the shipped 0.45rem padding gave ~34px.
+         Stated as min-height rather than derived from padding, so a later type or
+         padding change cannot quietly drop back under it. */
+      padding: 0.7rem 1rem; min-height: 44px; font-size: 0.85rem; font-weight: 600;
       color: var(--grey-text); cursor: pointer;
       transition: background 0.15s, color 0.15s;
     }
@@ -931,7 +937,7 @@
     .pov-segment-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
     .pov-status-note {
-      font-size: 0.75rem; color: var(--grey-text); text-align: center;
+      font-size: 0.75rem; color: var(--grey-text-strong); text-align: center;
       margin: 0 0 1.5rem;
     }
     /* Persistent element, so it takes no space rather than being removed (ADR 0047). */
@@ -1001,7 +1007,7 @@
     /* Mirrors .member-search-footnote inverted: that sits below the rows with a rule
        above, this sits above them with a rule below, so the panel reads as one object. */
     .member-search-notice {
-      font-size: 0.75rem; color: var(--grey-text); line-height: 1.5;
+      font-size: 0.75rem; color: var(--grey-text-strong); line-height: 1.5;
       padding: 0.6rem 0.55rem 0.45rem; margin: 0 0 0.2rem;
       border-bottom: 1px solid var(--grey-mid);
     }
