@@ -1,0 +1,63 @@
+{
+  "_comment": "STAGING SNAPSHOT — NOT PRODUCTION. Captured 2026-08-01 from GET https://brainstormserver-staging.nosfabrica.com/.well-known/open-ranking.json (the staging ORE host). The production host api.brainstorm.world (settled policy 2026-08-14; brainstormserver.nosfabrica.com is the same IP but deprecated) advertised the SAME algorithm set when probed 2026-08-05 (ADR 0042 → ORE probe record), but may drift; do not treat this file as the production contract. Re-fetch before relying on it.",
+
+  "/stats/pubkey": [
+    {
+      "id": "graperank",
+      "name": "GrapeRank (global)",
+      "description": "GrapeRank from the provider's default observer. Higher is more reputable."
+    },
+    {
+      "id": "graperank-pov",
+      "name": "GrapeRank (personalized)",
+      "description": "GrapeRank computed from the provided pov pubkey.",
+      "pov": true
+    }
+  ],
+  "/rank/pubkeys": [
+    {
+      "id": "graperank",
+      "name": "GrapeRank (global)"
+    },
+    {
+      "id": "graperank-pov",
+      "name": "GrapeRank (personalized)",
+      "pov": true
+    }
+  ],
+  "/search/pubkeys": [
+    {
+      "id": "relevance",
+      "name": "Relevance (global)",
+      "description": "kind 0 profile text-matching score multiplied by a web-of-trust metric (default perspective)"
+    },
+    {
+      "id": "relevance-pov",
+      "name": "Relevance (personalized)",
+      "description": "kind 0 profile text-matching score multiplied by a web-of-trust metric (personalized)",
+      "pov": true
+    }
+  ],
+  "/followers": [
+    {
+      "id": "graperank",
+      "name": "GrapeRank (global)"
+    },
+    {
+      "id": "graperank-pov",
+      "name": "GrapeRank (personalized)",
+      "pov": true
+    }
+  ],
+  "/muters": [
+    {
+      "id": "graperank",
+      "name": "GrapeRank (global)"
+    },
+    {
+      "id": "graperank-pov",
+      "name": "GrapeRank (personalized)",
+      "pov": true
+    }
+  ]
+}

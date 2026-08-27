@@ -142,3 +142,100 @@ event-tag creation/signing/publishing/querying — those wait on the teammate's 
 **Book:** new, no PRD → acceptance frame at `engineering-team/audits/note-tagging/book.md`.
 **Epic:** `note-tagging` (new). Story: #1 `note-tag-demo`.
 **Phase path confirmed with user:** entered Planning via `/plan-feature`.
+
+## 2026-07-30 — Npub search: find + attest any Nostr identity from the Members page
+
+**Raw request (user's words):**
+> Before returning to v1-release#1 story 2 and closing out the v1-release#1 book, we need to build
+> support for and deploy NPUB SEARCH. […] "npub search" will allow users to search for a nostr
+> identity as a string (npub, hex pubkey, or nprofile) and attest candidate npubs from a horizontal
+> drop down pannel. This search bar and pannel will likely live on the member's page above the grid
+> of "verified members." […] we will be repurposing parts of the brainstrom.world ui and search
+> logic, either via Open Ranking or NIP-50 (to be decided). The deployed brainstorm search page can
+> be found on the main branch in […]/tapestry.
+
+**Classification:** Feature
+**Strictness:** Standard → all phases (Planning → Architecture → Test Design → Implementation → Review). Architecture explicitly NOT skipped (search-backend decision: Open Ranking vs NIP-50; profile-metadata sourcing).
+**Book:** new, no PRD → acceptance frame at `engineering-team/audits/npub-search/book.md`
+**Epic:** `npub-search` (new). Stories: #1 `1-identity-search-attest` (drafted). Free-text ranked search pending PO scope call.
+**Not folded into:** `v1-release` (different intent anchor — that book stays open on its own frame) or `note-tagging` (attestation event machinery is settled; what's new is identity search/resolution).
+**Phase path confirmed with user:** yes — user asked for harness placement recommendation, then "kick off the product planner"; entered Planning via `/plan-feature`.
+
+## 2026-08-14 — Adopt the ORE personalization-status message (retire the rank-probe readiness heuristic)
+
+**Source:** LFO weekly meeting notes (settled policy, recorded in CLAUDE.md § Brainstorm
+Hosts & Codebases): the production ORE contract will be updated to return a special
+message on personalization requests, replacing client-side provisioning checks. Preview
+(currently R&D-siloed): `https://tapestry.brainstorm.world/developers/open-ranking`.
+
+**What changes when it lands:** npub-search story #3's readiness probe
+(`probeMyViewReadiness` — POST /rank/pubkeys, ready ⟺ any rank > 0, member+curator
+targets) becomes obsolete; the My-view toggle gates on the contract-level status instead.
+Also discharges the residual echo-less-regression risk (a recognized-but-global relapse
+would become detectable from the response itself) and moots the curator-target rationale
+correction discussed 2026-08-13 (GrapeRank inputs are FOLLOWS/MUTES/REPORTS, not taggings
+— the curator's probe-target fitness was sociological, not structural).
+
+**Classification when picked up:** small Feature or Refactor (behavior swap behind a
+tested surface — T36–T38 re-pin). **Blocked on:** the contract change reaching
+production `api.brainstorm.world`. Watch the preview page; re-probe before planning.
+**Epic:** `npub-search` (post-book follow-up) or successor book.
+
+**Update 2026-08-17 — live on staging, not yet production. verified on the Nosfabrica codebase, not siloed to R&D.** 
+Probed `brainstormserver-staging.nosfabrica.com`: an unavailable-POV request to `/rank/pubkeys`
+or `/search/pubkeys` now returns **HTTP 422** with the reason in both an `x-reason`
+header and a JSON `error` body — cause ("no scores exist for this point of view and none
+are scheduled (ranking requests never provision new povs)"), the endpoint's fallback
+algorithm, and a provisioning URL. Capability doc (`/.well-known/open-ranking.json`)
+unchanged — response-contract change only. Shipped in **NosFabrica/brainstorm_server**
+(PR #66 `feat/ore-pov-availability`, merged to staging 2026-08-16: "422/202 for
+unavailable pov; X-Reason on all ORE errors" — the 202 suggests scheduled-but-not-ready
+POVs get 202, per ORE-05's previously unused 202+Retry-After). Promotion to main is
+**PR #68, open as of 2026-08-17**. Production `api.brainstorm.world` re-probed same day:
+still old contract (HTTP 200, zero-filled ranks). Note: staging has its own provisioning
+store (the PO's POV also 422s there), so the provisioned success shape can't be verified
+on staging. Shipped LFO code is already safe under the new contract
+(`probeMyViewReadiness` treats non-2xx as not-ready); the story remains blocked on PR
+#68 reaching production.
+
+**Update 2026-08-24 — LIVE ON PRODUCTION. Unblocked.** Re-probed
+`api.brainstorm.world` directly. Both endpoints now serve the new contract:
+an unavailable POV (junk key `0000…0001`) returns **HTTP 422** with the reason in
+both an `x-reason` header and a JSON `error` body, naming the cause ("no scores exist
+for this point of view and none are scheduled (ranking requests never provision new
+povs)"), the endpoint's fallback algorithm (`graperank` for `/rank/pubkeys`,
+`relevance` for `/search/pubkeys`), and a provisioning URL
+(`https://brainstorm.nosfabrica.com` — note: not the `brainstorm.world` host).
+The old zero-filled HTTP 200 is gone.
+
+**Success shape verified** — the gap staging left open (staging's own provisioning
+store 422s for every POV we hold). Against the provisioned house POV `6ff68243…`:
+`/rank/pubkeys` → `200 {"results":[{pubkey,rank},…],"ttl":3600}`, ranks non-zero and
+distinct (curator 0.964, PO 0.568); `/search/pubkeys` → `200 {"results":[{pubkey,rank},…]}`.
+Both unchanged from the pre-422 shape, so **no migration is needed on the success path**.
+
+**The observer-echo operator ask is NOT discharged.** A 200 response carries no POV
+echo — no `x-reason`, no pov field, nothing but `results` + `ttl` (full header dump
+confirmed). So the 422 makes *unavailability* detectable, but a 200 still does not
+confirm *which* POV was served. Register #2's claim that the status message "makes POV
+fallback detectable from responses" holds only for the failure direction; the audit's
+separate observer-echo ask survives.
+
+The capability doc (`/.well-known/open-ranking.json`) is still silent on the 422 —
+algorithm listings only, no error contract. Unchanged, as on staging.
+
+**202/`Retry-After`** (scheduled-but-not-ready POV) remains unverified — not producible
+from outside, since we hold no POV in that state.
+
+**Status: ready to plan.** The readiness heuristic (`probeMyViewReadiness`, ready ⟺ any
+rank > 0) can be replaced by the status code: 2xx = ready, 422 = not provisioned,
+202 = scheduled. T36–T38 re-pin as anticipated.
+
+**Promoted 2026-08-25 — no longer open.** Picked up as `npub-search` **story #7**
+(`7-my-view-availability-states`) in the new PRD-backed book `pov-availability`
+(`engineering-team/audits/pov-availability/book.md`). Retiring the rank>0 heuristic is
+that story's central change. Scope grew past this entry along the way: the product flow
+(Experience Design → PRD → Story Decomposition, 2026-08-24/25) turned one behavior swap
+into four stories, #7–#10, covering the community-perspective refusal and the preference
+order as well. See `product-team/prd/pov-availability.md` and
+`product-team/stories-queue.md`. **Do not re-plan from this entry.**
