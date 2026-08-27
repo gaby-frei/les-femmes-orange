@@ -44,7 +44,30 @@ Completion is **computed**: the book is complete when every story tracing to §8
 - Story queue: `product-team/stories-queue.md`
 
 ## Branch
-`feat/npub-search` — the same unmerged branch carrying stories #1–#6. Per standing PO instruction, that branch is not merged to `main`.
+`feat/npub-search` — the same branch carrying stories #1–#6. The standing PO instruction not to merge
+it was **lifted 2026-08-27**: the branch was merged to `main` with story #9 still Queued, so the
+book's remaining scope (§5.1 rule 5, re-checking on return) lands on `main` after the merge rather
+than before it.
+
+## Live-preview verification (recorded 2026-08-27, pre-merge)
+
+Recorded here because the book audit must carry it, and because one line of it is a residual risk
+rather than a completed check.
+
+- **Story #7 — complete.** All six checks run and verified by the PO: 1 (202 preparing) and 2 (422
+  registration cause) on 2026-08-26 against real Nostr accounts; 3 (CORS / `Retry-After` exposure),
+  4 (provisioned member with zero ranks), 5 (keyboard and screen reader) and 6 (relay/provider
+  latency) on 2026-08-27.
+- **Story #8 — partial.** Checks 2, 3, 5 and 6 verified live 2026-08-27.
+- **Story #8 checks 1 and 4 — STUB-VERIFIED, NOT LIVE-VERIFIED. Residual risk, open.** The
+  community-declined states were exercised against a dev-only console stub that answers the ORE
+  readiness probe with a 422; the PO reviewed and accepted the resulting UI. The stub proves the
+  client renders the substitution and the unpersonalized state correctly *given a 422*. It does not
+  prove the live provider's refusal takes that shape for an unprovisioned community key — that
+  premise rests on the 2026-08-24 wire check alone. The community perspective is provisioned and
+  healthy and there is no lever to make it decline on demand, so this is not closable on the
+  current infrastructure. **Do not report the community-declined path as live-verified in
+  `prd-addendum.md`.**
 
 ## Close artifacts *(filled by `/close-book`)*
 - Build audit: `engineering-team/audits/pov-availability/audit.md`

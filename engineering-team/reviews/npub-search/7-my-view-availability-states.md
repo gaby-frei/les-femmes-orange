@@ -133,13 +133,22 @@ The book is **PRD-backed**, so completion is computed against `product-team/prd/
 
 ## Live-preview checks
 
-**Status 2026-08-26:** checks **1 (202)** and **2 (422)** confirmed by the PO against real Nostr
-accounts on a live preview. The 202 branch shipped tested only against an unobserved fixture, so
-this closes the largest known gap in the story. Checks 3–6 not reported as run.
+**Status 2026-08-27 — ALL SIX CHECKS RUN AND VERIFIED BY THE PO. Nothing outstanding.**
+
+- Checks **1 (202)** and **2 (422)** confirmed 2026-08-26 against real Nostr accounts on a live
+  preview. The 202 branch had shipped tested only against an unobserved fixture, so this closed the
+  largest known gap in the story.
+- Checks **3 (CORS / `Retry-After` exposure)**, **4 (provisioned member, zero ranks)**,
+  **5 (keyboard and screen reader)** and **6 (real relay/provider latency)** run and confirmed
+  2026-08-27 by the PO ahead of the merge to `main`.
+
+Check 3 deserves its own note: it was the one designed to be easy to miss, because a CORS failure
+degrades silently into the same "a few minutes" fallback that a missing header produces. It is now
+confirmed on the deployed origin rather than by curl.
 
 Per CLAUDE.md "How to operate" item 6. Verify on a deployed preview with a real browser and a real provider — the suite proves behavior against stubs only.
 
-1. **The 202 "being set up" path — CARRIED FROM TEST DESIGN, still outstanding.** This is the one the PO asked to be reminded of. The entire preparing branch ships tested only against a fixture nobody has ever observed: no perspective we control sits in the scheduled-but-not-computed window, so neither the status nor the `Retry-After` shape has been seen from this provider. **What to do:** register a perspective and load Members during the window before its scores land. **What to look for:** the note reads `My view is being set up. Check back in about {interval}.` with a plausible interval, and the console shows a `202` rather than a swallowed error. **If the window cannot be caught, say so explicitly rather than marking this passed** — an unverified branch recorded as verified is worse than one recorded as open.
+1. **The 202 "being set up" path — CARRIED FROM TEST DESIGN; VERIFIED 2026-08-26.** This is the one the PO asked to be reminded of. The entire preparing branch ships tested only against a fixture nobody has ever observed: no perspective we control sits in the scheduled-but-not-computed window, so neither the status nor the `Retry-After` shape has been seen from this provider. **What to do:** register a perspective and load Members during the window before its scores land. **What to look for:** the note reads `My view is being set up. Check back in about {interval}.` with a plausible interval, and the console shows a `202` rather than a swallowed error. **If the window cannot be caught, say so explicitly rather than marking this passed** — an unverified branch recorded as verified is worse than one recorded as open.
 2. **A real 422 for a real unregistered member.** Sign in as a member with no computed scores against the live provider. **Look for:** the registration sentence verbatim, the segment dimmed *(re-check after R1 is fixed)*, and the provider's reason in the console but nowhere on the page. Search the rendered page for "graperank" and "nosfabrica" to confirm.
 3. **CORS from the deployed origin.** The interval depends on `Retry-After` surviving `Access-Control-Expose-Headers` from the Vercel origin, not from curl. **Look for:** an interval rather than the "a few minutes" fallback — that fallback is exactly what a CORS failure would look like, so a silent degrade here is easy to miss.
 4. **A provisioned member whose ranks come back zero.** The false-negative this story fixes. **Look for:** My view enabled where the current production build disables it.

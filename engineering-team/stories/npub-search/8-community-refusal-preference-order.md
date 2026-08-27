@@ -1,6 +1,6 @@
 # Story 8: Community refusal and the preference order
 
-**Status:** Done (review CHANGES REQUESTED → resolved 2026-08-26) — community-declined states ship UNVERIFIED against a live provider, by PO decision
+**Status:** Done (review CHANGES REQUESTED → resolved 2026-08-26) — live-preview checks 2, 3, 5, 6 run and verified by the PO 2026-08-27; the community-declined states (checks 1 and 4) verified against a **console stub only**, still NEVER observed against a live provider
 **Created:** 2026-08-26
 **Type:** Feature
 **Epic:** `npub-search` (continues story #7)

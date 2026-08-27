@@ -17,7 +17,8 @@
 >   probes open and assert the pre-resolution window — verified to catch the original defect
 >   (`pov-segment-community must not be selected before resolution`, expected `"false"`, received
 >   `"true"`).
-> - **Live checks 1 and 4** accepted as **UNVERIFIED** by PO decision, 2026-08-26 — see below.
+> - **Live checks 1 and 4** accepted as **UNVERIFIED against a live provider** by PO decision,
+>   2026-08-26; stub-verified 2026-08-27 — see below.
 > - **A1 ratified** by the PO the same day; AC-6 is a settled requirement, not an assumption.
 >
 > Gates re-run: **60/60** e2e, 106/107 unit. **Story #8 passes.**
@@ -141,19 +142,45 @@ Computed against `product-team/prd/pov-availability.md` §8.1:
 
 ## Live-preview checks
 
-> **PO DECISION 2026-08-26 — accepted as unverified.** The states requiring a declining community
-> perspective (checks 1 and 4) are **recorded as not verified against a live provider**, and are not
-> to be reported as passed. They ship on stub coverage alone. Checks 2, 3, 5 and 6 remain runnable
-> and outstanding.
+> **Status 2026-08-27 — checks 2, 3, 5 and 6 RUN AND VERIFIED live by the PO** ahead of the merge to
+> `main`. Check 3 (toggle settle on a real round trip) is the one a stub could not substitute for and
+> the one that would have caught R2; it is confirmed against real provider latency.
+>
+> **Checks 1 and 4 remain NOT VERIFIED AGAINST A LIVE PROVIDER.** The 2026-08-26 PO decision stands.
+> They were exercised on 2026-08-27 against a **console stub** (`scripts/pov-stub.js`, dev-only and
+> gitignored) that intercepts `window.fetch` and answers the ORE readiness probe with a 422 for the
+> house perspective — `LFOPov.houseDown()` and `LFOPov.none()`. The PO reviewed the resulting UI and
+> accepted it.
+>
+> **This is stub verification, not live verification, and the two must not be conflated in the book
+> audit.** What the stub proves is that the client renders the substitution and the unpersonalized
+> state correctly *given a 422*. What it cannot prove is that the live provider's refusal actually
+> takes that shape — status, body, and CORS-readable headers — for an unprovisioned community key.
+> That premise is still carried on the 2026-08-24 wire check and on nothing else. The community
+> perspective is provisioned and healthy, and there remains no lever to make it decline on demand.
+>
+> **Consequence for the close:** the book audit must record the community-declined path as
+> stub-verified, and the residual risk as open. If the community perspective is ever
+> re-keyed or de-provisioned, checks 1 and 4 are the first things to run for real.
 
-**State this plainly: unlike story #7, every state in this story is stub-only.** The community perspective is provisioned and healthy on the live provider, and there is no way to make it decline on demand. Story #7's 422 was verifiable because the PO could sign in as an unregistered account; there is no equivalent lever here. **Nothing below has been observed against a real provider, and the checks that require a declining community perspective may not be runnable at all without deliberately pointing a preview at an unprovisioned key.**
+**Written at review time, before any check was run — kept as the record of what was known then:**
+*State this plainly: unlike story #7, every state in this story is stub-only. The community
+perspective is provisioned and healthy on the live provider, and there is no way to make it decline
+on demand. Story #7's 422 was verifiable because the PO could sign in as an unregistered account;
+there is no equivalent lever here. Nothing below has been observed against a real provider, and the
+checks that require a declining community perspective may not be runnable at all without
+deliberately pointing a preview at an unprovisioned key.*
 
-1. **Point a preview at a deliberately unprovisioned community key.** The only way to reach AC-1 and AC-2 live. **Look for:** the substitution to My view with its announcement, then — with a member who is also unregistered — both sides dimmed and the unpersonalized copy. **If this cannot be arranged, record the states as unverified rather than passed.**
-2. **The regression that matters most: both perspectives healthy.** The overwhelmingly common case, and the one real users will hit. **Look for:** Community view selected, no status line, chips and grid ordering exactly as before this story. Any change here is a regression, not a feature.
-3. **Toggle settle on a real round trip** *(after R2 is fixed)*. Real provider latency is ~250–450ms, far longer than a stub. **Look for:** the selection never resting on Community and then jumping. This is the check that would have caught R2, and a stub cannot substitute for it.
-4. **Unpersonalized search returns rows.** With no perspective servable, confirm results still render under the single notice, and that neither "No profiles matched" nor "Search is temporarily unavailable" appears.
-5. **Console hygiene across all states.** **Look for:** refusal reasons in the console only, nothing on the page. Search the rendered page for "graperank", "nosfabrica", and "point of view".
-6. **Cold cache, real latency.** Load Members repeatedly. **Look for:** the avatar placeholder resolving (N3), and chips arriving without the perspective label ever disagreeing with the numbers beneath it.
+**Superseded in part by the 2026-08-27 status above:** checks 2, 3, 5 and 6 have since been observed
+against the real provider. The judgement about checks 1 and 4 held exactly as written — no lever was
+found, and they were exercised on a stub instead.
+
+1. **Point a preview at a deliberately unprovisioned community key. — NOT RUN; STUB-VERIFIED 2026-08-27.** The only way to reach AC-1 and AC-2 live. **Look for:** the substitution to My view with its announcement, then — with a member who is also unregistered — both sides dimmed and the unpersonalized copy. **If this cannot be arranged, record the states as unverified rather than passed.**
+2. **The regression that matters most: both perspectives healthy. — VERIFIED LIVE 2026-08-27.** The overwhelmingly common case, and the one real users will hit. **Look for:** Community view selected, no status line, chips and grid ordering exactly as before this story. Any change here is a regression, not a feature.
+3. **Toggle settle on a real round trip — VERIFIED LIVE 2026-08-27** *(after R2 is fixed)*. Real provider latency is ~250–450ms, far longer than a stub. **Look for:** the selection never resting on Community and then jumping. This is the check that would have caught R2, and a stub cannot substitute for it.
+4. **Unpersonalized search returns rows. — NOT RUN; STUB-VERIFIED 2026-08-27.** With no perspective servable, confirm results still render under the single notice, and that neither "No profiles matched" nor "Search is temporarily unavailable" appears.
+5. **Console hygiene across all states. — VERIFIED LIVE 2026-08-27.** **Look for:** refusal reasons in the console only, nothing on the page. Search the rendered page for "graperank", "nosfabrica", and "point of view".
+6. **Cold cache, real latency. — VERIFIED LIVE 2026-08-27.** Load Members repeatedly. **Look for:** the avatar placeholder resolving (N3), and chips arriving without the perspective label ever disagreeing with the numbers beneath it.
 
 ---
 

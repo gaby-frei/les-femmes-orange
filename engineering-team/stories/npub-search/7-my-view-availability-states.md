@@ -1,6 +1,6 @@
 # Story 7: My view availability states
 
-**Status:** Done (review PASS after R1/R2, 2026-08-25) — live-preview checks outstanding
+**Status:** Done (review PASS after R1/R2, 2026-08-25) — live-preview checks 1–6 all run and verified by the PO (checks 1–2 on 2026-08-26, checks 3–6 on 2026-08-27)
 **Created:** 2026-08-25
 **Type:** Feature
 **Epic:** `npub-search` (stories #1–#6 Done; this opens the epic's second book)
