@@ -239,3 +239,46 @@ that story's central change. Scope grew past this entry along the way: the produ
 into four stories, #7–#10, covering the community-perspective refusal and the preference
 order as well. See `product-team/prd/pov-availability.md` and
 `product-team/stories-queue.md`. **Do not re-plan from this entry.**
+
+## 2026-09-04 — Trust-weighted vouch requirements for membership
+
+**Raw request (user's words):**
+> I would like to open up a new book of work to add some additional trust-based complexity to
+> LFO's membership model. […] Pubkeys will be evaluated based on their trust scores from the
+> perspective of the LFO house, falling into three distinct categories: trusted (75, 100), neutral
+> (50, 74), low trust (49, 0). The categorical standing of a pubkey will determine how many unique
+> vouches it requires to become verified: trusted -> 1 vouch, neutral -> 2 vouches, low trust -> 3
+> vouches. […] implement this policy such these bucket values are easily modified.
+> - Revise member cards to communicate no. of vouchers. Hovering over the number of vouches on a
+>   member card should render the identity of the vouchers.
+> - Update sign in flows for non/pending members to communicate how many outstanding vouches are needed
+> - Keep the verification algorithm memoryless
+> - Accept membership rollback for npubs that are verified based on the 1-vouch policy today
+> - Verify an npubs membership status (pending vs verified) on each load based on dynamic rank from
+>   ORE. […] upward score drift […] may decrease [vouches needed]. […] downwards score drift (rare),
+>   a verified member may be temporarily locked out […]
+> - Accept dependency on ORE for sign in. Build in failure messages if ORE unreachable.
+> - "Unique Vouches" = vouches applied by distinct verified voucher pubkeys (ignores self vouch)
+> - Ignore solution page copy. Its description of the verification model is outdated.
+
+**Intake dry run (read-only, live relays + ORE house POV, 2026-09-04):** 62 tag items, 57
+pubkeys, all 57 scored by `/rank/pubkeys` in one batch (no missing rows; 4 ranked exactly 0).
+Today: 52 verified, 0 pending; 51 of 52 have exactly one unique voucher. Under the proposed
+policy (rounded 0–100 score; ≥75→1, ≥50→2, else 3): **36 verified, 16 rolled back** — 12 neutral
+members with one vouch (all vouched by the primary curator), plus 4 trusted members (scores
+96–100) whose only voucher is the PO's pubkey `6db8a13f…` (score 57), which itself rolls back.
+The PO, the house-POV pubkey `6ff68243…`, and the official LFO account `5f0d66ba…` are among the 16.
+Curator: score 96, 1 vouch from the seed → stays verified; no cascade from the root.
+
+**Classification:** Feature
+**Strictness:** Standard → all phases; Architecture NOT skippable (closure semantics change,
+shared browser/server module, new hard ORE dependency at sign-in and in `api/feed.js`).
+**Book:** new, no PRD → acceptance frame at `engineering-team/audits/trust-weighted-membership/book.md`
+(PO answered the intake questions 2026-09-04: chip-integer thresholds; unscored → low trust; no
+global fallback; house POV always; Vouch button on verified cards; counting number + all vouchers
+listed with non-counting dimmed; "N of M" pending format; sign-in copy supplied; self-vouch never
+counts. Roots, server-side feed alignment, and the day-one PO-key rollback were left to
+engineering's recommendation — recorded as assumptions in `book.md`.)
+**Epic:** `trust-weighted-membership` (new). Stories #1 closure+gate, #2 cards, #3 feed alignment.
+**Branch:** `feat/trust-weighted-membership` off `main`.
+**Phase path confirmed with user:** yes — "Go ahead and open the book." 
