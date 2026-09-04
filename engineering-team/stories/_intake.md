@@ -264,11 +264,12 @@ order as well. See `product-team/prd/pov-availability.md` and
 **Intake dry run (read-only, live relays + ORE house POV, 2026-09-04):** 62 tag items, 57
 pubkeys, all 57 scored by `/rank/pubkeys` in one batch (no missing rows; 4 ranked exactly 0).
 Today: 52 verified, 0 pending; 51 of 52 have exactly one unique voucher. Under the proposed
-policy (rounded 0–100 score; ≥75→1, ≥50→2, else 3): **36 verified, 16 rolled back** — 12 neutral
-members with one vouch (all vouched by the primary curator), plus 4 trusted members (scores
-96–100) whose only voucher is the PO's pubkey `6db8a13f…` (score 57), which itself rolls back.
-The PO, the house-POV pubkey `6ff68243…`, and the official LFO account `5f0d66ba…` are among the 16.
-Curator: score 96, 1 vouch from the seed → stays verified; no cascade from the root.
+policy (rounded 0–100 score; ≥75→1, ≥50→2, else 3), first run: **36 verified, 16 rolled back** —
+12 neutral members with one vouch (all vouched by the primary curator), plus 4 trusted members
+whose only voucher was the PO's pubkey `6db8a13f…` (score 57), itself rolled back. **Re-run the
+same day after the PO's key received a second vouch (`e5272de9…`, score 100): 41 verified, 11
+rolled back** — the PO verifies and all five members she vouched for hold; the 11 are the
+curator-single-vouched neutral members. Curator: score 96, 1 seed vouch → stays; no root cascade.
 
 **Classification:** Feature
 **Strictness:** Standard → all phases; Architecture NOT skippable (closure semantics change,

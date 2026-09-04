@@ -22,7 +22,7 @@ intake, 2026-09-04).
       recomputed from scratch on every load from the live tag events and live ORE ranks — no
       stored membership state, so upward drift lowers a pending applicant's requirement and
       downward drift can temporarily lock a verified member out until they regain the required
-      count. Rollback of today's 1-vouch members is accepted (16 at intake — see dry run).
+      count. Rollback of today's 1-vouch members is accepted (11 at intake — see dry run).
 - [ ] **Member cards** (verified *and* pending) show the **counting vouch number** and, on hover,
       the **identities of all vouchers**, non-counting vouchers (not verified, or self) **dimmed**.
       Pending cards read "N of M vouches"; verified cards read "N vouches". A **Vouch button
@@ -63,15 +63,16 @@ intake, 2026-09-04).
 - **Server-side feed (`api/feed.js`)** applies the same policy for consistency, so rolled-back
   members' posts and assertions are not served as member content; when ORE is unreachable the
   feed returns an error state rather than silently reverting to the 1-vouch closure.
-- **Day-one rollback of the PO's own key** (`6db8a13f…`, score 57, one vouch) and the four
-  trusted members it alone vouched for (incl. the house-POV key and the official LFO account):
-  handled **operationally, not in code** — second vouches are collected for the 12 neutral
-  members before the branch is merged. No exemptions in the algorithm.
+- **Day-one rollback of the 11 neutral members** (scores 58–72, each single-vouched by the
+  curator): handled **operationally, not in code** — second vouches are collected before the
+  branch is merged. No exemptions in the algorithm. *(The PO's own key, `6db8a13f…`, score 57,
+  was in the first dry run's rollback set with a four-member cascade; it acquired a second vouch
+  from `e5272de9…` and re-verified 2026-09-04: PO verified, all five members it vouched for hold.)*
 
-## Intake dry run (2026-09-04, read-only, live relays + ORE)
-62 tag items / 57 pubkeys; 52 verified today, 51 with exactly one voucher, 0 pending.
-Proposed policy → 36 verified, 16 rolled back: 12 neutral (57–72) single-vouched by the
-curator, plus 4 trusted (96–100) cascading from the PO's key. Curator 96 → stays.
+## Intake dry run (2026-09-04, read-only, live relays + ORE; re-run same day after the PO's 2nd vouch)
+63 tag items / 57 pubkeys; 52 verified today, 0 pending. Proposed policy → **41 verified, 11
+rolled back**: all neutral (58–72), each single-vouched by the curator. No cascade. Curator 96 →
+stays. (First run, before the PO's second vouch landed: 36 verified / 16 rolled back.)
 Script: session scratchpad `policy-dry-run.mjs` (to be promoted into `scripts/` by story #1).
 
 ## Close artifacts *(filled by `/close-book`)*
