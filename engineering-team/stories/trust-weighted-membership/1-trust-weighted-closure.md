@@ -114,6 +114,6 @@ None — D3–D5 closed the three raised at draft.
 - The Members page's Community/My view toggle must not influence the verdict.
 
 ## Linked artifacts
-- ADR: (filled in after Architecture phase)
+- ADR: `engineering-team/decisions/0048-trust-weighted-closure.md` (Accepted 2026-09-09)
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
