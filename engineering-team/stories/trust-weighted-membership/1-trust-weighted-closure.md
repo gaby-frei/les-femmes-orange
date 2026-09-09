@@ -115,5 +115,5 @@ None — D3–D5 closed the three raised at draft.
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0048-trust-weighted-closure.md` (Accepted 2026-09-09)
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/trust-weighted-membership/1-trust-weighted-closure.test-plan.md` — `test/membership-policy.test.js` (U1–U19), `tests/trust-weighted-signin.spec.js` (T1–T19); RED at `abc3343`
 - Review: (filled in after Review phase)
