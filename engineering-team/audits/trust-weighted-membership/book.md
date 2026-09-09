@@ -56,23 +56,37 @@ intake, 2026-09-04).
   published today; only how the events are *counted* changes.
 - **Solution-page copy is out of scope** (PO: outdated; ignore).
 
-## Assumptions the PO did not rule on (engineering recommendation adopted; PO may overrule)
-- **Roots:** the bootstrap seed **and the primary curator** are treated as roots (exempt from the
-  policy). Everyone else is policy-governed. Rationale: the curator's single seed vouch is the
-  whole graph's trunk; a one-load dip below 75 would otherwise evict all 52 members at once.
-- **Server-side feed (`api/feed.js`)** applies the same policy for consistency, so rolled-back
-  members' posts and assertions are not served as member content; when ORE is unreachable the
-  feed returns an error state rather than silently reverting to the 1-vouch closure.
+## PO rulings after intake (2026-09-09)
+- **Roots:** the bootstrap seed `e83fff7a…` is the **only** root (exempt from the policy). The
+  primary curator (Tanja, `b8a9df82…`) is **policy-governed** like everyone else. Verified at
+  ruling time: score 96 → needs 1; has 2 verified vouchers (seed + PO) → verified.
+- **Story #3 scope:** the same trust-weighted closure governs **which note authors are allowed
+  in the feed** (and asserters), via the shared module — not only the members grid.
+- **Server-side feed** applies the policy for consistency; ORE unreachable → feed error state,
+  never a silent 1-vouch fallback. *(Engineering recommendation, carried.)*
 - **Day-one rollback of the 11 neutral members** (scores 58–72, each single-vouched by the
   curator): handled **operationally, not in code** — second vouches are collected before the
-  branch is merged. No exemptions in the algorithm. *(The PO's own key, `6db8a13f…`, score 57,
-  was in the first dry run's rollback set with a four-member cascade; it acquired a second vouch
-  from `e5272de9…` and re-verified 2026-09-04: PO verified, all five members it vouched for hold.)*
+  branch is merged. No exemptions in the algorithm. *(The PO's own key was in the first dry
+  run's rollback set; it acquired a second vouch 2026-09-04 and now verifies.)*
 
-## Intake dry run (2026-09-04, read-only, live relays + ORE; re-run same day after the PO's 2nd vouch)
-63 tag items / 57 pubkeys; 52 verified today, 0 pending. Proposed policy → **41 verified, 11
-rolled back**: all neutral (58–72), each single-vouched by the curator. No cascade. Curator 96 →
-stays. (First run, before the PO's second vouch landed: 36 verified / 16 rolled back.)
+## Seed pubkey — identity findings (2026-09-09, inconclusive)
+The seed `e83fff7a…` authored the LFO tag concept, vouched the curator 3 s later, pinned the
+tag, and exported a kind-30000 list (all 2026-05-30); its only other event is a 2026-06-02
+kind-3 published from the **Ditto** web client with ditto.pub's default follows. It has **no
+kind-0, no NIP-05**, is **not** the deployment's Tapestry Assistant (`a68dbf56…`), owner
+(`e5272de9…`), or any customer relay key named in a kind-10040 (PO, owner, house); Tapestry
+signs tag events client-side (NIP-07) only. ORE: not a provisioned POV (422); rank 0 from the
+house and global perspectives. **Conclusion:** almost certainly a human-held, unprofiled
+bootstrap key, not a server-side assistant — but the holder is **unidentified** from public
+data (the curator's customer relay key, if any, is unpublished; TA rotation can't be excluded).
+The instance owner would know. Either way the seed must stay a hardcoded root: score 0, zero
+vouches → a policy-governed seed collapses the graph.
+
+## Intake dry run (read-only, live relays + ORE; final re-run 2026-09-09, seed-only root)
+64 tag items / 57 pubkeys. Today: 52 verified, 0 pending. **After story #1: 41 verified
+(40 trusted, 1 neutral), 11 rolled back → pending** (all neutral 58–72, single-vouched by the
+curator). 38 of the 41 rest on a single verified voucher. Curator: 96, 2 vouchers → verified.
+(Earlier runs: 2026-09-04 first 36/16, then 41/11 after the PO's second vouch.)
 Script: session scratchpad `policy-dry-run.mjs` (to be promoted into `scripts/` by story #1).
 
 ## Close artifacts *(filled by `/close-book`)*

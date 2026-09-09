@@ -29,9 +29,10 @@ intake) and the ORE dependency it introduces.
 - #2 — `2-vouch-counts-on-cards` — **Cards:** counting vouch number on verified ("N vouches") and
   pending ("N of M vouches") cards; hover reveals every voucher's identity, non-counting ones
   dimmed; Vouch button on verified cards. *(Queued — depends on #1)*
-- #3 — `3-feed-policy-alignment` — **Server:** `api/feed.js` applies the same policy through the
-  shared module (ORE rank fetch server-side); ORE unreachable → feed error state, never a silent
-  1-vouch fallback. *(Queued — depends on #1)*
+- #3 — `3-feed-policy-alignment` — **Server:** `api/feed.js` applies the same trust-weighted
+  closure through the shared module (ORE rank fetch server-side) to decide **which note authors
+  and asserters are allowed in the feed** (PO, 2026-09-09); ORE unreachable → feed error state,
+  never a silent 1-vouch fallback. *(Queued — depends on #1)*
 
 **Execution order:** #1 → #2 → #3. #1 defines the closure and the data (vouchers per pubkey,
 requirement per pubkey) that #2 renders and #3 reuses server-side.
