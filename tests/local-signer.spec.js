@@ -62,6 +62,17 @@ async function generateKeyAndBackup(page) {
   await page.locator('#state-secure').getByRole('button', { name: /sign in to check status/i }).click();
 }
 
+// trust-weighted-membership #1 (ADR 0048): membership now needs house-POV scores from the
+// ORE rank endpoint. Never reach the live host — answer with `scores` (pubkey → rank),
+// everyone else unscored (→ low trust, 3 vouches: the non-member outcome these tests want).
+async function stubRankOffline(page, scores = {}) {
+  await page.route('**/rank/pubkeys', (route) => {
+    const body = route.request().postDataJSON();
+    const results = (body.pubkeys || []).filter((pk) => pk in scores).map((pubkey) => ({ pubkey, rank: scores[pubkey] }));
+    return route.fulfill({ status: 200, headers: { 'Access-Control-Allow-Origin': '*' }, json: { results, ttl: 3600 } });
+  });
+}
+
 test.describe('Local signer — sign-in & passphrase setup', () => {
   // AC-1
   test('entering a secret key prompts the user to set a passphrase (not immediate sign-in)', async ({ page }) => {
@@ -171,6 +182,7 @@ test.describe('Local signer — returning user (unlock)', () => {
     await seedStoredAccount(page, acct);
     // Avoid live-relay dependence: membership computes against an empty tag set.
     await page.goto('/');
+    await stubRankOffline(page);   // ADR 0048: the verdict needs a score answer — stay offline
     await page.evaluate(() => { window.getTagItems = async () => []; });
 
     await expect(page.locator('#state-unlock')).toBeVisible({ timeout: 10_000 });
@@ -206,6 +218,7 @@ test.describe('Local signer — signing membership events', () => {
     await pw.nth(0).fill(PASS);
     await pw.nth(1).fill(PASS);
     // No live relays / membership: behave as a brand-new non-member, capture publishes.
+    await stubRankOffline(page);   // ADR 0048: the verdict needs a score answer — stay offline
     await page.evaluate(() => { window.getTagItems = async () => []; });
     await page.locator('#state-set-passphrase .signin-full-btn').first().click();
 
@@ -252,6 +265,8 @@ test.describe('Local signer — signing membership events', () => {
       window.getTagItems = async () => items;
       window.fetchMetadata = async () => new Map();
     }, { seed: SEED_PUBKEY, lfoId: LFO_TAG_EVENT_ID, memberPk: member.pubkey, applicantPk: applicant.pubkey });
+    // RE-PINNED (ADR 0048): one seed vouch admits a TRUSTED pubkey — score the member.
+    await stubRankOffline(page, { [member.pubkey]: 0.9 });
 
     await expect(page.locator('#state-unlock')).toBeVisible({ timeout: 10_000 });
     await page.locator('#state-unlock input[type="password"]').fill(PASS);
@@ -289,6 +304,7 @@ test.describe('Local signer — extension path unchanged (guard)', () => {
       };
     }, ext.pubkey);
     await page.goto('/');
+    await stubRankOffline(page);   // ADR 0048: the verdict needs a score answer — stay offline
     await page.evaluate(() => { window.getTagItems = async () => []; });
 
     await page.locator('#state-idle').getByRole('button', { name: /sign in with extension/i }).click();

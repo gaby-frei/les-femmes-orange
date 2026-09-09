@@ -68,6 +68,12 @@ async function signIn(page, { tagItems, me = ME, activeView } = {}) {
   await page.evaluate(() => window.startSignIn());
 }
 
+// The membership batch scores the whole vouch graph, so it always carries the SEED. The
+// My-view readiness probe ([pov, curator], ADR 0046) and the chip batches never do — and
+// those may legitimately ask from the member's own perspective, so assertions about the
+// VERDICT's perspective are made on membership batches only.
+const membershipCalls = (calls) => calls.filter((c) => (c.pubkeys || []).includes(SEED));
+
 const notMember = (page) => page.locator('#state-not-member');
 const reqLine   = (page) => page.locator('#vouch-requirement-line');
 const remLine   = (page) => page.locator('#vouch-remaining-line');
@@ -81,14 +87,13 @@ test.describe('Sign-in under the trust-weighted closure (trust-weighted-membersh
     await signIn(page, { tagItems: [vouch(SEED, ME)] });
     await expect(page.locator('#nav-members-li'), 'gated nav unlocked').toBeVisible({ timeout: 15_000 });
     await expect(notMember(page)).toBeHidden();
-    expect(calls.length, 'at least one rank batch fired during sign-in').toBeGreaterThan(0);
-    for (const c of calls) {
+    const mc = membershipCalls(calls);
+    expect(mc.length, 'at least one membership batch (carrying every pubkey in the events, seed included) fired during sign-in').toBeGreaterThan(0);
+    for (const c of mc) {
       expect(c.algorithm, 'membership always uses the personalized algorithm').toBe('graperank-pov');
       expect(c.pov, 'membership always evaluates from the HOUSE perspective').toBe(HOUSE);
     }
-    const asked = new Set(calls.flatMap((c) => c.pubkeys || []));
-    expect(asked.has(ME), 'the signing-in user is scored').toBe(true);
-    expect(asked.has(SEED), 'every pubkey in the events is scored (closure is transitive)').toBe(true);
+    expect(new Set(mc.flatMap((c) => c.pubkeys)).has(ME), 'the signing-in user is scored in the membership batch').toBe(true);
   });
 
   // T2 — AC "Boundary": 0.745 is the chip's 75
@@ -158,6 +163,7 @@ test.describe('Sign-in under the trust-weighted closure (trust-weighted-membersh
     await expect(errState(page).getByRole('button', { name: /try again/i })).toBeVisible();
     await expect(page.locator('#nav-members-li'), 'no verdict: nothing unlocked').toBeHidden();
     await expect(notMember(page), 'no verdict: not shown as a non-member either').toBeHidden();
+    expect(calls.length).toBeGreaterThan(0);
     for (const c of calls) expect(c.pov, 'no fallback to another perspective or algorithm').toBe(HOUSE);
   });
 
@@ -165,14 +171,14 @@ test.describe('Sign-in under the trust-weighted closure (trust-weighted-membersh
   test('a 422 refusal of the house perspective is an unavailable sign-in, with no provider text and no global fallback', async ({ page }) => {
     const calls = await stubRank(page, () => ({
       status: 422, headers: { 'x-reason': PROVIDER_REASON },
-      body: { error: PROVIDER_REASON, fallback: 'graperank', provision: 'https://brainstorm.nosfabrica.com' },
+      body: { error: PROVIDER_REASON, fallback: 'graperank', provision: 'https://provision.example.test/pov/register' },
     }));
     await signIn(page, { tagItems: [vouch(SEED, ME)] });
     await expect(errState(page)).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('#error-msg')).toHaveText(D3_COPY);
     const html = await page.content();
     expect(html, 'provider reason must not leak').not.toContain('none are scheduled');
-    expect(html).not.toContain('nosfabrica.com');
+    expect(html, 'provisioning link must not leak').not.toContain('provision.example.test');
     expect(calls.every((c) => c.algorithm === 'graperank-pov' && c.pov === HOUSE), 'never re-asks with the global algorithm').toBe(true);
     await expect(page.locator('#nav-members-li')).toBeHidden();
   });
@@ -211,8 +217,9 @@ test.describe('Sign-in under the trust-weighted closure (trust-weighted-membersh
     const calls = await stubRank(page, { [ME]: 0.9 });
     await signIn(page, { tagItems: [vouch(SEED, ME)], activeView: 'mine' });
     await expect(page.locator('#nav-members-li')).toBeVisible({ timeout: 15_000 });
-    expect(calls.length).toBeGreaterThan(0);
-    for (const c of calls) expect(c.pov).toBe(HOUSE);
+    const mc = membershipCalls(calls);
+    expect(mc.length).toBeGreaterThan(0);
+    for (const c of mc) expect(c.pov, 'the verdict ignores the active view').toBe(HOUSE);
   });
 
   // T14 — AC "Memoryless": same events, a score that changed between two loads
@@ -319,7 +326,8 @@ test.describe('Members page under the trust-weighted closure (trust-weighted-mem
     await expect(cand).toBeVisible({ timeout: 10_000 });
     await cand.locator('.attest-btn').click();
     await expect(cand, 'low trust: my vouch is 1 of 3').toContainText('Vouched — 2 more vouches needed', { timeout: 10_000 });
-    expect(new Set(calls.flatMap((c) => c.pubkeys || [])).has(OUT), 'the outsider was scored (house POV)').toBe(true);
-    for (const c of calls) expect(c.pov).toBe(HOUSE);
+    const scoredOut = calls.filter((c) => (c.pubkeys || []).includes(OUT));
+    expect(scoredOut.length, 'the outsider was scored').toBeGreaterThan(0);
+    expect(scoredOut.some((c) => c.pov === HOUSE && c.algorithm === 'graperank-pov'), 'from the house perspective').toBe(true);
   });
 });

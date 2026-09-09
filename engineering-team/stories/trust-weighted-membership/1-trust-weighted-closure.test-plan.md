@@ -65,6 +65,37 @@ behavior, re-pinned under the new rule), U19 (the feed's legacy closure).
 - **T12** presses Try again (→ idle) and then calls `startSignIn()` again; no automatic retry is expected or tested.
 - **T13** sets `_activeView = 'mine'` before sign-in; the assertion is only on the request bodies.
 
+
+## Re-pinned during Implementation (2026-09-09)
+
+The trust-weighted closure changes what the older fixtures *mean*: a seed vouch alone no
+longer admits an unscored pubkey. Forty-six tests in three older specs went RED on
+"members grid rendered" for that reason only. Re-pins, all recorded inline with an
+`RE-PINNED (ADR 0048)` comment:
+
+| Spec | Change | Why |
+|---|---|---|
+| `tests/npub-search.spec.js` `openMembers` | default rank stub scores every asked pubkey 0.9 (was: empty results) | the default fixture world is a trusted one; tests about standing supply their own table |
+| `bigGridSetup` | V4 gains vouches from V2 and V3 (three counting) | V4 is the fixture's score-less **verified** member |
+| T28 | the one house batch is the membership batch: pubkeys = grid ∪ {seed} | membership and chips share one batch; chips read the warm cache |
+| T29 | re-pinned: score backend down before any verdict → `#members-error` with the D3 copy, no grids | "page exactly as today" is superseded — scores now decide membership |
+| T31, `AMEND_SCORES`, `povScores()` house table | ME 0.50→0.80, V3 0.73→0.83, Bea 0.80→0.84; V4 unchanged (unscored / 0.40) | verified members must be trusted; relative orders preserved so every ordering assertion is unchanged |
+| T32 | retired | "no scores at all" now means no verdict (T29); score-less-last stays pinned by T31's V4 |
+| three free-text tables (T16/T17/T19-old) | `ME: 0.9` added | the fixture member must be trusted |
+| "rank-batch failure during search" | only the chip batch aborts; the membership batch (carries the seed) is served | there must be a page to search on |
+| `stubPerspectives`, T55's stub | a declined house perspective still serves the membership batch | stands in for the warm sign-in cache: story #8's refusal is a **mid-session** case now |
+| `tests/community-feed.spec.js` | `stubRankTrusted` (0.9 for all) alongside `stubMembership`; also for the non-member test | verdict needs a score answer; never reach the live host |
+| `tests/local-signer.spec.js` | `stubRankOffline(page, scores)` helper; member scored 0.9 in the attest test, nobody scored in the non-member tests | same |
+
+Also tightened in the new spec after the first run: T1/T13 assert the *membership* batches
+(those carrying the seed) rather than every rank call — the My-view readiness probe and
+the chip batches may legitimately use the member's own perspective; T9's fixture
+provisioning URL is now a distinctive fake (the page already links the real host); T19
+asserts the outsider was scored from the house perspective rather than that every call was.
+
+**Gate after re-pin:** Playwright 198/198; unit 125/126 (`builder-parity` — pre-existing
+`tapestry/` checkout drift, unrelated).
+
 ## How to run
 
 ```

@@ -117,13 +117,21 @@ function defaultProfiles() {
 // Boot the real page, install stubs BEFORE showView('members'), drive the real
 // buildMemberSets closure with synthetic tag items (SEED→ME verified; PENDING self-applied).
 async function openMembers(page, { profiles = defaultProfiles(), publishOk = true, signThrows = false, extraTagItems = [] } = {}) {
-  // Story #4: loadMembersPage now fires a batch POST to the ORE rank endpoint. The suite
-  // must never reach live hosts — default to an empty-results stub unless the test
-  // installed its own via stubRankApi (which sets the flag and must take precedence).
+  // Story #4: loadMembersPage fires a batch POST to the ORE rank endpoint. The suite
+  // must never reach live hosts — default stub unless the test installed its own via
+  // stubRankApi (which sets the flag and must take precedence).
+  // RE-PINNED for trust-weighted-membership #1 (ADR 0048): membership now NEEDS scores —
+  // an unscored pubkey is low trust and needs 3 vouches, so the old empty-results default
+  // would leave nobody verified. The default fixture world is a TRUSTED one (every asked
+  // pubkey scores 0.9); tests about standing or chips supply their own table.
   if (!page.__rankStubbed) {
-    await page.route('**/rank/pubkeys', (route) => route.fulfill({
-      status: 200, headers: { 'Access-Control-Allow-Origin': '*' }, json: { results: [], ttl: 3600 },
-    }));
+    await page.route('**/rank/pubkeys', (route) => {
+      const body = route.request().postDataJSON();
+      return route.fulfill({
+        status: 200, headers: { 'Access-Control-Allow-Origin': '*' },
+        json: { results: (body.pubkeys || []).map((pubkey) => ({ pubkey, rank: 0.9 })), ttl: 3600 },
+      });
+    });
   }
   // Story #6: same default-stub pattern for ORE search, so no test can leak to the live host.
   if (!page.__oreSearchStubbed) {
@@ -546,8 +554,8 @@ test.describe('free-text search — ranked candidates from the house POV (npub-s
   // T16 — re-pinned by #6: the ORE request contract, the shared host, and the no-meili guard.
   test('fall-through fork: free text sends the pinned ORE contract; identities and meili never involved', async ({ page }) => {
     const calls = await stubOreSearch(page, () => ({ body: oreSearchResponse([[FX.A, 9000]]) }));
-    const rankCalls = await stubRankApi(page, () => ({
-      body: { results: [{ pubkey: FX.A, rank: 0.53 }], ttl: 3600 },
+    const rankCalls = await stubRankApi(page, () => ({   // ME scored: the fixture member must be trusted (ADR 0048)
+      body: { results: [{ pubkey: ME, rank: 0.9 }, { pubkey: FX.A, rank: 0.53 }], ttl: 3600 },
     }));
     await openMembers(page, { profiles: fxProfiles({ A: 'Ada' }) });
 
@@ -587,6 +595,7 @@ test.describe('free-text search — ranked candidates from the house POV (npub-s
     }));
     await stubRankApi(page, () => ({
       body: { results: [
+        { pubkey: ME, rank: 0.9 },   // the fixture member must be trusted (ADR 0048)
         { pubkey: FX.A, rank: 0.72 }, { pubkey: FX.B, rank: 0.95 }, { pubkey: FX.C, rank: 0.31 },
         { pubkey: FX.D, rank: 0.88 }, { pubkey: FX.E, rank: 0.05 }, { pubkey: FX.F, rank: 0.60 },
       ], ttl: 3600 },
@@ -625,7 +634,7 @@ test.describe('free-text search — ranked candidates from the house POV (npub-s
       body: oreSearchResponse([[FX.A, 9000], [FX.G, 8000], [FX.B, 7000]]),
     }));
     await stubRankApi(page, () => ({
-      body: { results: [{ pubkey: FX.A, rank: 0.80 }, { pubkey: FX.B, rank: 0.40 }], ttl: 3600 },
+      body: { results: [{ pubkey: ME, rank: 0.9 }, { pubkey: FX.A, rank: 0.80 }, { pubkey: FX.B, rank: 0.40 }], ttl: 3600 },   // ME trusted (ADR 0048)
     }));
     await openMembers(page, { profiles: fxProfiles({ A: 'Ada', B: 'Bea', G: 'Gwen' }) });
     await search(page, 'liz');
@@ -777,7 +786,11 @@ test.describe('free-text search — ranked candidates from the house POV (npub-s
   // chipless rows, never to the unavailable state.
   test('rank-batch failure during search → rows render chipless, search unaffected', async ({ page }) => {
     await stubOreSearch(page, () => ({ body: oreSearchResponse([[FX.A, 9000], [FX.B, 8000]]) }));
-    await stubRankApi(page, () => ({ abort: true }));
+    // RE-PINNED (ADR 0048): the membership batch (carries the SEED) must be served or
+    // there is no page to search on; only the search rows' chip batch fails here.
+    await stubRankApi(page, (body) => (body.pubkeys || []).includes(SEED)
+      ? { body: { results: (body.pubkeys || []).map((pubkey) => ({ pubkey, rank: 0.9 })), ttl: 3600 } }
+      : { abort: true });
     await openMembers(page, { profiles: fxProfiles({ A: 'Ada', B: 'Bea' }) });
     await search(page, 'liz');
 
@@ -854,6 +867,11 @@ function bigGridSetup() {
     { kind: 39999, pubkey: SEED, tags: [['p', V3]], created_at: 4, id: 'a4'.repeat(32) },
     { kind: 39999, pubkey: SEED, tags: [['p', V4]], created_at: 5, id: 'a5'.repeat(32) },
     { kind: 39999, pubkey: P2,   tags: [['p', P2]], created_at: 6, id: 'a6'.repeat(32) },
+    // RE-PINNED (ADR 0048): V4 is the fixture's score-less / low-scored VERIFIED member.
+    // Under the trust-weighted closure that takes 3 distinct verified vouchers — seed,
+    // Vera and Vike (both trusted on every table below).
+    { kind: 39999, pubkey: V2,   tags: [['p', V4]], created_at: 7, id: 'a7'.repeat(32) },
+    { kind: 39999, pubkey: V3,   tags: [['p', V4]], created_at: 8, id: 'a8'.repeat(32) },
   ];
   return { profiles, extraTagItems };
 }
@@ -914,28 +932,42 @@ test.describe('member-card trust scores — house POV via ORE batch (npub-search
     // chip batches. Filter them out by shape so this still counts what it claims to count.
     const isReadinessProbe = (c) => (c.pubkeys || []).length === 2 && (c.pubkeys || []).includes(CURATOR);
     const chipCalls = calls.filter(c => !isReadinessProbe(c));
-    expect(chipCalls.length, 'exactly one chip batch request per load').toBe(1);
+    // RE-PINNED (ADR 0048): membership and chips share ONE house batch. The membership
+    // batch fires first and carries every pubkey in the vouch events (seed included);
+    // the chip pass then reads the warm cache and sends nothing.
+    expect(chipCalls.length, 'exactly one house batch request per load (membership + chips)').toBe(1);
     const body = chipCalls[0];
     expect(body.algorithm, 'personalized graperank algorithm').toBe('graperank-pov');
     expect(body.pov, 'POV is the HOUSE_POV config pubkey').toBe(HOUSE_HEX);
-    expect(new Set(body.pubkeys), 'batch covers exactly the grid pubkeys').toEqual(new Set([ME, PENDING]));
+    expect(new Set(body.pubkeys), 'batch covers the grid pubkeys plus the seed').toEqual(new Set([ME, PENDING, SEED]));
 
     // Display-only: the same two cards, nothing reordered or removed.
     await expect(page.locator('#verified-members-grid .member-card')).toHaveCount(1);
     await expect(page.locator('#pending-members-grid .member-card')).toHaveCount(1);
   });
 
-  // T29 — failure-mode guard: green before AND after implementation.
-  test('score backend unreachable → page renders exactly as today: cards, vouch, zero chips', async ({ page }) => {
+  // T29 — RE-PINNED for trust-weighted-membership #1 (ADR 0048). It used to guard
+  // "score backend unreachable → page exactly as today" (enhancement-only). Scores now
+  // decide membership, so with no verdict obtainable the page says so instead of drawing
+  // a grid it cannot justify. (Chips themselves stay lenient — T30.)
+  test('score backend unreachable before any verdict → the members page says so, no grids, no provider text', async ({ page }) => {
     await stubRankApi(page, () => ({ abort: true }));
-    await openMembers(page);
+    await page.goto('/');
+    await page.evaluate(({ me, seed, pending }) => {
+      currentPubkey = me; _isVerifiedMember = true;
+      _tagItemsCache = [
+        { kind: 39999, pubkey: seed,    tags: [['p', me]],      created_at: 1, id: 'a1'.repeat(32) },
+        { kind: 39999, pubkey: pending, tags: [['p', pending]], created_at: 2, id: 'a2'.repeat(32) },
+      ];
+      window.queryRelay = async () => [];
+      window.showView('members');
+    }, { me: ME, seed: SEED, pending: PENDING });
 
-    await expect(gridCard(page, 'verified-members-grid', 'Mae Member'), 'verified card renders').toBeVisible();
-    await expect(gridCard(page, 'pending-members-grid', 'Pat Pending'), 'pending card renders').toBeVisible();
-    await expect(gridCard(page, 'pending-members-grid', 'Pat Pending').locator('.attest-btn'),
-      'vouch flow untouched by score failure').toBeVisible();
-    await page.waitForTimeout(600); // give a (wrong) late chip patch time to appear
-    await expect(gridChips(page), 'no chips and no error state — enhancement only').toHaveCount(0);
+    await expect(page.locator('#members-error'), 'the page explains itself')
+      .toHaveText("We couldn't check your membership because Brainstorm scores are temporarily unreachable.", { timeout: 10_000 });
+    await expect(page.locator('#verified-members-grid .member-card'), 'no verified grid').toHaveCount(0);
+    await expect(page.locator('#pending-members-grid .member-card'), 'no pending grid').toHaveCount(0);
+    await expect(page.locator('#members-loading'), 'spinner gone').toBeHidden();
   });
 
   // T30
@@ -962,10 +994,12 @@ test.describe('member-card trust scores — house POV via ORE batch (npub-search
   // T31
   test('grids render highest trust upper-left: rank-desc order, score-less last, per grid', async ({ page }) => {
     await stubRankApi(page, () => ({
+      // RE-PINNED (ADR 0048): verified members score ≥ 0.75 (one vouch each); V4 stays
+      // deliberately unscored and is verified by its three vouchers. Same relative order.
       body: { results: [
-        { pubkey: ME, rank: 0.50 },
+        { pubkey: ME, rank: 0.80 },
         { pubkey: V2, rank: 0.91 },
-        { pubkey: V3, rank: 0.73 },
+        { pubkey: V3, rank: 0.83 },
         // V4 deliberately unscored
         { pubkey: PENDING, rank: 0.20 },
         { pubkey: P2, rank: 0.60 },
@@ -986,26 +1020,21 @@ test.describe('member-card trust scores — house POV via ORE batch (npub-search
       'unscored member has no chip and sits last').toHaveCount(0);
   });
 
-  // T32 — guard (green before AND after): no scores → insertion order untouched.
-  test('no scores → grids keep member-set insertion order', async ({ page }) => {
-    await stubRankApi(page, () => ({ body: { results: [], ttl: 3600 } }));
-    await openMembers(page, bigGridSetup());
+  // T32 — RETIRED by trust-weighted-membership #1 (ADR 0048). It guarded "no scores at all
+  // → insertion order untouched". A page with no scores at all now has no verdict (T29);
+  // a score-less VERIFIED member is a 3-voucher corner case, and T31 keeps pinning that
+  // such a member sorts last. Nothing else remained to guard.
 
-    await expect(page.locator('#verified-members-grid .member-card')).toHaveCount(4);
-    await page.waitForTimeout(400); // give a (wrong) late re-sort time to happen
-    expect(await gridNames(page, 'verified-members-grid'),
-      'insertion order preserved without scores').toEqual(['Mae Member', 'Vera Two', 'Vike Three', 'Vin Four']);
-    expect(await gridNames(page, 'pending-members-grid')).toEqual(['Pat Pending', 'Pia Second']);
-  });
-
+  // RE-PINNED (ADR 0048): verified members ≥ 0.75; the vouched newcomers (Pat .85, Bea .84)
+  // are trusted so ONE vouch admits them; same relative order as before.
   const AMEND_SCORES = [
-    { pubkey: ME, rank: 0.50 },
+    { pubkey: ME, rank: 0.80 },
     { pubkey: V2, rank: 0.91 },
-    { pubkey: V3, rank: 0.73 },
+    { pubkey: V3, rank: 0.83 },
     // V4 unscored
     { pubkey: PENDING, rank: 0.85 },
     { pubkey: P2, rank: 0.60 },
-    { pubkey: FX.B, rank: 0.80 },
+    { pubkey: FX.B, rank: 0.84 },
   ];
 
   // T33 — story #5 amendment (grid path): the pending-grid vouch's surgical card move
@@ -1123,9 +1152,17 @@ const PANEL_NOT_PERSONALIZED = "These results aren't personalized to the communi
 // Decline the named perspectives; serve everything else normally. `global` requests
 // (the provider's default algorithm — no pov) always succeed, since that is what the
 // page falls back to.
+// RE-PINNED (ADR 0048): the membership verdict is obtained at SIGN-IN and cached; a
+// community perspective that is refused afterwards (mid-session) still leaves the grids
+// standing — that is the situation stories #7/#8 describe. These tests open the Members
+// page directly, so the stub serves the membership batch (the one carrying the SEED) as
+// the stand-in for that warm cache, and declines the probes and chip batches as before.
+const isMembershipBatch = (body) => (body.pubkeys || []).includes(SEED);
+
 async function stubPerspectives(page, { declined = [], byPov = povScores() } = {}) {
   return stubRankApi(page, (body) => {
     if (!body.pov) return { body: { results: povResults(byPov[HOUSE_HEX], body.pubkeys), ttl: 3600 } };
+    if (isMembershipBatch(body)) return { body: { results: povResults(byPov[HOUSE_HEX], body.pubkeys), ttl: 3600 } };
     if (declined.includes(body.pov)) return { status: 422, body: { error: RANK_REFUSAL } };
     return { body: { results: povResults(byPov[body.pov], body.pubkeys), ttl: 3600 } };
   });
@@ -1143,7 +1180,9 @@ function povScores() {
     // V4 carries a low house score (not absent): T41's zero-refetch assertion needs
     // every grid pubkey cacheable under the house key — an absent pubkey re-fetches
     // on every patch by design (#4 miss semantics), which isn't what T41 measures.
-    [HOUSE_HEX]: { [ME]: 0.50, [V2]: 0.91, [V3]: 0.73, [V4]: 0.40, [PENDING]: 0.20, [P2]: 0.60, [FX.A]: 0.53 },
+    // RE-PINNED (ADR 0048): verified members ≥ 0.75 under the HOUSE table (that is what
+    // admits them); V4 stays low and is verified by its three vouchers. Orders unchanged.
+    [HOUSE_HEX]: { [ME]: 0.80, [V2]: 0.91, [V3]: 0.83, [V4]: 0.40, [PENDING]: 0.20, [P2]: 0.60, [FX.A]: 0.53 },
     [ME]:        { [ME]: 0.88, [V2]: 0.10, [V3]: 0.95, [V4]: 0.70, [PENDING]: 0.50, [P2]: 0.30, [CURATOR]: 0.90, [FX.A]: 0.77 },
   };
 }
@@ -1587,6 +1626,8 @@ test.describe('Community refusal and the preference order (npub-search #8)', () 
     let release;
     const held = new Promise((r) => { release = r; });
     await stubRankApi(page, async (body) => {
+      // The membership batch stands in for the warm sign-in cache (see stubPerspectives).
+      if (isMembershipBatch(body)) return { body: { results: povResults(povScores()[HOUSE_HEX], body.pubkeys), ttl: 3600 } };
       if (body.pov) await held;
       return body.pov === HOUSE_HEX
         ? { status: 422, body: { error: RANK_REFUSAL } }

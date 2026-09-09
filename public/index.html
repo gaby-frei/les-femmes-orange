@@ -1556,6 +1556,14 @@
               </div>
             </div>
 
+            <!-- Vouch requirement (trust-weighted-membership #1, ADR 0048): the table's
+                 requirement for THIS pubkey's house-POV standing, and what is still missing.
+                 Shown in both sub-states below (apply / already pending). -->
+            <div id="vouch-requirement" style="margin-top:1.1rem">
+              <p id="vouch-requirement-line" style="font-size:0.85rem;color:#ccc;line-height:1.6"></p>
+              <p id="vouch-remaining-line" style="font-size:0.95rem;font-weight:700;color:var(--orange);margin-top:0.3rem"></p>
+            </div>
+
             <!-- Apply prompt — shown when not already pending -->
             <div id="apply-prompt" style="margin-top:1.2rem">
               <button class="btn btn-primary signin-full-btn" onclick="startApplyFlow()">Apply for membership</button>
@@ -1755,6 +1763,7 @@
         <div class="spinner"></div>
         <p>Loading members from Nostr relays…</p>
       </div>
+      <p id="members-error" class="members-loading" style="display:none;color:#ccc"></p>
 
       <div class="members-section" id="verified-members-section" style="display:none">
         <div class="members-section-header">
@@ -2217,17 +2226,52 @@
     }
 
     // ── Member-set closure cache ────────────────────────────────────────────
-    // Runs the shared web-of-trust closure (buildMemberSets, public/lib/membership.js)
-    // ONCE per session over the cached tag items, then reuses the result everywhere a
-    // verified/pending lookup is needed (sign-in gate, members directory, pending check).
-    // Invalidated by setting _memberSetsCache = null after any optimistic mutation of
-    // _tagItemsCache (attest/apply) or on disconnect — see those sites.
+    // Runs the shared TRUST-WEIGHTED closure (buildTrustWeightedMemberSets,
+    // public/lib/membership.js — ADR 0048) ONCE per session over the cached tag items
+    // plus one strict house-POV score batch, then reuses the result everywhere a
+    // verified/pending lookup is needed (sign-in gate, members directory, pending check,
+    // search panel). Invalidated by setting _memberSetsCache = null after any optimistic
+    // mutation of _tagItemsCache (attest/apply) or on disconnect — see those sites.
+    // REJECTS with Error('ore-unavailable') when scores cannot be obtained: membership
+    // is never decided without them (no fallback perspective, no fallback algorithm).
     async function getMemberSets() {
       if (!_memberSetsCache) {
         const tagItems = await getTagItems();
-        _memberSetsCache = buildMemberSets(tagItems, SEED_PUBKEY);
+        const scores = await getMembershipScores(membershipPubkeys(tagItems));
+        _memberSetsCache = buildTrustWeightedMemberSets(tagItems, SEED_PUBKEY, {
+          scores,
+          extraPubkeys: currentPubkey ? [currentPubkey] : [],
+        });
       }
       return _memberSetsCache;
+    }
+
+    // Every pubkey the closure may need a standing for: all tagged targets, all vouchers
+    // (the closure is transitive), and the signing-in user (who may be untagged).
+    function membershipPubkeys(tagItems) {
+      const set = new Set();
+      for (const ev of tagItems) {
+        const p = ev.tags?.find(t => t[0] === 'p')?.[1];
+        if (p) set.add(p);
+        if (ev.pubkey) set.add(ev.pubkey);
+      }
+      if (currentPubkey) set.add(currentPubkey);
+      return [...set];
+    }
+
+    // PO copy (story #1 D1/D4): the requirement for this standing and what is still missing.
+    function vouchWord(n) { return n === 1 ? 'vouch' : 'vouches'; }
+    function vouchRequirementCopy(req) {
+      const n = req ? req.required : 3, m = req ? req.remaining : 3;
+      return {
+        requirement: `Your trust level in the community requires ${n} ${vouchWord(n)} from other members.`,
+        remaining: `${m} more ${vouchWord(m)} needed`,
+      };
+    }
+    // Post-vouch feedback (story #1 AC "After a vouch"): remaining is null when the
+    // verdict could not be recomputed (scores unreachable after the publish).
+    function vouchedFeedbackCopy(remaining) {
+      return remaining == null ? 'Vouched' : `Vouched — ${remaining} more ${vouchWord(remaining)} needed`;
     }
 
     // ── Membership verification ─────────────────────────────────────────────
@@ -2429,11 +2473,20 @@
         // Optimistically update the in-memory cache and re-derive member sets.
         // Push into the shared tag-item array, invalidate the cached closure, and
         // rebuild via getMemberSets so the new attestation is reflected everywhere.
+        // The rebuild scores the target too (it is now in the tag events — a search-panel
+        // vouch can name a pubkey no event carried before). If scores are unreachable
+        // the vouch is still published; the verdict is simply unknown (remaining: null).
         const tagItems = await getTagItems();
         tagItems.push(signedEvent);
         _memberSetsCache = null;
-        const { verifiedMap } = await getMemberSets();
-        return { ok: true, brainstormOk: brainstormResult.ok, verified: verifiedMap.has(targetHex) };
+        let sets = null;
+        try { sets = await getMemberSets(); } catch { /* verdict unknown until scores return */ }
+        const req = sets ? sets.requirement.get(targetHex) : null;
+        return {
+          ok: true, brainstormOk: brainstormResult.ok,
+          verified: !!sets && sets.verifiedMap.has(targetHex),
+          remaining: req ? req.remaining : null,
+        };
       } catch {
         return { ok: false, reason: 'error' };
       }
@@ -2496,8 +2549,10 @@
             patchGridTrustScores();
           }
         } else {
-          syncRow.innerHTML =
-            '<span style="font-size:0.7rem;color:var(--grey-text)">Tagged — awaiting sync</span>';
+          const note = document.createElement('span');
+          note.style.cssText = 'font-size:0.7rem;color:var(--grey-text)';
+          note.textContent = vouchedFeedbackCopy(res.remaining);
+          syncRow.replaceChildren(note);
         }
         return;
       }
@@ -2517,8 +2572,8 @@
     }
 
     // ── Members page: build verified + pending sets ─────────────────────────
-    // buildMemberSets(tagItems, seedPubkey) is provided by the shared UMD module
-    // public/lib/membership.js (loaded above as window.buildMemberSets) — the same
+    // buildTrustWeightedMemberSets(tagItems, seedPubkey, {scores}) is provided by the shared
+    // UMD module public/lib/membership.js (loaded above as a window global) — the same
     // closure the /api/feed function uses (ADR 0033). Call sites pass SEED_PUBKEY.
 
     // ── Fetch kind-0 metadata for a list of pubkeys ─────────────────────────
@@ -2788,9 +2843,23 @@
       loadingEl.style.display   = 'flex';
       verifiedSec.style.display = 'none';
       pendingSec.style.display  = 'none';
+      const errorEl = document.getElementById('members-error');
+      errorEl.style.display = 'none';
 
       const tagItems = await getTagItems();
-      const { verifiedMap, pendingMap } = await getMemberSets();
+      let sets;
+      try {
+        sets = await getMemberSets();
+      } catch (err) {
+        // No verdict without scores (ADR 0048): say so instead of drawing a partial grid.
+        loadingEl.style.display = 'none';
+        errorEl.textContent = err && err.message === 'ore-unavailable'
+          ? ORE_UNAVAILABLE_COPY
+          : 'Could not load members: ' + (err.message || 'unknown error');
+        errorEl.style.display = '';
+        return;
+      }
+      const { verifiedMap, pendingMap } = sets;
 
       // Collect all pubkeys we need metadata for (members + their taggers)
       const verifiedPubkeys = [...verifiedMap.keys()].filter(pk => pk !== SEED_PUBKEY);
@@ -2908,7 +2977,9 @@
       panelEl.hidden = false;
       panelEl.innerHTML = '<div class="member-search-loading"><span class="syncing-mini-spinner"></span>Searching relays for this identity…</div>';
 
-      const { verifiedMap, pendingMap } = await getMemberSets();
+      let verifiedMap, pendingMap;
+      try { ({ verifiedMap, pendingMap } = await getMemberSets()); }
+      catch { if (seq === _searchSeq) panelEl.innerHTML = `<div class="member-search-unavailable">${escHtml(ORE_UNAVAILABLE_COPY)}</div>`; return; }
       if (seq !== _searchSeq) return;
       const status = verifiedMap.has(decoded.hex) ? 'verified'
         : pendingMap.has(decoded.hex) ? 'pending' : 'none';
@@ -3011,7 +3082,9 @@
       }
       if (seq !== _searchSeq) return;
 
-      const { verifiedMap, pendingMap } = await getMemberSets();
+      let verifiedMap, pendingMap;
+      try { ({ verifiedMap, pendingMap } = await getMemberSets()); }
+      catch { if (seq === _searchSeq) panelEl.innerHTML = `<div class="member-search-unavailable">${escHtml(ORE_UNAVAILABLE_COPY)}</div>`; return; }
       if (seq !== _searchSeq) return;
 
       panelEl.innerHTML = '';
@@ -3041,7 +3114,7 @@
           const rank = scores.get(hex);
           panelEl.appendChild(makeMemberCard(hex, metaMap, 'candidate', taggerHex, {
             status, canVouch, noProfile: !meta,
-            trustScore: typeof rank === 'number' ? Math.round(rank * 100) : null,
+            trustScore: typeof rank === 'number' ? scoreInteger(rank) : null,
           }));
         }
       }
@@ -3060,37 +3133,82 @@
     // Enhancement-only: any failure = a chipless page, never an error state.
     const _scoreCache = new Map();   // `${povPubkey}:${pubkey}` → 0..1 graperank
 
-    async function fetchTrustScores(pubkeys, povPubkey = activePovPubkey()) {
-      // No perspective, or one the provider has declined → the provider's global default
-      // algorithm, with no pov. Cached under a separate namespace so one perspective's
-      // numbers are never stored under another's key (ADR 0047 Decision 9).
-      const personalized = povServable(povPubkey);
-      const keyOf = (pk) => `${personalized ? povPubkey : 'global'}:${pk}`;
-      const missing = pubkeys.filter(pk => !_scoreCache.has(keyOf(pk)));
-      if (missing.length) {
+    // PO copy (story #1 D3) — the only words shown when membership cannot be decided.
+    const ORE_UNAVAILABLE_COPY = "We couldn't check your membership because Brainstorm scores are temporarily unreachable.";
+    const ORE_RANK_CHUNK = 100;       // pubkeys per request (57 in one call today)
+    const ORE_RANK_TIMEOUT_MS = 10000;
+
+    // ── The one ORE rank request (ADR 0048) ──────────────────────────────────
+    // STRICT: resolves Map<pubkey, rank> only from well-formed 200 answers. Anything
+    // else — network failure, timeout, 422 (refused), 202 (still computing), 5xx,
+    // non-JSON, a body without `results` — throws Error('ore-unavailable'). Nothing
+    // provider-authored is kept. povPubkey null → the provider's global algorithm
+    // (chips only; membership never passes null).
+    async function oreRankBatch(pubkeys, povPubkey) {
+      const out = new Map();
+      for (let i = 0; i < pubkeys.length; i += ORE_RANK_CHUNK) {
+        const chunk = pubkeys.slice(i, i + ORE_RANK_CHUNK);
         const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 8000);
+        const timer = setTimeout(() => ctrl.abort(), ORE_RANK_TIMEOUT_MS);
+        let data;
         try {
           const resp = await fetch(ORE_RANK_API, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(personalized
-              ? { pubkeys: missing, algorithm: 'graperank-pov', pov: povPubkey }
-              : { pubkeys: missing, algorithm: 'graperank' }),
+            body: JSON.stringify(povPubkey
+              ? { pubkeys: chunk, algorithm: 'graperank-pov', pov: povPubkey }
+              : { pubkeys: chunk, algorithm: 'graperank' }),
             signal: ctrl.signal,
           });
-          if (resp.ok) {
-            const data = await resp.json();
-            for (const r of (data.results || [])) {
-              if (r && typeof r.rank === 'number' && r.pubkey) _scoreCache.set(keyOf(r.pubkey), r.rank);
-            }
-          }
+          if (resp.status !== 200) throw new Error('ore-unavailable');
+          data = await resp.json();
+        } catch {
+          throw new Error('ore-unavailable');
+        } finally {
+          clearTimeout(timer);
+        }
+        if (!data || !Array.isArray(data.results)) throw new Error('ore-unavailable');
+        for (const r of data.results) {
+          if (r && typeof r.rank === 'number' && r.pubkey) out.set(r.pubkey, r.rank);
+        }
+      }
+      return out;
+    }
+
+    // Chips (lenient wrapper, ADR 0043 D3 unchanged): any failure = a chipless page.
+    // No perspective, or one the provider has declined → the provider's global default
+    // algorithm, with no pov. Cached under a separate namespace so one perspective's
+    // numbers are never stored under another's key (ADR 0047 Decision 9).
+    async function fetchTrustScores(pubkeys, povPubkey = activePovPubkey()) {
+      const personalized = povServable(povPubkey);
+      const keyOf = (pk) => `${personalized ? povPubkey : 'global'}:${pk}`;
+      const missing = pubkeys.filter(pk => !_scoreCache.has(keyOf(pk)));
+      if (missing.length) {
+        try {
+          const got = await oreRankBatch(missing, personalized ? povPubkey : null);
+          for (const [pk, rank] of got) _scoreCache.set(keyOf(pk), rank);
         } catch { /* enhancement only — chipless load */ }
-        finally { clearTimeout(timer); }
       }
       const out = new Map();
       for (const pk of pubkeys) if (_scoreCache.has(keyOf(pk))) out.set(pk, _scoreCache.get(keyOf(pk)));
       return out;
+    }
+
+    // Membership (strict, ADR 0048): ALWAYS the house perspective, whatever view the
+    // member has picked and whatever _povState says about it; a refused house
+    // perspective is an unavailable verdict, not a global-algorithm verdict. Shares the
+    // chips' cache under the house key, so a member's standing is computed from the
+    // same number their chip shows. Propagates Error('ore-unavailable').
+    async function getMembershipScores(pubkeys) {
+      const keyOf = (pk) => `${HOUSE_POV.pubkey}:${pk}`;
+      const missing = pubkeys.filter(pk => !_scoreCache.has(keyOf(pk)));
+      if (missing.length) {
+        const got = await oreRankBatch(missing, HOUSE_POV.pubkey);
+        for (const [pk, rank] of got) _scoreCache.set(keyOf(pk), rank);
+      }
+      const out = new Map();
+      for (const pk of pubkeys) if (_scoreCache.has(keyOf(pk))) out.set(pk, _scoreCache.get(keyOf(pk)));
+      return out;   // absent = unscored → the closure reads it as 0
     }
 
     // ── Community view / My view (story #3, ADR 0046) ────────────────────────
@@ -3323,7 +3441,7 @@
         const chip = document.createElement('span');
         chip.className = 'candidate-trust-score';
         chip.title = "Trust score from the community's point of view";
-        chip.textContent = `🏅 ${Math.round(scores.get(hex) * 100)}`;
+        chip.textContent = `🏅 ${scoreInteger(scores.get(hex))}`;
         const footer = card.querySelector('.member-footer');
         if (footer) footer.prepend(chip);
       }
@@ -3389,7 +3507,11 @@
         // network) so the new member appears in the verified grid without a reload.
         loadMembersPage();
       } else {
-        syncRow.innerHTML = '<span style="font-size:0.7rem;color:var(--grey-text)">Vouched — awaiting sync</span>';
+        const note = document.createElement('span');
+        note.style.cssText = 'font-size:0.7rem;color:var(--grey-text)';
+        note.textContent = vouchedFeedbackCopy(res.remaining);
+        syncRow.replaceChildren(note);
+        if (badge) { badge.className = 'member-badge pending-badge'; badge.textContent = 'Pending'; }
       }
     }
 
@@ -3950,17 +4072,22 @@
       document.getElementById('nav-pill-wrap').classList.add('visible');
       document.getElementById('nav-pubkey-text').textContent = hexToNpubShort(hexPubkey);
 
-      setLoadingMsg('Checking membership across Nostr relays…');
+      setLoadingMsg('Checking membership across Nostr relays and Brainstorm…');
 
-      let isVerified;
+      // One computation decides everything (ADR 0048): tag events + house-POV scores →
+      // trust-weighted closure. Without scores there is NO verdict — the error state
+      // carries the PO's copy and its Try again; nothing is unlocked or denied.
+      let sets;
       try {
-        isVerified = await checkMembership(hexPubkey);
+        sets = await getMemberSets();
       } catch (err) {
-        document.getElementById('error-msg').textContent =
-          'Relay query failed: ' + (err.message || 'unknown error');
+        document.getElementById('error-msg').textContent = (err && err.message === 'ore-unavailable')
+          ? ORE_UNAVAILABLE_COPY
+          : 'Relay query failed: ' + ((err && err.message) || 'unknown error');
         showState('error');
         return;
       }
+      const isVerified = sets.verifiedMap.has(hexPubkey);
 
       _isVerifiedMember = isVerified;
 
@@ -3974,11 +4101,15 @@
         heroCta.onclick = () => showView('members');
         showView('members');
       } else {
-        const { pendingMap } = await getMemberSets();
-        _alreadyPending = pendingMap.has(hexPubkey);
+        _alreadyPending = sets.pendingMap.has(hexPubkey);
 
         const shortId = hexToNpubShort(hexPubkey);
         document.getElementById('not-member-npub-text').textContent = shortId;
+        // How many vouches this standing needs, and how many are still missing (a
+        // rolled-back member lands here too — same state, no memory of before: D5).
+        const copy = vouchRequirementCopy(sets.requirement.get(hexPubkey));
+        document.getElementById('vouch-requirement-line').textContent = copy.requirement;
+        document.getElementById('vouch-remaining-line').textContent   = copy.remaining;
         document.getElementById('apply-prompt').style.display           = _alreadyPending ? 'none' : '';
         document.getElementById('already-pending-notice').style.display = _alreadyPending ? '' : 'none';
         showState('not-member');

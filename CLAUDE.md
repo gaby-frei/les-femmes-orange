@@ -181,27 +181,34 @@ LFO Hub reads event tags by querying headers by `#a` (tag-element coordinates) +
 
 ## Verification Algorithm (run in-app)
 
-This determines who is a verified member. **We run this ourselves**: `buildMemberSets` in `public/lib/membership.js` (a UMD module shared verbatim by the browser and the `api/feed.js` serverless function) applies the closure to the kind-39999 tag events fetched from the membership relays. `tags.brainstorm.world` runs the same computation on its side to produce its kind 30000 list.
+This determines who is a verified member. **We run this ourselves**: `buildTrustWeightedMemberSets` in `public/lib/membership.js` (a UMD module shared verbatim by the browser and the `api/feed.js` serverless function) applies the closure to the kind-39999 tag events fetched from the membership relays. `tags.brainstorm.world` runs the same computation on its side to produce its kind 30000 list.
 
-A user `P` is a **verified member** if and only if:
+**Trust-weighted closure (ADR 0048, story `trust-weighted-membership` #1, 2026-09-09):** a user `P` is a **verified member** if and only if at least **N distinct verified members other than `P`** have tagged `P` (kind 9999/39999 event with `#e` = `4ddde08a…`, `p` = `P`, `pubkey` = the voucher), where **N depends on `P`'s GrapeRank standing from the house point of view** (`HOUSE_POV`, `POST api.brainstorm.world/rank/pubkeys`, `graperank-pov`), bucketed on the same rounded 0–100 integer the trust chip displays:
 
-1. There exists a kind 9999/39999 event (on public relays) where:
-   - The `#e` tag references `4ddde08a7b1b3c2dffda5161ff5b0151554b9e86d94a059b1434aab95d546795`
-   - The `p` tag equals `P`'s pubkey
-   - The event's `pubkey` (the tagger) is also a verified member
-2. **Bootstrap seed**: `npub1aqll77sskvxups5kcc45gz4fquwfqnvqkxzzqdqm2sj6sx7ks4kq3zqr3p` — the account that bootstrapped the primary curator.
+| Standing | Chip integer | Vouches required |
+|---|---|---|
+| Trusted | 75–100 | 1 |
+| Neutral | 50–74 | 2 |
+| Low trust | 0–49, or no score at all | 3 |
 
-Iterative algorithm:
+The table is `MEMBERSHIP_POLICY` in `public/lib/membership.js` — the single point of change. Self-vouches never count; several vouches from one voucher count once; vouches from unverified accounts count zero but place the target in the **pending** set. A high score lowers the requirement to one vouch, never to zero: vouches remain the only way in.
+
+**Root:** the bootstrap seed `npub1aqll77sskvxups5kcc45gz4fquwfqnvqkxzzqdqm2sj6sx7ks4kq3zqr3p` (hex `e83fff7a…`, an assistant key on a Brainstorm dev machine) is the **only** pubkey verified by definition. The primary curator is governed like everyone else.
+
+**Memoryless:** nothing about membership is stored anywhere. Every load recomputes the closure from the live tag events and live scores, so a rising score lowers an applicant's requirement and a falling one can hold a member at the door until they regain the count. **ORE is therefore a hard dependency of sign-in** — unreachable/refused (422/202)/unreadable → the sign-in error state with the PO's copy, never a fallback perspective or algorithm.
+
+Iterative algorithm (`buildTrustWeightedMemberSets`):
 ```
-seed = { npub1aqll77sskvxups5kcc45gz4fquwfqnvqkxzzqdqm2sj6sx7ks4kq3zqr3p }
-verified = seed
-
+required(P) = vouches for the bucket of scoreInteger(houseRank(P))   // missing → 0
+vouchers(P) = distinct taggers of P, excluding P itself
+verified = { seed }
 repeat:
-  for each tag_item in all_lfo_tag_items:
-    if tag_item.tagger ∈ verified AND tag_item.tagged ∉ verified:
-      add tag_item.tagged to verified
+  for each tagged P ∉ verified:
+    if |vouchers(P) ∩ verified| ≥ required(P): add P to verified
 until no changes
+pending = tagged (by anyone, self included) \ verified
 ```
+The legacy 1-vouch closure (`buildMemberSets`) remains exported **for `api/feed.js` only** until story #3 moves the feed onto the trust-weighted closure.
 
 **Trust chain:** Bootstrap seed tagged the primary curator, who vouched in the initial cohort; the graph has grown member-to-member since.
 - Seed: `npub1aqll77sskvxups5kcc45gz4fquwfqnvqkxzzqdqm2sj6sx7ks4kq3zqr3p`
@@ -213,8 +220,8 @@ until no changes
 
 1. The user connects a signer: a **NIP-07 extension** (`window.nostr`) or the **in-browser local signer** (nsec imported/generated, NIP-49-encrypted in localStorage — see ADR/memory "local signer decision"). Both are wrapped behind one signer interface (`getPublicKey` / `signEvent`).
 2. The app resolves the user's hex pubkey from the signer.
-3. The app fetches the kind-39999 vouch events and computes `verifiedMap`/`pendingMap` via `buildMemberSets`; results are cached per session (`_tagItemsCache`) and cleared on disconnect.
-4. Gate: pubkey ∈ verifiedMap → gated views unlock; tagged only by non-verified accounts → pending; otherwise → offered the apply-for-membership flow.
+3. The app fetches the kind-39999 vouch events, fetches house-POV GrapeRank scores for every pubkey in them (one strict ORE batch, `getMembershipScores`), and computes `verifiedMap`/`pendingMap`/`requirement` via `buildTrustWeightedMemberSets`; results are cached per session (`_tagItemsCache`, `_memberSetsCache`) and cleared on disconnect. Scores unavailable → error state, no verdict.
+4. Gate: pubkey ∈ verifiedMap → gated views unlock; tagged (by anyone) but short of the required count → pending, told "Your trust level in the community requires N vouches from other members." / "M more vouches needed"; untagged → the same two lines plus the apply-for-membership flow.
 5. There is **no challenge/response and no server session** — gating is client-side display logic. Real key possession is proven only when the user signs something (a vouch, a self-tag application, a post): all writes go through the signer.
 
 ---
@@ -262,12 +269,12 @@ will add a special message on personalization requests — preview (R&D-siloed) 
 
 ## Key Decisions
 
-- Membership is **computed in-app** from the kind-39999 vouch graph (transitive vouch closure, ADR 0033) — the NIP-51 kind 30000 list is not consumed, and we never publish one
-- Membership is binary: in the verified closure = access; tagged-by-unverified = pending; otherwise denied
+- Membership is **computed in-app** from the kind-39999 vouch graph (transitive vouch closure, ADR 0033; **trust-weighted** per ADR 0048) — the NIP-51 kind 30000 list is not consumed, and we never publish one
+- Membership is binary: in the verified closure = access; tagged but short of the required vouch count = pending; otherwise denied. **The required count (1/2/3) is set by house-POV GrapeRank standing** — `MEMBERSHIP_POLICY` in `public/lib/membership.js`
 - Tag events are fetched **once per session** and cached client-side (`_tagItemsCache`); the cache is appended on a new vouch and cleared on disconnect — no cron, no server cache
 - One write path for attestations (`publishVouch`); all writes go through the signer abstraction (NIP-07 extension or local signer)
-- **GrapeRank trust scores are displayed** (ORE, POV-parameterized: house "Community view" / personal "My view") but are **not an input to membership** — the vouch closure alone decides who's in
-- Trust surfaces are enhancement-only: score/backend failures degrade gracefully, never block rendering or membership
+- **GrapeRank trust scores are displayed** (ORE, POV-parameterized: house "Community view" / personal "My view") and, from the **house** perspective only, **set how many vouches a pubkey needs** (ADR 0048). They never admit anyone by themselves — vouches from verified members remain the only way in, and the My-view toggle never touches the verdict
+- Trust **chips** are enhancement-only (score failures → chipless, never an error); the **membership** score batch is strict — ORE unreachable or the house perspective refused ⇒ sign-in shows "We couldn't check your membership because Brainstorm scores are temporarily unreachable." with Try again, and no fallback (ADR 0048)
 
 ---
 

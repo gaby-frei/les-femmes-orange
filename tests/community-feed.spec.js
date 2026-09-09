@@ -48,7 +48,18 @@ function lfoTagSrc() {
 }
 
 // Stub getTagItems so the given pubkeys are verified (SEED attests each).
+// RE-PINNED (trust-weighted-membership #1, ADR 0048): a seed vouch admits only a TRUSTED
+// pubkey, and the verdict needs house-POV scores — so the ORE rank endpoint is stubbed to
+// score every asked pubkey 0.9 (never reach the live host).
+async function stubRankTrusted(page) {
+  await page.route('**/rank/pubkeys', (route) => {
+    const body = route.request().postDataJSON();
+    return route.fulfill({ status: 200, headers: { 'Access-Control-Allow-Origin': '*' },
+      json: { results: (body.pubkeys || []).map((pubkey) => ({ pubkey, rank: 0.9 })), ttl: 3600 } });
+  });
+}
 async function stubMembership(page, ...verified) {
+  await stubRankTrusted(page);
   await page.evaluate(({ seed, verified, mk }) => {
     const lfoTag = eval(mk);
     const items = verified.map((pk) => lfoTag(seed, pk));
@@ -496,6 +507,7 @@ test.describe('Community feed — gating & nav', () => {
   // AC-2 (non-member)
   test('a non-member does not see the Feed', async ({ page }) => {
     await signInExtension(page, Z);
+    await stubRankTrusted(page);   // offline: the verdict still needs a score answer (ADR 0048)
     await page.evaluate(() => { window.getTagItems = async () => []; }); // nobody verified → Z is a non-member
 
     await page.locator('#state-idle').getByRole('button', { name: /sign in with extension/i }).click();

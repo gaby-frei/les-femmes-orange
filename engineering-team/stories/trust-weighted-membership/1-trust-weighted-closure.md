@@ -1,6 +1,6 @@
 # Story 1: Trust-weighted closure and sign-in gate
 
-**Status:** Approved (PO, 2026-09-09 — "Proceed through ADR and tests")
+**Status:** In Progress (implemented 2026-09-09; awaiting Review)
 **Created:** 2026-09-09
 **Type:** Feature
 **Epic:** `trust-weighted-membership` (new — this is its first story)
@@ -106,6 +106,19 @@ The Concept Graph API was unreachable at planning time; the Architect should re-
 ## Open questions
 
 None — D3–D5 closed the three raised at draft.
+
+## Deviations
+
+Logged by the Implementer (2026-09-09), per role step 9. Small calls; nothing forced an ADR amendment.
+
+- **Older suites re-pinned to the new model** (Tester-scope work done in the same session, recorded in the test plan's "Re-pinned" section). Their fixtures assumed "any seed vouch admits", which the story retires: an unscored pubkey is now low trust needing 3 vouches. Fixture scores were raised so intended-verified members are trusted; the fixtures' score-less verified member gained three vouchers; the default rank stub became a "trusted world"; two "score backend down → page as today" guards were re-pinned (T29) or retired (T32). No assertion about the *feature under test* in those suites was weakened.
+- **Story #8's community-refusal path is now a mid-session case only.** A house perspective refused at sign-in blocks the verdict (PO: no fallback), so "community declined, hers served → My view" can only arise after sign-in, from a warm cache. The story-#8 tests simulate that by serving the membership batch (the one carrying the seed) while declining probes and chips. **PO should note:** the substitution behavior in `product-team/prd/pov-availability.md` §5.1 still exists but is unreachable at first paint.
+- **202 handled explicitly.** `fetch` treats 202 as `ok`; the strict batch checks `status === 200` so a scheduled-but-not-ready house perspective is *unavailable* (AC "Provider unavailable"), never read as "everyone unscored".
+- **Search-panel post-vouch badge.** When a panel vouch leaves the target short, the row's badge now reads `Pending` (it was left at "Not a member" beside "Vouched — awaiting sync"). Follows from the pending definition; no copy decision needed.
+- **Members page without a verdict.** `loadMembersPage` renders the D3 copy in a new `#members-error` line instead of the grids (ADR implementation note); the search panel's two `getMemberSets` sites do the same inside the panel. Reachable only if the cache was invalidated (a vouch) while ORE is down.
+- **Loading copy** during sign-in: `Checking membership across Nostr relays and Brainstorm…` (one line for both fetches; the ADR's "Checking your trust standing…" would have flashed for a fraction of a second).
+- **Dry-run script is untracked by convention.** `scripts/` is gitignored ("throwaway relay/coverage probe scripts"); `scripts/membership-policy-dry-run.mjs` sits there like the relay-coverage probe CLAUDE.md cites — present on the PO's machine, not in git. It requires the shared module directly, so it always exercises the closure as shipped. Live run 2026-09-09: 57 pubkeys scored; legacy 53 verified / 3 pending; policy 41 verified (40 trusted, 1 neutral) / 15 pending; 12 rolled back (11 neutral + one unscored `16ea2a43…`); curator 96, two counting vouches.
+- **Legacy `buildMemberSets` is untouched** in `api/feed.js` and still exported (feed = story #3). `test/builder-parity.test.js` fails before and after this story — the `tapestry/` checkout lacks the upstream builders module (known drift, CLAUDE.md). Not this story's.
 
 ## Notes for the Architect
 
