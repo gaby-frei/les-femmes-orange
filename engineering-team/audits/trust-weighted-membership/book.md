@@ -69,18 +69,15 @@ intake, 2026-09-04).
   branch is merged. No exemptions in the algorithm. *(The PO's own key was in the first dry
   run's rollback set; it acquired a second vouch 2026-09-04 and now verifies.)*
 
-## Seed pubkey — identity findings (2026-09-09, inconclusive)
-The seed `e83fff7a…` authored the LFO tag concept, vouched the curator 3 s later, pinned the
-tag, and exported a kind-30000 list (all 2026-05-30); its only other event is a 2026-06-02
-kind-3 published from the **Ditto** web client with ditto.pub's default follows. It has **no
-kind-0, no NIP-05**, is **not** the deployment's Tapestry Assistant (`a68dbf56…`), owner
-(`e5272de9…`), or any customer relay key named in a kind-10040 (PO, owner, house); Tapestry
-signs tag events client-side (NIP-07) only. ORE: not a provisioned POV (422); rank 0 from the
-house and global perspectives. **Conclusion:** almost certainly a human-held, unprofiled
-bootstrap key, not a server-side assistant — but the holder is **unidentified** from public
-data (the curator's customer relay key, if any, is unpublished; TA rotation can't be excluded).
-The instance owner would know. Either way the seed must stay a hardcoded root: score 0, zero
-vouches → a policy-governed seed collapses the graph.
+## Seed pubkey — identity (resolved 2026-09-09)
+**PO, 2026-09-09: the seed `e83fff7a…` is an assistant key on a Brainstorm dev machine.** The
+public-data investigation the same day had been inconclusive — no kind-0, no NIP-05, not the
+production TA (`a68dbf56…`), owner (`e5272de9…`), or any customer relay key named in a
+kind-10040; five events on 2026-05-30 (tag concept, curator vouch, pin, kind-30000 export) plus
+a 2026-06-02 kind-3 from the Ditto client — which is consistent with a dev-machine assistant
+whose profile was never published. ORE: not a provisioned POV (422), rank 0 everywhere. It
+stays the **only hardcoded root**: with score 0 and zero vouches a policy-governed seed would
+collapse the graph.
 
 ## Intake dry run (read-only, live relays + ORE; final re-run 2026-09-09, seed-only root)
 64 tag items / 57 pubkeys. Today: 52 verified, 0 pending. **After story #1: 41 verified
