@@ -100,5 +100,5 @@ None. D1–D3 were answered by the PO; D5–D6 stand unless the PO objects.
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0049-vouch-counts-on-cards.md` (Accepted 2026-11-18)
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/trust-weighted-membership/2-vouch-counts-on-cards.test-plan.md` — `test/vouch-breakdown.test.js` (V1–V9), `tests/vouch-counts-cards.spec.js` (C1–C12); RED at `d956dc6`
 - Review: (filled in after Review phase)
