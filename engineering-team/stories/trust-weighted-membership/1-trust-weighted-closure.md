@@ -1,6 +1,6 @@
 # Story 1: Trust-weighted closure and sign-in gate
 
-**Status:** In Progress (implemented 2026-09-09; awaiting Review)
+**Status:** Done (Review PASS 2026-11-17)
 **Created:** 2026-09-09
 **Type:** Feature
 **Epic:** `trust-weighted-membership` (new — this is its first story)
@@ -129,4 +129,4 @@ Logged by the Implementer (2026-09-09), per role step 9. Small calls; nothing fo
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0048-trust-weighted-closure.md` (Accepted 2026-09-09)
 - Test plan: `engineering-team/stories/trust-weighted-membership/1-trust-weighted-closure.test-plan.md` — `test/membership-policy.test.js` (U1–U19), `tests/trust-weighted-signin.spec.js` (T1–T19); RED at `abc3343`
-- Review: (filled in after Review phase)
+- Review: `engineering-team/reviews/trust-weighted-membership/1-trust-weighted-closure.md` — **PASS** (2026-11-17)
