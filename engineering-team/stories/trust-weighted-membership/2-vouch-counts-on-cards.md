@@ -1,6 +1,6 @@
 # Story 2: Vouch counts and vouchers on member cards
 
-**Status:** In Progress (implemented 2026-11-18; awaiting Review)
+**Status:** Done (Review PASS 2026-11-18)
 **Created:** 2026-11-18
 **Type:** Feature
 **Epic:** `trust-weighted-membership` (story #2 of 3; depends on #1 — Done)
@@ -112,4 +112,4 @@ Logged by the Implementer (2026-11-18), per role step 9. Small calls; nothing fo
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0049-vouch-counts-on-cards.md` (Accepted 2026-11-18)
 - Test plan: `engineering-team/stories/trust-weighted-membership/2-vouch-counts-on-cards.test-plan.md` — `test/vouch-breakdown.test.js` (V1–V9), `tests/vouch-counts-cards.spec.js` (C1–C12); RED at `d956dc6`
-- Review: (filled in after Review phase)
+- Review: `engineering-team/reviews/trust-weighted-membership/2-vouch-counts-on-cards.md` — **PASS** (2026-11-18)
