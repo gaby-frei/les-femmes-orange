@@ -1,6 +1,6 @@
 # Story 2: Vouch counts and vouchers on member cards
 
-**Status:** Approved (PO, 2026-11-18)
+**Status:** In Progress (implemented 2026-11-18; awaiting Review)
 **Created:** 2026-11-18
 **Type:** Feature
 **Epic:** `trust-weighted-membership` (story #2 of 3; depends on #1 — Done)
@@ -97,6 +97,17 @@ The Concept Graph API was unreachable at planning time. The Architect should re-
 ## Open questions
 
 None. D1–D3 were answered by the PO; D5–D6 stand unless the PO objects.
+
+## Deviations
+
+Logged by the Implementer (2026-11-18), per role step 9. Small calls; nothing forced an ADR amendment.
+
+- **Hover, then click, pins the list open.** On a mouse, the hover opens the list before the click lands, so a plain toggle would close it on the same gesture. The first click on a hover-opened list *pins* it open (it survives pointer leave), and the next click closes it. This doesn't apply on touch screens or to the keyboard, because `(hover: hover)` gates the hover path.
+- **Post-vouch grid is decided by the fresh closure,** not by `res.verified`. The card goes to whichever grid `verifiedMap` now says, and is replaced in place when that grid is unchanged. This is how a vouch on a verified card avoids the duplicate-card bug the ADR flagged.
+- **Text markers:** ` — not verified yet` and ` — self-vouch`, exactly as the ADR suggested. The tests match them loosely.
+- **"Published — sync pending" (brainstorm relay failed) is not kept** on the re-rendered card. It was already lost on the old move-to-verified path, so behavior is unchanged where it mattered. The publish result still lands in the local cache.
+- **Re-pinned one older helper:** `tests/npub-search.spec.js` `gridCard(grid, name)` now matches the card's own `.member-name`. A whole-card `hasText` also hit cards whose voucher list names that member (3 toggle tests, strict-mode violations). No assertion changed.
+- **Removed the dead by-line code** (`taggerLabel`, `.member-attested-by` CSS), as the ADR asked: deleted, not left in place.
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0049-vouch-counts-on-cards.md` (Accepted 2026-11-18)

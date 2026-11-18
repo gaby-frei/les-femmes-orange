@@ -894,8 +894,31 @@
       border: 1px solid rgba(245,158,11,0.3);
     }
 
-    .member-attested-by { font-size: 0.72rem; color: var(--grey-text); }
-    .member-attested-by strong { color: var(--dark-mid); font-weight: 600; }
+    /* Vouch count + voucher list (trust-weighted-membership #2, ADR 0049). The count is a
+       real button (tap / Enter / Space); hover opens it on hover-capable pointers only. */
+    .vouch-count-wrap { position: relative; display: inline-flex; }
+    .vouch-count {
+      font: inherit; font-size: 0.72rem; font-weight: 600; color: var(--dark-mid);
+      background: transparent; border: 1px dashed var(--grey-mid); border-radius: 999px;
+      padding: 0.2rem 0.6rem; cursor: pointer; line-height: 1.2;
+    }
+    .vouch-count:hover, .vouch-count[aria-expanded="true"] { border-color: var(--orange); color: var(--orange-dark); }
+    .vouch-list {
+      position: absolute; left: 0; top: calc(100% + 6px); z-index: 6;
+      min-width: 200px; max-width: 280px; max-height: 240px; overflow: auto;
+      margin: 0; padding: 0.45rem 0; list-style: none;
+      background: var(--white); border: 1px solid var(--grey-mid); border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+    .vouch-list[hidden] { display: none; }
+    .vouch-list li {
+      font-size: 0.78rem; color: var(--dark-mid); padding: 0.25rem 0.8rem;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .vouch-list li.not-counting { opacity: 0.5; }
+    .vouch-list li .vouch-why { color: var(--grey-text); font-size: 0.7rem; }
+    /* the open card sits above its neighbours (cards transform on hover → own stacking context) */
+    .member-card.vouch-open { position: relative; z-index: 5; }
 
     /* ── COMMUNITY VIEW / MY VIEW (npub-search #3, ADR 0046) ── */
 
@@ -2525,35 +2548,53 @@
           // Still cached locally so the UI updates optimistically
         }
 
-        if (res.verified) {
-          const pendingCard  = footerEl.closest('.member-card');
-          const pendingGrid  = document.getElementById('pending-members-grid');
-          const verifiedGrid = document.getElementById('verified-members-grid');
-
-          if (pendingCard && pendingGrid && verifiedGrid) {
-            pendingCard.remove();
-
-            const remainingPending = pendingGrid.children.length;
-            document.getElementById('pending-count').textContent = remainingPending;
-            if (remainingPending === 0) {
-              document.getElementById('pending-members-section').style.display = 'none';
-            }
-
-            const freshMeta = await fetchMetadata([targetHex, currentPubkey]);
-            const newCard   = makeMemberCard(targetHex, freshMeta, 'verified', currentPubkey, {});
-            verifiedGrid.prepend(newCard);
-            document.getElementById('verified-count').textContent = verifiedGrid.children.length;
-            // Story #5 amendment (ADR 0044): chip the moved card and re-sort the grids so
-            // the new member lands in rank position, not upper-left by default. Not
-            // awaited — placement is decoration, the vouch flow never blocks on it.
-            patchGridTrustScores();
-          }
-        } else {
+        // Story #2 (ADR 0049): re-render the ONE affected card from the fresh closure, so
+        // its count and voucher list include this vouch. The card stays in its grid
+        // (verified card vouched; pending applicant still short) or moves when the vouch
+        // completed the requirement. Scores unreachable → no sets → old card + a note.
+        const card = footerEl.closest('.member-card');
+        let sets = null;
+        try { sets = await getMemberSets(); } catch { /* verdict unknown — keep the old card */ }
+        if (!sets || !card) {
           const note = document.createElement('span');
           note.style.cssText = 'font-size:0.7rem;color:var(--grey-text)';
           note.textContent = vouchedFeedbackCopy(res.remaining);
           syncRow.replaceChildren(note);
+          return;
         }
+
+        const pendingGrid  = document.getElementById('pending-members-grid');
+        const verifiedGrid = document.getElementById('verified-members-grid');
+        const nowVerified  = sets.verifiedMap.has(targetHex);
+        const wasVerified  = !!card.closest('#verified-members-grid');
+        const bd           = voucherBreakdown(sets, targetHex);
+        const freshMeta    = await fetchMetadata([targetHex, ...bd.vouchers.map(v => v.pubkey)]);
+        const type         = nowVerified ? 'verified' : 'pending';
+        const taggerHex    = nowVerified ? sets.verifiedMap.get(targetHex) : sets.pendingMap.get(targetHex);
+        const newCard      = makeMemberCard(targetHex, freshMeta, type, taggerHex, { vouch: bd, showAttestBtn: false });
+
+        if (nowVerified && !wasVerified) {
+          // Completed the requirement: move to the verified grid (as before story #2).
+          card.remove();
+          const remainingPending = pendingGrid.children.length;
+          document.getElementById('pending-count').textContent = remainingPending;
+          if (remainingPending === 0) {
+            document.getElementById('pending-members-section').style.display = 'none';
+          }
+          verifiedGrid.prepend(newCard);
+          document.getElementById('verified-count').textContent = verifiedGrid.children.length;
+        } else {
+          // Same grid: replace in place, with the acknowledgement where the button was.
+          const note = document.createElement('span');
+          note.className = 'vouched-note';
+          note.style.cssText = 'font-size:0.7rem;color:var(--grey-text)';
+          note.textContent = nowVerified ? 'Vouched' : vouchedFeedbackCopy(res.remaining);
+          newCard.querySelector('.member-footer').appendChild(note);
+          card.replaceWith(newCard);
+        }
+        // Story #5 amendment (ADR 0044): chip the new card and re-sort so it lands in rank
+        // position. Not awaited — placement is decoration, the vouch flow never blocks on it.
+        patchGridTrustScores();
         return;
       }
 
@@ -2667,6 +2708,90 @@
     // Candidate options: { status: 'verified'|'pending'|'none', canVouch, hasProfile } —
     // the search panel reuses this builder so panel and grids share one profile
     // presentation (name, NIP-05, avatar, bio, npub row).
+    // ── Vouch count on grid cards (trust-weighted-membership #2, ADR 0049) ──
+    // `bd` is voucherBreakdown(sets, pk) from the shared module: the number and the list
+    // come from one call, so they cannot disagree. Names go in via textContent only.
+    function vouchCountCopy(bd, status) {
+      return status === 'pending'
+        ? `${bd.counting} of ${bd.required} ${vouchWord(bd.required)}`
+        : `${bd.counting} ${vouchWord(bd.counting)}`;
+    }
+    const VOUCH_WHY = { unverified: ' — not verified yet', self: ' — self-vouch' };
+
+    let _vouchListSeq = 0;
+    function buildVouchCount(card, bd, metaMap, status) {
+      const wrap = document.createElement('span');
+      wrap.className = 'vouch-count-wrap';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'vouch-count';
+      btn.textContent = vouchCountCopy(bd, status);
+      btn.title = 'Who vouched';
+      const list = document.createElement('ul');
+      list.className = 'vouch-list';
+      list.id = `vouch-list-${++_vouchListSeq}`;
+      list.hidden = true;
+      for (const v of bd.vouchers) {
+        const m = metaMap.get(v.pubkey) || {};
+        const li = document.createElement('li');
+        li.textContent = m.display_name || m.name || hexToNpubShort(v.pubkey);
+        if (!v.counting) {
+          li.className = 'not-counting';
+          const why = document.createElement('span');
+          why.className = 'vouch-why';
+          why.textContent = VOUCH_WHY[v.reason] || ' — not counted';
+          li.appendChild(why);
+        }
+        list.appendChild(li);
+      }
+      btn.setAttribute('aria-controls', list.id);
+      btn.setAttribute('aria-expanded', 'false');
+      wrap.append(btn, list);
+      wireVouchCount(card, wrap, btn, list);
+      return wrap;
+    }
+
+    // Disclosure: click/tap/Enter/Space toggle; hover opens on hover-capable pointers and
+    // a click while hover-opened PINS it open (so a mouse click never closes what the hover
+    // just opened); pointer leave closes unless pinned; Escape closes and refocuses; a
+    // pointerdown outside the card closes (one document listener, below).
+    function wireVouchCount(card, wrap, btn, list) {
+      let pinned = false;
+      const set = (open) => {
+        list.hidden = !open;
+        btn.setAttribute('aria-expanded', String(open));
+        card.classList.toggle('vouch-open', open);
+        if (!open) pinned = false;
+      };
+      wrap._closeVouchList = () => set(false);
+      btn.addEventListener('click', () => {
+        if (list.hidden) { set(true); pinned = true; }
+        else if (!pinned) pinned = true;      // opened by hover → this click keeps it open
+        else set(false);
+      });
+      const canHover = () => window.matchMedia && window.matchMedia('(hover: hover)').matches;
+      wrap.addEventListener('mouseenter', () => { if (canHover() && list.hidden) set(true); });
+      wrap.addEventListener('mouseleave', () => { if (canHover() && !pinned) set(false); });
+      wrap.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !list.hidden) { e.stopPropagation(); set(false); btn.focus(); }
+      });
+    }
+    document.addEventListener('pointerdown', (e) => {
+      if (!document.contains(e.target)) return;   // detached target (see member-search guard)
+      for (const wrap of document.querySelectorAll('.vouch-count-wrap')) {
+        if (!wrap.contains(e.target) && wrap._closeVouchList) wrap._closeVouchList();
+      }
+    });
+
+    // Options for one grid card from the live closure: the breakdown, and whether I may
+    // vouch (verified signer; never my own card; never one I already vouched — D5).
+    function gridCardOptions(pk, sets, myAttestedPubkeys, canAttest) {
+      return {
+        vouch: voucherBreakdown(sets, pk),
+        showAttestBtn: canAttest && pk !== currentPubkey && !myAttestedPubkeys.has(pk),
+      };
+    }
+
     function makeMemberCard(hex, metaMap, type, taggerHex, options = {}) {
       const isCandidate = type === 'candidate';
       // status drives the badge + footer for every card type
@@ -2685,9 +2810,6 @@
         try { return window._nostrNpubEncode ? window._nostrNpubEncode(hex) : hex; } catch { return hex; }
       })();
 
-      const taggerMeta  = taggerHex ? (metaMap.get(taggerHex) || {}) : {};
-      const taggerLabel = taggerMeta.display_name || taggerMeta.name || (taggerHex ? hexToNpubShort(taggerHex) : '');
-
       const badgeHtml = status === 'verified'
         ? '<span class="member-badge verified">✓ Member</span>'
         : status === 'pending'
@@ -2698,9 +2820,11 @@
       // canVouch (verified member with a working signer) and a non-verified status.
       // Profile-less candidates ARE vouchable (PO rollback of O3, 2026-07-31) — the row
       // shows the short npub in the name slot plus a trust warning (PO copy, 2026-07-31).
+      // Grid cards (story #2, ADR 0049): verified AND pending cards are vouchable —
+      // the caller decides (never own card, never one already vouched).
       const showVouch = isCandidate
         ? (options.canVouch && status !== 'verified')
-        : (type === 'pending' && options.showAttestBtn);
+        : !!options.showAttestBtn;
 
       const warningHtml = isCandidate && options.noProfile
         ? `<p class="member-bio candidate-warning">⚠️ This profile is missing visible profile metadata. Double check that you know and trust the owner of this pubkey.</p>`
@@ -2760,9 +2884,6 @@
         </div>
         <div class="member-footer">
           ${badgeHtml}
-          ${status === 'verified' && taggerHex && taggerHex !== SEED_PUBKEY
-            ? `<span class="member-attested-by">by <strong>${escHtml(taggerLabel)}</strong></span>`
-            : status === 'verified' ? `<span class="member-attested-by">Founding curator</span>` : ''}
           ${vouchBtnHtml}
         </div>
       `;
@@ -2785,8 +2906,14 @@
         });
       }
 
+      // Vouch count + voucher list (story #2): grid cards only; candidates unchanged (D3).
+      if (!isCandidate && options.vouch) {
+        const badge = card.querySelector('.member-footer .member-badge');
+        badge.after(buildVouchCount(card, options.vouch, metaMap, status));
+      }
+
       // Wire up attest button (data attributes avoid inline handler scoping issues).
-      // Grid cards run the pending-grid flow; candidates run the panel flow.
+      // Grid cards run the grid flow; candidates run the panel flow.
       const attestBtn = card.querySelector('.attest-btn');
       if (attestBtn) {
         attestBtn.addEventListener('click', () => {
@@ -2864,7 +2991,8 @@
       // Collect all pubkeys we need metadata for (members + their taggers)
       const verifiedPubkeys = [...verifiedMap.keys()].filter(pk => pk !== SEED_PUBKEY);
       const pendingPubkeys  = [...pendingMap.keys()];
-      const taggerPubkeys   = [...new Set([...verifiedMap.values(), ...pendingMap.values()].filter(Boolean))];
+      // Every voucher is named in some card's list (story #2) — not only the first.
+      const taggerPubkeys   = [...new Set([...sets.vouchersByTarget.values()].flatMap(vs => [...vs]))];
       const allPubkeys      = [...new Set([...verifiedPubkeys, ...pendingPubkeys, ...taggerPubkeys])];
 
       const metaMap = await fetchMetadata(allPubkeys);
@@ -2878,18 +3006,16 @@
       verifiedGrid.innerHTML = '';
       document.getElementById('verified-count').textContent = verifiedPubkeys.length;
       for (const pk of verifiedPubkeys) {
-        verifiedGrid.appendChild(makeMemberCard(pk, metaMap, 'verified', verifiedMap.get(pk), {}));
+        verifiedGrid.appendChild(makeMemberCard(pk, metaMap, 'verified', verifiedMap.get(pk),
+          gridCardOptions(pk, sets, myAttestedPubkeys, canAttest)));
       }
 
       // Render pending
       pendingGrid.innerHTML = '';
       document.getElementById('pending-count').textContent = pendingPubkeys.length;
       for (const pk of pendingPubkeys) {
-        const alreadyAttested    = myAttestedPubkeys.has(pk);
-        const showAttestBtn      = canAttest && !alreadyAttested;
-        pendingGrid.appendChild(
-          makeMemberCard(pk, metaMap, 'pending', pendingMap.get(pk), { showAttestBtn })
-        );
+        pendingGrid.appendChild(makeMemberCard(pk, metaMap, 'pending', pendingMap.get(pk),
+          gridCardOptions(pk, sets, myAttestedPubkeys, canAttest)));
       }
 
       loadingEl.style.display   = 'none';

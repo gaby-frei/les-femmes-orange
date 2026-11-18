@@ -18,6 +18,7 @@
     window.MEMBERSHIP_POLICY = api.MEMBERSHIP_POLICY;
     window.scoreInteger = api.scoreInteger;
     window.requiredVouches = api.requiredVouches;
+    window.voucherBreakdown = api.voucherBreakdown;
   }
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
@@ -85,12 +86,13 @@
     // Distinct non-self vouchers per target, in first-seen order (for "first voucher").
     var vouchersByTarget = new Map();
     var firstVoucher = new Map();
+    var selfVouched = new Set();   // story #2 (ADR 0049): listed on cards, never counted
     for (var i = 0; i < tagItems.length; i++) {
       var ev = tagItems[i];
       var target = pTagOf(ev);
       if (!target || !ev.pubkey) continue;
       if (!firstVoucher.has(target)) firstVoucher.set(target, ev.pubkey);   // any voucher, self included
-      if (ev.pubkey === target) continue;                                    // self-vouch never counts
+      if (ev.pubkey === target) { selfVouched.add(target); continue; }       // self-vouch never counts
       if (!vouchersByTarget.has(target)) vouchersByTarget.set(target, new Set());
       vouchersByTarget.get(target).add(ev.pubkey);
     }
@@ -131,7 +133,29 @@
     firstVoucher.forEach(function (_, target) { describe(target); });
     extra.forEach(function (pk) { if (pk && pk !== seedPubkey) describe(pk); });
 
-    return { verifiedMap: verifiedMap, pendingMap: pendingMap, vouchersByTarget: vouchersByTarget, requirement: requirement };
+    return {
+      verifiedMap: verifiedMap, pendingMap: pendingMap, vouchersByTarget: vouchersByTarget,
+      requirement: requirement, selfVouched: selfVouched,
+    };
+  }
+
+  // Who vouched for `pubkey`, who counts, and why the others don't (ADR 0049) — what a
+  // member card renders. Counting vouchers first, then unverified ones, then the self-vouch;
+  // first-seen event order within each group. Invariant: the number of counting entries
+  // equals requirement.counting, so the card's number and its list can never disagree.
+  //   → { counting, required, vouchers: [{ pubkey, counting, reason: null|'unverified'|'self' }] }
+  function voucherBreakdown(sets, pubkey) {
+    var req = sets.requirement.get(pubkey);
+    if (!req) return { counting: 0, required: null, vouchers: [] };
+    var counted = [], unverified = [];
+    var vs = sets.vouchersByTarget.get(pubkey);
+    if (vs) vs.forEach(function (v) {
+      if (sets.verifiedMap.has(v)) counted.push({ pubkey: v, counting: true, reason: null });
+      else unverified.push({ pubkey: v, counting: false, reason: 'unverified' });
+    });
+    var self = sets.selfVouched && sets.selfVouched.has(pubkey)
+      ? [{ pubkey: pubkey, counting: false, reason: 'self' }] : [];
+    return { counting: req.counting, required: req.required, vouchers: counted.concat(unverified, self) };
   }
 
   // LEGACY (ADR 0033): 1-vouch closure. Feed-only until story #3. Do not extend.
@@ -167,6 +191,7 @@
     MEMBERSHIP_POLICY: MEMBERSHIP_POLICY,
     scoreInteger: scoreInteger,
     requiredVouches: requiredVouches,
+    voucherBreakdown: voucherBreakdown,
     buildTrustWeightedMemberSets: buildTrustWeightedMemberSets,
     buildMemberSets: buildMemberSets,
   };

@@ -906,7 +906,11 @@ async function stubRankApi(page, respond) {
   return calls;
 }
 
-const gridCard = (page, grid, name) => page.locator(`#${grid} .member-card`, { hasText: name });
+// RE-PINNED (ADR 0049): match the card's OWN name — since story #2 a card's voucher list
+// names other members, so a whole-card hasText would also hit cards they vouched for.
+const gridCard = (page, grid, name) => page.locator(`#${grid} .member-card`, {
+  has: page.locator('.member-name', { hasText: name }),
+});
 const gridChips = (page) => page.locator('#verified-members-grid .candidate-trust-score, #pending-members-grid .candidate-trust-score');
 
 test.describe('member-card trust scores — house POV via ORE batch (npub-search #4)', () => {
