@@ -99,6 +99,6 @@ The Concept Graph API was unreachable at planning time. The Architect should re-
 None. D1–D3 were answered by the PO; D5–D6 stand unless the PO objects.
 
 ## Linked artifacts
-- ADR: (filled in after Architecture phase)
+- ADR: `engineering-team/decisions/0049-vouch-counts-on-cards.md` (Accepted 2026-11-18)
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
