@@ -33,6 +33,9 @@ intake) and the ORE dependency it introduces.
   closure through the shared module (ORE rank fetch server-side) to decide **which note authors
   and asserters are allowed in the feed** (PO, 2026-09-09); ORE unreachable → feed error state,
   never a silent 1-vouch fallback. *(Queued — depends on #1)*
+- #4 — `4-cascade-card-refresh` — **Bug (from #2 review N1):** after a vouch that verifies
+  someone, reconcile both grids so cascaded verifications move/update their cards too.
+  *(Shelved — Draft)*
 
 **Execution order:** #1 → #2 → #3. #1 defines the closure and the data (vouchers per pubkey,
 requirement per pubkey) that #2 renders and #3 reuses server-side.
