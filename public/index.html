@@ -920,6 +920,15 @@
     /* the open card sits above its neighbours (cards transform on hover → own stacking context) */
     .member-card.vouch-open { position: relative; z-index: 5; }
 
+    /* Grid-card footer: the pills (trust chip, badge, vouch count) are ONE group and the
+       Vouch button (or its syncing / "Vouched" note) sits beside it. space-between keeps
+       the button at the right end while it fits on the pills' line; once it wraps it is
+       alone on its own line, where space-between starts it at the left edge. */
+    .member-card:not(.candidate) .member-footer { justify-content: space-between; }
+    .member-footer-pills { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; min-width: 0; }
+    .member-card:not(.candidate) .member-footer .attest-btn,
+    .member-card:not(.candidate) .member-footer .syncing-row { margin-left: 0; }
+
     /* ── COMMUNITY VIEW / MY VIEW (npub-search #3, ADR 0046) ── */
 
     .pov-toggle {
@@ -2883,7 +2892,7 @@
           </button>
         </div>
         <div class="member-footer">
-          ${badgeHtml}
+          <span class="member-footer-pills">${badgeHtml}</span>
           ${vouchBtnHtml}
         </div>
       `;
@@ -3568,7 +3577,8 @@
         chip.className = 'candidate-trust-score';
         chip.title = "Trust score from the community's point of view";
         chip.textContent = `🏅 ${scoreInteger(scores.get(hex))}`;
-        const footer = card.querySelector('.member-footer');
+        // Grid cards group their pills (chip first); candidate rows keep the flat footer.
+        const footer = card.querySelector('.member-footer-pills') || card.querySelector('.member-footer');
         if (footer) footer.prepend(chip);
       }
 

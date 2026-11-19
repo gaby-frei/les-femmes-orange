@@ -109,6 +109,10 @@ Logged by the Implementer (2026-11-18), per role step 9. Small calls; nothing fo
 - **Re-pinned one older helper:** `tests/npub-search.spec.js` `gridCard(grid, name)` now matches the card's own `.member-name`. A whole-card `hasText` also hit cards whose voucher list names that member (3 toggle tests, strict-mode violations). No assertion changed.
 - **Removed the dead by-line code** (`taggerLabel`, `.member-attested-by` CSS), as the ADR asked: deleted, not left in place.
 
+## Amendments
+
+- **2026-11-18 — Vouch button placement (PO, after Review PASS).** On grid cards the Vouch button is left-justified if and only if it doesn't fit on the same line as the pills (trust chip, badge, vouch count). Until now a wrapped button stayed right-aligned (pending cards on desktop). This is a layout-only change: the pills are grouped in `.member-footer-pills` and the grid footer uses `justify-content: space-between`. Pinned by the two "Vouch button placement" tests in `tests/vouch-counts-cards.spec.js`. Search rows are unchanged (D3).
+
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0049-vouch-counts-on-cards.md` (Accepted 2026-11-18)
 - Test plan: `engineering-team/stories/trust-weighted-membership/2-vouch-counts-on-cards.test-plan.md` — `test/vouch-breakdown.test.js` (V1–V9), `tests/vouch-counts-cards.spec.js` (C1–C12); RED at `d956dc6`

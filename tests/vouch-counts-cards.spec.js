@@ -254,6 +254,51 @@ test.describe('Vouch counts on member cards (trust-weighted-membership #2)', () 
   });
 });
 
+// C13 — PO layout amendment (2026-11-18): the Vouch button is left-justified if and only if
+// it does not fit on the pills' line (trust chip, badge, vouch count).
+test.describe('Vouch button placement on grid cards (PO layout amendment, 2026-11-18)', () => {
+  // Geometry of one card's footer: is the button on the pills' line, and where does it sit?
+  const placement = (card) => card.evaluate((el) => {
+    const footer = el.querySelector('.member-footer');
+    const pills = footer.querySelector('.member-footer-pills');
+    const btn = footer.querySelector('.attest-btn');
+    const f = footer.getBoundingClientRect(), p = pills.getBoundingClientRect(), b = btn.getBoundingClientRect();
+    return {
+      sameLine: b.top < p.bottom && b.bottom > p.top,
+      leftGap: Math.round(b.left - f.left),
+      rightGap: Math.round(f.right - b.right),
+    };
+  });
+  const setColumns = (page, cols) => page.evaluate((cols) => {
+    for (const g of document.querySelectorAll('.members-grid')) g.style.gridTemplateColumns = cols;
+  }, cols);
+
+  test('wide card: the button shares the pills\' line at the right end; narrow card: it wraps and starts at the left edge', async ({ page }) => {
+    await openMembers(page);
+    const card = pending(page, D);
+    await expect(card.locator('.candidate-trust-score'), 'chip patched into the pills').toBeVisible();
+
+    await setColumns(page, '1fr');           // one wide column — everything fits
+    let pos = await placement(card);
+    expect(pos.sameLine, 'fits → same line as the pills').toBe(true);
+    expect(pos.rightGap, 'fits → right-justified').toBeLessThanOrEqual(1);
+
+    await setColumns(page, '240px');         // narrow cards — the button cannot fit
+    pos = await placement(card);
+    expect(pos.sameLine, 'does not fit → its own line').toBe(false);
+    expect(pos.leftGap, 'wrapped → left-justified').toBeLessThanOrEqual(1);
+  });
+
+  test('the trust chip, badge and count stay together in one group on the pills\' line', async ({ page }) => {
+    await openMembers(page);
+    const pills = verified(page, B).locator('.member-footer-pills');
+    await expect(pills.locator('.candidate-trust-score')).toBeVisible();
+    await expect(pills.locator('.member-badge')).toBeVisible();
+    await expect(pills.locator('.vouch-count')).toBeVisible();
+    await expect(verified(page, B).locator('.member-footer-pills .attest-btn'), 'the button is outside the group').toHaveCount(0);
+  });
+});
+
 // C12 — AC "Voucher list opens from the count" (touch, PO D2): tap opens, tap elsewhere closes.
 test.describe('Vouch counts on a touch screen (trust-weighted-membership #2)', () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
