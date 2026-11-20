@@ -76,5 +76,5 @@ None. D1–D2 were answered by the PO; D3–D4 stand unless the PO objects.
 
 ## Linked artifacts
 - ADR: `engineering-team/decisions/0050-tag-appliers-list.md`
-- Test plan: (filled in after Test Design phase)
+- Test plan: `engineering-team/stories/note-tagging/3-tag-appliers-list.test-plan.md`
 - Review: (filled in after Review phase)
