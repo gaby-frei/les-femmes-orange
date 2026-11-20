@@ -75,6 +75,6 @@ The Concept Graph API was unreachable at planning time. The Architect should re-
 None. D1–D2 were answered by the PO; D3–D4 stand unless the PO objects.
 
 ## Linked artifacts
-- ADR: (filled in after Architecture phase)
+- ADR: `engineering-team/decisions/0050-tag-appliers-list.md`
 - Test plan: (filled in after Test Design phase)
 - Review: (filled in after Review phase)
