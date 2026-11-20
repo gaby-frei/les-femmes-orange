@@ -52,6 +52,19 @@ vouched for a member.
 - **D3 — Order** *(engineering proposal)*: `You` first, then everyone else.
 - **D4 — Same interaction as the voucher list** *(engineering proposal)*: press to open, with keyboard, Escape and press-outside-to-close, so the Hub has one pattern. Hover-to-open is not included, because the count already sits inside a panel the member opened on purpose.
 
+## Deviations (Implementer, 2026-11-19)
+
+- **Pressing another list's count no longer closes the open list on press-down.** ADR 0050
+  kept the voucher list's rule of closing every other list on pointerdown. For the applier list
+  that broke T8: the open list sits in flow, so closing it on press-down shifted the page and
+  the click landed on whatever moved under the pointer.
+  - Now a press on any list's own toggle is left to that toggle's click, and opening or pinning
+    a list closes the others. A press anywhere else still closes on pointerdown.
+  - The change is in the shared helper, so the voucher lists follow the same rule. Their
+    behavior is unchanged in practice: they float over the page, so nothing shifts. A keyboard
+    open now also closes the other open list, which it didn't before.
+  - The full `vouch-counts-cards.spec.js` suite passes.
+
 ## Concepts touched
 
 No concept definition is added, changed, or removed, and no firmware reinstall is implied.

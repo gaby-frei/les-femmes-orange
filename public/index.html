@@ -804,7 +804,17 @@
       flex-basis: 100%; font-size: 0.8rem; line-height: 1.5; color: var(--grey-text);
       background: var(--grey-light); border-radius: 8px; padding: 0.5rem 0.7rem;
     }
-    .feed-note-tag-count { margin-top: 0.35rem; font-size: 0.72rem; font-weight: 700; color: var(--orange); }
+    .feed-note-tag-appliers { margin-top: 0.35rem; }
+    .feed-note-tag-count {
+      font: inherit; font-size: 0.72rem; font-weight: 700; color: var(--orange);
+      background: none; border: 0; padding: 0; cursor: pointer; line-height: 1.4;
+    }
+    .feed-note-tag-count::after { content: ' ▾'; }
+    .feed-note-tag-count[aria-expanded="true"]::after { content: ' ▴'; }
+    .feed-note-tag-count:hover { text-decoration: underline; }
+    .feed-note-tag-count:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; border-radius: 3px; }
+    .feed-note-tag-applier-list { margin: 0.3rem 0 0; padding-left: 1rem; font-size: 0.78rem; color: var(--dark); }
+    .feed-note-tag-applier-list[hidden] { display: none; }
 
     /* ── MEMBER CARD ──────────────────────────────────────── */
 
@@ -2764,31 +2774,52 @@
     // a click while hover-opened PINS it open (so a mouse click never closes what the hover
     // just opened); pointer leave closes unless pinned; Escape closes and refocuses; a
     // pointerdown outside the card closes (one document listener, below).
-    function wireVouchCount(card, wrap, btn, list) {
+    // Shared by the voucher list and the feed's tag-applier list (ADR 0050) so both keep
+    // one interaction pattern. Hover is opt-in (voucher list only); without a hover-open
+    // the pin rule never engages and a click is a plain toggle.
+    function wireDisclosure(wrap, btn, list, { hover = false, onToggle } = {}) {
       let pinned = false;
       const set = (open) => {
         list.hidden = !open;
         btn.setAttribute('aria-expanded', String(open));
-        card.classList.toggle('vouch-open', open);
+        if (onToggle) onToggle(open);
         if (!open) pinned = false;
       };
-      wrap._closeVouchList = () => set(false);
+      wrap.dataset.disclosure = '';
+      btn.dataset.disclosureToggle = '';
+      wrap._closeDisclosure = () => set(false);
       btn.addEventListener('click', () => {
-        if (list.hidden) { set(true); pinned = true; }
-        else if (!pinned) pinned = true;      // opened by hover → this click keeps it open
+        if (list.hidden) { closeOtherDisclosures(wrap); set(true); pinned = true; }
+        else if (!pinned) { closeOtherDisclosures(wrap); pinned = true; }  // hover-opened → this click keeps it open
         else set(false);
       });
-      const canHover = () => window.matchMedia && window.matchMedia('(hover: hover)').matches;
-      wrap.addEventListener('mouseenter', () => { if (canHover() && list.hidden) set(true); });
-      wrap.addEventListener('mouseleave', () => { if (canHover() && !pinned) set(false); });
+      if (hover) {
+        const canHover = () => window.matchMedia && window.matchMedia('(hover: hover)').matches;
+        wrap.addEventListener('mouseenter', () => { if (canHover() && list.hidden) set(true); });
+        wrap.addEventListener('mouseleave', () => { if (canHover() && !pinned) set(false); });
+      }
       wrap.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !list.hidden) { e.stopPropagation(); set(false); btn.focus(); }
       });
     }
+    function wireVouchCount(card, wrap, btn, list) {
+      wireDisclosure(wrap, btn, list, { hover: true, onToggle: (open) => card.classList.toggle('vouch-open', open) });
+    }
+    function closeOtherDisclosures(keep) {
+      for (const wrap of document.querySelectorAll('[data-disclosure]')) {
+        if (wrap !== keep && !wrap.contains(keep) && wrap._closeDisclosure) wrap._closeDisclosure();
+      }
+    }
+    // A press on another disclosure's toggle is left to that toggle's click (which closes the
+    // others when it opens): closing an in-flow list on pointerdown shifts the layout and the
+    // click would land on whatever moved under the pointer.
     document.addEventListener('pointerdown', (e) => {
       if (!document.contains(e.target)) return;   // detached target (see member-search guard)
-      for (const wrap of document.querySelectorAll('.vouch-count-wrap')) {
-        if (!wrap.contains(e.target) && wrap._closeVouchList) wrap._closeVouchList();
+      const toggle = e.target.closest && e.target.closest('[data-disclosure-toggle]');
+      for (const wrap of document.querySelectorAll('[data-disclosure]')) {
+        if (wrap.contains(e.target)) continue;
+        if (toggle) continue;
+        if (wrap._closeDisclosure) wrap._closeDisclosure();
       }
     });
 
@@ -3797,6 +3828,40 @@
     }
 
     // Build a single non-interactive feed card. Clicking it opens the note in Primal.
+    // ── Tag appliers list (note-tagging #3, ADR 0050) ──
+    // Every applier is a member, so names come from the payload's memberNames; no lookup.
+    function applierLabel(pk, memberNames) {
+      if (pk === currentPubkey) return 'You';
+      return memberNames[pk] || hexToNpubShort(pk);
+    }
+    let _applierListSeq = 0;
+    function buildApplierList(appliers, memberNames) {
+      const distinct = [...new Set(appliers)];
+      const ordered = distinct.includes(currentPubkey)
+        ? [currentPubkey, ...distinct.filter(pk => pk !== currentPubkey)]
+        : distinct;
+      const wrap = document.createElement('div');
+      wrap.className = 'feed-note-tag-appliers';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'feed-note-tag-count';
+      btn.textContent = `Applied by ${ordered.length} member${ordered.length === 1 ? '' : 's'}`;
+      const list = document.createElement('ul');
+      list.className = 'feed-note-tag-applier-list';
+      list.id = `applier-list-${++_applierListSeq}`;
+      list.hidden = true;
+      for (const pk of ordered) {
+        const li = document.createElement('li');
+        li.textContent = applierLabel(pk, memberNames);
+        list.appendChild(li);
+      }
+      btn.setAttribute('aria-controls', list.id);
+      btn.setAttribute('aria-expanded', 'false');
+      wrap.append(btn, list);
+      wireDisclosure(wrap, btn, list);
+      return wrap;
+    }
+
     function makeFeedNote(note, memberNames = {}) {
       const card = document.createElement('div');
       card.className = 'feed-note';
@@ -3915,13 +3980,9 @@
           // appliers of THIS tag on THIS note. Omitted when appliers are absent
           // (defensive vs pre-#2 payload shapes). Optimistic applies mutate the
           // appliers array, so a just-applied tag counts its member immediately.
+          // note-tagging #3 (ADR 0050): the count line opens the list of appliers.
           const applierCount = Array.isArray(t.appliers) ? new Set(t.appliers).size : 0;
-          if (applierCount > 0) {
-            const countLine = document.createElement('div');
-            countLine.className = 'feed-note-tag-count';
-            countLine.textContent = `Applied by ${applierCount} member${applierCount === 1 ? '' : 's'}`;
-            panel.appendChild(countLine);
-          }
+          if (applierCount > 0) panel.appendChild(buildApplierList(t.appliers, memberNames));
           panel.style.display = 'none';
           pill.addEventListener('click', () => {
             const isOpen = panel.style.display !== 'none';
